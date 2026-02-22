@@ -1,0 +1,135 @@
+cmake_minimum_required(VERSION 3.14)
+project(Flare VERSION 1.0.0 LANGUAGES CXX)
+
+# C++ Standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Compiler flags
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wconversion
+        -Wsign-conversion
+    )
+endif()
+
+# Nova include path (adjust as needed)
+# Option 1: Nova is in parent directory
+set(NOVA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../nova/include" )
+set(FLARE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../include" )
+
+# Option 2: Nova is installed system-wide
+# set(NOVA_INCLUDE_DIR "/usr/local/include" CACHE PATH "Path to Nova include directory")
+
+# Option 3: Nova is in subdirectory
+# set(NOVA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/nova/include" CACHE PATH "Path to Nova include directory")
+
+if(NOT EXISTS "${NOVA_INCLUDE_DIR}/kmac/nova/record.h")
+    message(WARNING "Nova headers not found at ${NOVA_INCLUDE_DIR}")
+    message(WARNING "Set NOVA_INCLUDE_DIR to the correct path:")
+    message(WARNING "  cmake -DNOVA_INCLUDE_DIR=/path/to/nova/include ..")
+endif()
+
+#
+# Flare Library
+#
+add_library(flare STATIC
+    ../include/kmac/flare/emergency_sink.h
+    ../include/kmac/flare/reader.h
+    ../include/kmac/flare/scanner.h
+    ../include/kmac/flare/record.h
+    ../include/kmac/flare/tlv.h
+    ../src/kmac/flare/emergency_sink.cpp
+    ../src/kmac/flare/reader.cpp
+    ../src/kmac/flare/scanner.cpp
+)
+
+target_include_directories(flare
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${NOVA_INCLUDE_DIR}
+        ${FLARE_INCLUDE_DIR}
+)
+
+# Platform-specific libraries
+if(WIN32)
+    # Windows doesn't need additional libraries
+elseif(APPLE)
+    # macOS doesn't need additional libraries
+else()
+    # Linux and other Unix-like systems
+    # (none needed for Flare currently)
+endif()
+
+#
+# Test Executable
+#
+add_executable(test_flare
+    test_flare.cpp
+)
+
+target_link_libraries(test_flare
+    PRIVATE
+        flare
+)
+
+target_include_directories(test_flare
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${NOVA_INCLUDE_DIR}
+)
+
+#
+# Installation
+#
+install(TARGETS flare
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+)
+
+install(DIRECTORY flare/
+    DESTINATION include/kmac/flare
+    FILES_MATCHING PATTERN "*.h"
+)
+
+install(FILES
+    flare/flare_dict_gen.py
+    flare/flare_reader.py
+    DESTINATION bin
+    PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                GROUP_READ GROUP_EXECUTE
+                WORLD_READ WORLD_EXECUTE
+)
+
+#
+# Testing
+#
+enable_testing()
+
+add_test(NAME flare_basic_test
+    COMMAND test_flare
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+# Set test properties
+set_tests_properties(flare_basic_test PROPERTIES
+    TIMEOUT 30
+    LABELS "flare;unit"
+)
+
+#
+# Print configuration summary
+#
+message(STATUS "")
+message(STATUS "Flare Configuration Summary")
+message(STATUS "===========================")
+message(STATUS "Version:           ${PROJECT_VERSION}")
+message(STATUS "C++ Standard:      ${CMAKE_CXX_STANDARD}")
+message(STATUS "Build Type:        ${CMAKE_BUILD_TYPE}")
+message(STATUS "Nova Include:      ${NOVA_INCLUDE_DIR}")
+message(STATUS "Install Prefix:    ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "")

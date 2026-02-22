@@ -1,0 +1,36 @@
+@PACKAGE_INIT@
+
+# Nova package configuration file
+
+include( "${CMAKE_CURRENT_LIST_DIR}/NovaTargets.cmake" )
+
+# check which components were requested
+set( Nova_FOUND TRUE )
+set( Nova_Core_FOUND TRUE )  # core is always available
+
+# check for optional components
+if( "Extras" IN_LIST Nova_FIND_COMPONENTS )
+	if( TARGET Nova::Extras )
+		set( Nova_Extras_FOUND TRUE )
+	else()
+		set( Nova_Extras_FOUND FALSE )
+		if( Nova_FIND_REQUIRED_Extras )
+			set( Nova_FOUND FALSE )
+			set( Nova_NOT_FOUND_MESSAGE "Nova Extras component not found" )
+		endif()
+	endif()
+endif()
+
+if( "Flare" IN_LIST Nova_FIND_COMPONENTS )
+	if( TARGET Nova::Flare )
+		set( Nova_Flare_FOUND TRUE )
+	else()
+		set( Nova_Flare_FOUND FALSE )
+		if( Nova_FIND_REQUIRED_Flare )
+			set( Nova_FOUND FALSE )
+			set( Nova_NOT_FOUND_MESSAGE "Flare component not found" )
+		endif()
+	endif()
+endif()
+
+check_required_components( Nova )
