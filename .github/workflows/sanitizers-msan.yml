@@ -74,7 +74,8 @@ jobs:
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
             -DCMAKE_CXX_FLAGS="-fsanitize=memory -fno-omit-frame-pointer -nostdinc++ -I/opt/msan-libcxx/include/c++/v1" \
-            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=memory -nostdlib++" \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=memory -nostdlib++ /opt/msan-libcxx/lib/libc++abi.a -lstdc++" \
             -DCMAKE_CXX_STANDARD_LIBRARIES="/opt/msan-libcxx/lib/libc++.a /opt/msan-libcxx/lib/libc++abi.a -lstdc++ -lpthread -lm -lc" \
             -DNOVA_BUILD_TESTS=ON \
             -DNOVA_BUILD_EXAMPLES=OFF
