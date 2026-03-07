@@ -8,7 +8,13 @@ set( CMAKE_CXX_STANDARD_REQUIRED ON )
 include( ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Sanitizers.cmake )
 
 # If GTest is installed in a non-standard location, like a custom build
-set( GTEST_ROOT "../googletest/" )
+# set( GTEST_ROOT "../googletest/" )
+include( FetchContent )
+FetchContent_Declare(
+	googletest
+	URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+)
+FetchContent_MakeAvailable( googletest )
 
 # Otherwise, hard-code the local path
 # add_subdirectory( "../../googletest/" ${CMAKE_CURRENT_BINARY_DIR}/googletest )
