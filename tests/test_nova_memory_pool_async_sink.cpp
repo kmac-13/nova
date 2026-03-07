@@ -542,13 +542,30 @@ TEST( MemoryPoolAsyncSinkTest, PoolMetrics )
 	std::size_t queueSizeAfterEnqueue = sink.queueSize();
 	ASSERT_GT( queueSizeAfterEnqueue, 0 );
 
-	// wait for processing
-	std::this_thread::sleep_for( std::chrono::milliseconds( 50 ) );
+	// actively poll for drain rather than sleeping a fixed amount of time.
+	// a fixed sleep is inherently racy under TSan because the sanitizer's
+	// instrumentation overhead can delay the worker thread far beyond what
+	// any reasonable sleep value anticipates
+	constexpr int MAX_WAIT_MS = 2000;
+	constexpr int POLL_INTERVAL_MS = 5;
+	int totalWaited = 0;
+
+	while ( totalWaited < MAX_WAIT_MS )
+	{
+		if ( sink.queueSize() == 0 && sink.processedCount() >= 1 )
+		{
+			break;
+		}
+
+		std::this_thread::sleep_for( std::chrono::milliseconds( POLL_INTERVAL_MS ) );
+		totalWaited += POLL_INTERVAL_MS;
+	}
 
 	// after waiting, message should be processed and queue should be empty
 	ASSERT_EQ( sink.queueSize(), 0 );
 	ASSERT_EQ( sink.processedCount(), 1 );
 }
+
 
 // ============================================================================
 // Main
