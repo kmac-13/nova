@@ -1,0 +1,56 @@
+name: LibFuzzer Fuzzing Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run nightly for extended fuzzing
+    - cron: '0 2 * * *'
+
+jobs:
+  libfuzzer:
+    name: LibFuzzer - Fuzz testing
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang lld
+
+      - name: Configure with LibFuzzer
+        run: |
+          mkdir build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_CXX_FLAGS="-fsanitize=fuzzer,address -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_LINK_FLAGS="-fsanitize=fuzzer,address" \
+            -DNOVA_BUILD_TESTS=ON \
+            -DNOVA_BUILD_EXAMPLES=OFF
+      
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Create corpus directory
+        run: mkdir -p fuzz_corpus
+
+      - name: Run LibFuzzer (limited runs for CI)
+        run: |
+          # Note: This is a placeholder. You'll need actual fuzzer targets
+          # created in your project that use libFuzzer entry points
+          echo "LibFuzzer would run with: ./fuzz_target -max_len=1024 fuzz_corpus/"
+          echo "Add actual fuzzer targets to your CMakeLists.txt"
+        continue-on-error: true
+        env:
+          ASAN_OPTIONS: >-
+            halt_on_error=1:
+            abort_on_error=1

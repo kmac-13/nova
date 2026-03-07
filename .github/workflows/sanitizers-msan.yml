@@ -1,0 +1,46 @@
+name: MemorySanitizer Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  msan:
+    name: MSan - Detect uninitialized memory reads
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang lld libc++-dev libc++abi-dev
+
+      - name: Configure with MSan
+        run: |
+          mkdir build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_CXX_FLAGS="-fsanitize=memory -fno-omit-frame-pointer -stdlib=libc++" \
+            -DCMAKE_CXX_LINK_FLAGS="-fsanitize=memory -stdlib=libc++" \
+            -DNOVA_BUILD_TESTS=ON \
+            -DNOVA_BUILD_EXAMPLES=OFF
+      
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Run tests with MSan
+        run: cd build && ctest --output-on-failure
+        env:
+          MSAN_OPTIONS: >-
+            halt_on_error=1:
+            abort_on_error=1:
+            color=always

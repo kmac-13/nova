@@ -1,0 +1,46 @@
+name: ThreadSanitizer Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  tsan:
+    name: TSan - Detect data races
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      - name: Configure with TSan
+        run: |
+          mkdir build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DNOVA_BUILD_TESTS=ON \
+            -DNOVA_BUILD_EXAMPLES=OFF
+        env:
+          CXXFLAGS: "-fsanitize=thread"
+          LDFLAGS: "-fsanitize=thread"
+      
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Run tests with TSan
+        run: cd build && ctest --output-on-failure
+        env:
+          TSAN_OPTIONS: >-
+            halt_on_error=1:
+            abort_on_error=1:
+            second_deadlock_stack=1:
+            color=always

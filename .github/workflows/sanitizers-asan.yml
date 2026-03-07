@@ -1,0 +1,47 @@
+name: AddressSanitizer Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  asan:
+    name: ASan - Detect memory errors
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      - name: Configure with ASan
+        run: |
+          mkdir build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DNOVA_BUILD_TESTS=ON \
+            -DNOVA_BUILD_EXAMPLES=OFF
+        env:
+          CXXFLAGS: "-fsanitize=address -fno-omit-frame-pointer"
+          LDFLAGS: "-fsanitize=address"
+      
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Run tests with ASan
+        run: cd build && ctest --output-on-failure
+        env:
+          ASAN_OPTIONS: >-
+            halt_on_error=1:
+            abort_on_error=1:
+            detect_leaks=1:
+            detect_stack_use_after_return=1:
+            color=always

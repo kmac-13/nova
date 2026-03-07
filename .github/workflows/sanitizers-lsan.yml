@@ -1,0 +1,45 @@
+name: LeakSanitizer Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lsan:
+    name: LSan - Detect memory leaks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      - name: Configure with LSan
+        run: |
+          mkdir build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DNOVA_BUILD_TESTS=ON \
+            -DNOVA_BUILD_EXAMPLES=OFF
+        env:
+          CXXFLAGS: "-fsanitize=leak -fno-omit-frame-pointer"
+          LDFLAGS: "-fsanitize=leak"
+      
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Run tests with LSan
+        run: cd build && ctest --output-on-failure
+        env:
+          LSAN_OPTIONS: >-
+            halt_on_error=1:
+            abort_on_error=1:
+            color=always

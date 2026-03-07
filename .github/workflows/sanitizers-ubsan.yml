@@ -1,0 +1,46 @@
+name: UndefinedBehaviorSanitizer Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  ubsan:
+    name: UBSan - Detect undefined behavior
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      - name: Configure with UBSan
+        run: |
+          mkdir build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DNOVA_BUILD_TESTS=ON \
+            -DNOVA_BUILD_EXAMPLES=OFF
+        env:
+          CXXFLAGS: "-fsanitize=undefined -fno-omit-frame-pointer"
+          LDFLAGS: "-fsanitize=undefined"
+      
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Run tests with UBSan
+        run: cd build && ctest --output-on-failure
+        env:
+          UBSAN_OPTIONS: >-
+            halt_on_error=1:
+            abort_on_error=1:
+            print_stacktrace=1:
+            color=always
