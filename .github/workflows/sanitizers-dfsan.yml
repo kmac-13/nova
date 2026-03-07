@@ -10,30 +10,39 @@ jobs:
   dfsan:
     name: DFSan - Track data flow
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake clang lld
 
+      # DFSan requires every function to have a .dfsan shadow symbol. The
+      # system stdlib (libstdc++ / libc++) is a pre-built binary with none,
+      # causing link failures. The ABI list marks stdlib functions as
+      # "uninstrumented" so DFSan generates safe wrapper stubs for them,
+      # allowing the link to succeed. Taint tracking is still fully active
+      # for all of Nova's own code.
       - name: Configure with DFSan
         run: |
-          mkdir build
-          cd build
-          cmake .. \
+          cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_CXX_FLAGS="-fsanitize=dataflow" \
-            -DCMAKE_CXX_LINK_FLAGS="-fsanitize=dataflow" \
+            -DCMAKE_CXX_FLAGS="\
+              -fsanitize=dataflow \
+              -fno-omit-frame-pointer \
+              -fsanitize-blacklist=${GITHUB_WORKSPACE}/.github/dfsan_abi_list.txt" \
+            -DCMAKE_EXE_LINKER_FLAGS="\
+              -fsanitize=dataflow \
+              -fuse-ld=lld" \
             -DNOVA_BUILD_TESTS=ON \
             -DNOVA_BUILD_EXAMPLES=OFF
-      
+
       - name: Build
         run: cmake --build build --config Debug
 

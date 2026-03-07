@@ -10,30 +10,86 @@ jobs:
   msan:
     name: MSan - Detect uninitialized memory reads
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      
+
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake clang lld libc++-dev libc++abi-dev
+          sudo apt-get install -y cmake clang lld ninja-build python3
 
-      - name: Configure with MSan
+      # MSan requires every library in the process to be instrumented.
+      # The apt-packaged libc++ is a pre-built binary with no MSan
+      # instrumentation, so we build libc++ and libc++abi from the LLVM
+      # source that matches the installed clang version. This takes ~5 min
+      # but is the only correct approach; suppressing the false positives
+      # via a suppressions file would mask real bugs in Nova's own code.
+      - name: Get LLVM version
+        id: llvm_ver
+        run: echo "version=$(clang --version | grep -oP '\d+\.\d+\.\d+' | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache instrumented libc++
+        id: cache_libcxx
+        uses: actions/cache@v4
+        with:
+          path: /opt/msan-libcxx
+          key: msan-libcxx-${{ steps.llvm_ver.outputs.version }}-v1
+
+      - name: Build instrumented libc++ and libc++abi
+        if: steps.cache_libcxx.outputs.cache-hit != 'true'
         run: |
-          mkdir build
-          cd build
-          cmake .. \
+          LLVM_VER="${{ steps.llvm_ver.outputs.version }}"
+          LLVM_MAJOR="${LLVM_VER%%.*}"
+
+          # Fetch LLVM source for the exact installed version
+          wget -q "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VER}/llvm-project-${LLVM_VER}.src.tar.xz"
+          tar -xf "llvm-project-${LLVM_VER}.src.tar.xz"
+
+          cmake -G Ninja \
+            -S "llvm-project-${LLVM_VER}.src/runtimes" \
+            -B libcxx-msan-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
+            -DCMAKE_C_FLAGS="-fsanitize=memory -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=memory -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=memory" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=memory" \
+            -DLIBCXX_ENABLE_SHARED=OFF \
+            -DLIBCXXABI_ENABLE_SHARED=OFF \
+            -DCMAKE_INSTALL_PREFIX=/opt/msan-libcxx
+
+          ninja -C libcxx-msan-build cxx cxxabi
+          ninja -C libcxx-msan-build install-cxx install-cxxabi
+
+      - name: Configure Nova with MSan
+        run: |
+          cmake -G Ninja \
+            -S . \
+            -B build \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_CXX_FLAGS="-fsanitize=memory -fno-omit-frame-pointer -stdlib=libc++" \
-            -DCMAKE_CXX_LINK_FLAGS="-fsanitize=memory -stdlib=libc++" \
+            -DCMAKE_CXX_FLAGS="\
+              -fsanitize=memory \
+              -fno-omit-frame-pointer \
+              -stdlib=libc++ \
+              -nostdinc++ \
+              -I/opt/msan-libcxx/include/c++/v1" \
+            -DCMAKE_EXE_LINKER_FLAGS="\
+              -fsanitize=memory \
+              -stdlib=libc++ \
+              -L/opt/msan-libcxx/lib \
+              -lc++ \
+              -lc++abi \
+              -Wl,-rpath,/opt/msan-libcxx/lib" \
             -DNOVA_BUILD_TESTS=ON \
             -DNOVA_BUILD_EXAMPLES=OFF
-      
+
       - name: Build
         run: cmake --build build --config Debug
 
@@ -43,4 +99,5 @@ jobs:
           MSAN_OPTIONS: >-
             halt_on_error=1:
             abort_on_error=1:
+            print_stats=1:
             color=always

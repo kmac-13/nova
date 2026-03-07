@@ -1,0 +1,97 @@
+# dfsan_abi_list.txt
+#
+# DataFlowSanitizer ABI list for Nova.
+#
+# DFSan requires every function in the process to have a shadow implementation
+# with a .dfsan suffix. The system libc, libstdc++, and libc++ are pre-built
+# binaries that contain no such shadows, causing link failures on every
+# standard library call. This file tells DFSan to treat those functions as
+# "uninstrumented" - i.e. their outputs are considered untainted regardless
+# of their inputs. This is the standard approach for building real projects
+# with DFSan; it means we track taint flow through Nova's own code but stop
+# at the stdlib boundary.
+#
+# If you need to track taint through specific stdlib functions, remove them
+# from this list and build an instrumented stdlib (see the MSan workflow for
+# how to build LLVM runtimes from source with a sanitizer enabled).
+#
+# Syntax: fun:<glob_pattern>=<attribute>
+#   uninstrumented - DFSan generates a wrapper that returns untainted output
+#   discard        - same as uninstrumented (older spelling)
+#
+# Reference: https://clang.llvm.org/docs/DataFlowSanitizerDesign.html
+
+# ── C standard library ────────────────────────────────────────────────────────
+fun:malloc=uninstrumented
+fun:calloc=uninstrumented
+fun:realloc=uninstrumented
+fun:free=uninstrumented
+fun:memcpy=uninstrumented
+fun:memmove=uninstrumented
+fun:memset=uninstrumented
+fun:memcmp=uninstrumented
+fun:strlen=uninstrumented
+fun:strcpy=uninstrumented
+fun:strncpy=uninstrumented
+fun:strcmp=uninstrumented
+fun:strncmp=uninstrumented
+fun:strcat=uninstrumented
+fun:strncat=uninstrumented
+fun:strchr=uninstrumented
+fun:strrchr=uninstrumented
+fun:strstr=uninstrumented
+fun:snprintf=uninstrumented
+fun:vsnprintf=uninstrumented
+fun:printf=uninstrumented
+fun:fprintf=uninstrumented
+fun:fopen=uninstrumented
+fun:fclose=uninstrumented
+fun:fwrite=uninstrumented
+fun:fread=uninstrumented
+fun:fflush=uninstrumented
+fun:fseek=uninstrumented
+fun:ftell=uninstrumented
+fun:ftruncate=uninstrumented
+fun:ftruncate64=uninstrumented
+fun:open=uninstrumented
+fun:close=uninstrumented
+fun:write=uninstrumented
+fun:read=uninstrumented
+fun:lseek=uninstrumented
+fun:lseek64=uninstrumented
+
+# ── C++ runtime / new-delete ──────────────────────────────────────────────────
+fun:_Znwm=uninstrumented
+fun:_Znam=uninstrumented
+fun:_ZdlPv=uninstrumented
+fun:_ZdaPv=uninstrumented
+fun:_ZnwmSt11align_val_t=uninstrumented
+fun:_ZnamSt11align_val_t=uninstrumented
+fun:__cxa_*=uninstrumented
+fun:__gxx_*=uninstrumented
+
+# ── libstdc++ / libc++ standard library ──────────────────────────────────────
+fun:_ZNSt*=uninstrumented
+fun:_ZNKSt*=uninstrumented
+fun:_ZSt*=uninstrumented
+fun:_ZNSs*=uninstrumented
+fun:_ZNSi*=uninstrumented
+fun:_ZNSo*=uninstrumented
+fun:_ZNIoS*=uninstrumented
+fun:std::*=uninstrumented
+
+# ── libc++ (clang) ────────────────────────────────────────────────────────────
+fun:_ZNSt3__1*=uninstrumented
+fun:_ZNKSt3__1*=uninstrumented
+
+# ── POSIX threads ─────────────────────────────────────────────────────────────
+fun:pthread_*=uninstrumented
+
+# ── Filesystem (libstdc++ / libc++) ──────────────────────────────────────────
+fun:_ZNSt10filesystem*=uninstrumented
+fun:_ZNSt3__110filesystem*=uninstrumented
+
+# ── Google Test (not under test; treat as uninstrumented infrastructure) ──────
+fun:testing::*=uninstrumented
+fun:_ZN7testing*=uninstrumented
+fun:_ZNK7testing*=uninstrumented
