@@ -83,9 +83,8 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS="\
               -fsanitize=memory \
               -nostdlib++ \
-              -L/opt/msan-libcxx/lib \
-              -lc++ \
-              -lc++abi \
+              /opt/msan-libcxx/lib/libc++.a \
+              /opt/msan-libcxx/lib/libc++abi.a \
               -lstdc++ \
               -Wl,-rpath,/opt/msan-libcxx/lib" \
             -DNOVA_BUILD_TESTS=ON \
