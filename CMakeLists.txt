@@ -12,6 +12,11 @@ project( Nova VERSION 0.1.0 LANGUAGES CXX )
 # If you prefer explicit file lists, you can replace the file(GLOB_RECURSE ...) commands
 # with explicit lists of source files.
 
+# ============================================================================
+# Load Sanitizers Helper Module
+# ============================================================================
+include( ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Sanitizers.cmake )
+
 # build options
 option( NOVA_BUILD_EXTRAS "Build Nova Extras library" ON )
 option( NOVA_BUILD_FLARE "Build Flare emergency logging library" ON )

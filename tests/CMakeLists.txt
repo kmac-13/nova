@@ -4,6 +4,9 @@ project( NovaFlareTests LANGUAGES CXX )
 set( CMAKE_CXX_STANDARD 17 )
 set( CMAKE_CXX_STANDARD_REQUIRED ON )
 
+# Load sanitizers module from parent directory
+include( ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Sanitizers.cmake )
+
 # If GTest is installed in a non-standard location, like a custom build
 # set(GTEST_ROOT "../googletest/")
 
@@ -45,6 +48,16 @@ file( GLOB FLARE_SOURCES
 function( add_nova_gtest test_name test_source )
 	add_executable( ${test_name} ${test_source} ${NOVA_SOURCES} ${NOVA_EXTRAS_SOURCES} ${FLARE_SOURCES} )
 	target_link_libraries( ${test_name} PRIVATE GTest::gtest GTest::gtest_main pthread )
+
+	# Apply sanitizers (optional - customize as needed)
+	enable_asan( ${test_name} )
+	enable_msan( ${test_name} )
+	enable_tsan( ${test_name} )
+	enable_ubsan( ${test_name} )
+	enable_lsan( ${test_name} )
+	enable_dfsan( ${test_name} )
+	enable_libfuzzer( ${test_name} )
+
 	gtest_discover_tests( ${test_name} )
 endfunction()
 
