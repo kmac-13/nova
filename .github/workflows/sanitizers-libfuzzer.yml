@@ -1,56 +1,100 @@
-name: LibFuzzer Fuzzing Tests
+# LibFuzzer workflow - commented out until fuzz targets are implemented.
+#
+# LibFuzzer requires dedicated fuzz target executables, each providing:
+#
+#   extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
+#   {
+#       // exercise Nova API with fuzzer-supplied bytes
+#       return 0;
+#   }
+#
+# These cannot share a GTest harness since LibFuzzer replaces main().
+# Add fuzz targets under fuzz/ (e.g. fuzz/fuzz_record_builder.cpp) and
+# register them in fuzz/CMakeLists.txt using add_nova_fuzz_target() before
+# enabling this workflow.
+#
+# Suggested fuzz targets:
+#   fuzz_record_builder     - feed arbitrary bytes to TruncatingRecordBuilder
+#   fuzz_continuation_builder - feed arbitrary bytes to ContinuationRecordBuilder
+#   fuzz_iso8601_formatter  - feed arbitrary Records to ISO8601Formatter
+#   fuzz_flare_reader       - feed arbitrary bytes to Flare reader/scanner
+#
+# To run locally:
+#   cmake -B build -DCMAKE_CXX_COMPILER=clang++ \
+#     -DCMAKE_CXX_FLAGS="-fsanitize=fuzzer,address -fno-omit-frame-pointer" \
+#     -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=fuzzer,address" \
+#     -DNOVA_BUILD_FUZZ=ON
+#   cmake --build build
+#   ./build/fuzz/fuzz_record_builder -max_total_time=60
 
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-  schedule:
-    # Run nightly for extended fuzzing
-    - cron: '0 2 * * *'
-
-jobs:
-  libfuzzer:
-    name: LibFuzzer - Fuzz testing
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake clang lld
-
-      - name: Configure with LibFuzzer
-        run: |
-          mkdir build
-          cd build
-          cmake .. \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_CXX_FLAGS="-fsanitize=fuzzer,address -fno-omit-frame-pointer" \
-            -DCMAKE_CXX_LINK_FLAGS="-fsanitize=fuzzer,address" \
-            -DNOVA_BUILD_TESTS=ON \
-            -DNOVA_BUILD_EXAMPLES=OFF
-      
-      - name: Build
-        run: cmake --build build --config Debug
-
-      - name: Create corpus directory
-        run: mkdir -p fuzz_corpus
-
-      - name: Run LibFuzzer (limited runs for CI)
-        run: |
-          # Note: This is a placeholder. You'll need actual fuzzer targets
-          # created in your project that use libFuzzer entry points
-          echo "LibFuzzer would run with: ./fuzz_target -max_len=1024 fuzz_corpus/"
-          echo "Add actual fuzzer targets to your CMakeLists.txt"
-        continue-on-error: true
-        env:
-          ASAN_OPTIONS: >-
-            halt_on_error=1:
-            abort_on_error=1
+# name: LibFuzzer
+#
+# on:
+#   push:
+#     branches: [ main, develop ]
+#   pull_request:
+#     branches: [ main, develop ]
+#   schedule:
+#     # Run nightly for extended fuzzing - increase -max_total_time values below
+#     # to take advantage of the longer CI budget (e.g. 300 instead of 30)
+#     - cron: '0 2 * * *'
+#
+# jobs:
+#   libfuzzer:
+#     name: LibFuzzer - Fuzz testing
+#     runs-on: ubuntu-24.04
+#
+#     steps:
+#       - uses: actions/checkout@v4
+#         with:
+#           submodules: recursive
+#
+#       - name: Install dependencies
+#         run: |
+#           sudo apt-get update
+#           sudo apt-get install -y clang lld cmake build-essential
+#
+#       - name: Configure with LibFuzzer + ASan
+#         run: |
+#           mkdir build
+#           cd build
+#           cmake .. \
+#             -DCMAKE_BUILD_TYPE=Debug \
+#             -DCMAKE_C_COMPILER=clang \
+#             -DCMAKE_CXX_COMPILER=clang++ \
+#             -DCMAKE_CXX_FLAGS="-fsanitize=fuzzer,address -fno-omit-frame-pointer" \
+#             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=fuzzer,address" \
+#             -DNOVA_BUILD_TESTS=OFF \
+#             -DNOVA_BUILD_FUZZ=ON \
+#             -DNOVA_BUILD_EXAMPLES=OFF
+#
+#       - name: Build fuzz targets
+#         run: cmake --build build --config Debug
+#
+#       - name: Run fuzz targets
+#         env:
+#           ASAN_OPTIONS: "abort_on_error=1:detect_leaks=1"
+#         run: |
+#           # Run each fuzz target for a fixed duration.
+#           # -max_total_time limits wall time per target (seconds).
+#           # -max_len limits input size to keep runs fast.
+#           # Corpus directories are created automatically on first run.
+#           ./build/fuzz/fuzz_truncation_builder \
+#             -max_total_time=30 \
+#             -max_len=1024 \
+#             fuzz/corpus/truncation_builder
+#
+#           ./build/fuzz/fuzz_continuation_builder \
+#             -max_total_time=30 \
+#             -max_len=1024 \
+#             fuzz/corpus/continuation_builder
+#
+#           ./build/fuzz/fuzz_iso8601_formatter \
+#             -max_total_time=30 \
+#             -max_len=512 \
+#             fuzz/corpus/iso8601_formatter
+#
+#           ./build/fuzz/fuzz_flare_reader \
+#             -max_total_time=30 \
+#             -max_len=4096 \
+#             fuzz/corpus/flare_reader
