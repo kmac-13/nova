@@ -42,9 +42,7 @@ jobs:
         if: steps.cache_libcxx.outputs.cache-hit != 'true'
         run: |
           LLVM_VER="${{ steps.llvm_ver.outputs.version }}"
-          LLVM_MAJOR="${LLVM_VER%%.*}"
 
-          # Fetch LLVM source for the exact installed version
           wget -q "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VER}/llvm-project-${LLVM_VER}.src.tar.xz"
           tar -xf "llvm-project-${LLVM_VER}.src.tar.xz"
 
@@ -75,18 +73,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_CXX_FLAGS="\
-              -fsanitize=memory \
-              -fno-omit-frame-pointer \
-              -nostdinc++ \
-              -I/opt/msan-libcxx/include/c++/v1" \
-            -DCMAKE_EXE_LINKER_FLAGS="\
-              -fsanitize=memory \
-              -nostdlib++ \
-              /opt/msan-libcxx/lib/libc++.a \
-              /opt/msan-libcxx/lib/libc++abi.a \
-              -lstdc++ \
-              -Wl,-rpath,/opt/msan-libcxx/lib" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=memory -fno-omit-frame-pointer -nostdinc++ -I/opt/msan-libcxx/include/c++/v1" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=memory -nostdlib++" \
+            -DCMAKE_CXX_STANDARD_LIBRARIES="/opt/msan-libcxx/lib/libc++.a /opt/msan-libcxx/lib/libc++abi.a -lstdc++ -lpthread -lm -lc" \
             -DNOVA_BUILD_TESTS=ON \
             -DNOVA_BUILD_EXAMPLES=OFF
 
