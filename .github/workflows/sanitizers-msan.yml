@@ -61,6 +61,7 @@ jobs:
             -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=memory" \
             -DLIBCXX_ENABLE_SHARED=OFF \
             -DLIBCXXABI_ENABLE_SHARED=OFF \
+            -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
             -DCMAKE_INSTALL_PREFIX=/opt/msan-libcxx
 
           ninja -C libcxx-msan-build cxx cxxabi

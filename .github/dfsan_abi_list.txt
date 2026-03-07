@@ -21,7 +21,7 @@
 #
 # Reference: https://clang.llvm.org/docs/DataFlowSanitizerDesign.html
 
-# ── C standard library ────────────────────────────────────────────────────────
+# -- C standard library --------------------------------------------------------
 fun:malloc=uninstrumented
 fun:calloc=uninstrumented
 fun:realloc=uninstrumented
@@ -60,38 +60,54 @@ fun:read=uninstrumented
 fun:lseek=uninstrumented
 fun:lseek64=uninstrumented
 
-# ── C++ runtime / new-delete ──────────────────────────────────────────────────
+# -- C++ new/delete operators (all overloads) ----------------------------------
+# Mangled names for sized, unsized, aligned, and nothrow variants.
 fun:_Znwm=uninstrumented
 fun:_Znam=uninstrumented
 fun:_ZdlPv=uninstrumented
 fun:_ZdaPv=uninstrumented
 fun:_ZnwmSt11align_val_t=uninstrumented
 fun:_ZnamSt11align_val_t=uninstrumented
+fun:_ZdlPvSt11align_val_t=uninstrumented
+fun:_ZdaPvSt11align_val_t=uninstrumented
+# nothrow new: operator new(size_t, std::nothrow_t const&)
+fun:_ZnwmRKSt9nothrow_t=uninstrumented
+fun:_ZnamRKSt9nothrow_t=uninstrumented
+fun:_ZdlPvRKSt9nothrow_t=uninstrumented
+fun:_ZdaPvRKSt9nothrow_t=uninstrumented
+
+# -- C++ runtime support (libsupc++ / libstdc++ ABI) ---------------------------
+# __dynamic_cast is the libstdc++/libsupc++ implementation of dynamic_cast<>.
+# It is not a user-visible symbol but gtest uses dynamic_cast internally.
+fun:__dynamic_cast=uninstrumented
 fun:__cxa_*=uninstrumented
 fun:__gxx_*=uninstrumented
+fun:__cxxabiv*=uninstrumented
+# RTTI support symbols
+fun:__si_class_type_info*=uninstrumented
+fun:__class_type_info*=uninstrumented
+fun:__vmi_class_type_info*=uninstrumented
 
-# ── libstdc++ / libc++ standard library ──────────────────────────────────────
+# -- libstdc++ / libc++ standard library --------------------------------------
 fun:_ZNSt*=uninstrumented
 fun:_ZNKSt*=uninstrumented
 fun:_ZSt*=uninstrumented
 fun:_ZNSs*=uninstrumented
 fun:_ZNSi*=uninstrumented
 fun:_ZNSo*=uninstrumented
-fun:_ZNIoS*=uninstrumented
-fun:std::*=uninstrumented
 
-# ── libc++ (clang) ────────────────────────────────────────────────────────────
+# -- libc++ (clang) ------------------------------------------------------------
 fun:_ZNSt3__1*=uninstrumented
 fun:_ZNKSt3__1*=uninstrumented
 
-# ── POSIX threads ─────────────────────────────────────────────────────────────
+# -- POSIX threads -------------------------------------------------------------
 fun:pthread_*=uninstrumented
 
-# ── Filesystem (libstdc++ / libc++) ──────────────────────────────────────────
+# -- Filesystem (libstdc++ / libc++) ------------------------------------------
 fun:_ZNSt10filesystem*=uninstrumented
 fun:_ZNSt3__110filesystem*=uninstrumented
 
-# ── Google Test (not under test; treat as uninstrumented infrastructure) ──────
+# -- Google Test (not under test; treat as uninstrumented infrastructure) ------
 fun:testing::*=uninstrumented
 fun:_ZN7testing*=uninstrumented
 fun:_ZNK7testing*=uninstrumented
