@@ -86,6 +86,20 @@ private:
 
 public:
 	/**
+	 * @brief Get pool capacity in bytes.
+	 *
+	 * @return Pool capacity
+	 */
+	static constexpr std::size_t poolCapacity() noexcept;
+
+	/**
+	 * @brief Get index queue capacity.
+	 *
+	 * @return Index queue capacity
+	 */
+	static constexpr std::size_t indexCapacity() noexcept;
+
+	/**
 	 * @brief Construct async sink with batch formatting.
 	 *
 	 * @param downstream sink to receive formatted batches (typically RollingFileSink)
@@ -97,16 +111,50 @@ public:
 
 	NO_COPY_NO_MOVE( MemoryPoolAsyncBatchSink );
 
+	/**
+	 * @brief Get approximate bytes available in pool.
+	 *
+	 * @return available bytes
+	 */
+	std::size_t poolAvailable() const noexcept;
+
+	/**
+	 * @brief Get approximate bytes in use in pool.
+	 *
+	 * @return used bytes
+	 */
+	std::size_t poolUsed() const noexcept;
+
+	/**
+	 * @brief Get approximate number of entries in index queue.
+	 *
+	 * @return queue size
+	 */
 	std::size_t queueSize() const noexcept;
 
+	/**
+	 * @brief Get number of processed messages, i.e. those that ended up in the queue.
+	 *
+	 * The total number of messages passed through process is processedCount() + droppedCount().
+	 *
+	 * @return processed message count
+	 */
 	std::size_t processedCount() const noexcept;
 
+	/**
+	 * @brief Get number of dropped messages.
+	 *
+	 * Messages are dropped when pool or index queue is full.
+	 * The total number of messages passed through process is processedCount() + droppedCount().
+	 *
+	 * @return dropped message count
+	 */
 	std::size_t droppedCount() const noexcept;
 
 	/**
 	 * @brief Process a record (producer hot path).
 	 *
-	 * Stores raw record in pool - NO formatting on hot path!
+	 * Stores raw record in pool - NO formatting on hot path.
 	 */
 	void process( const kmac::nova::Record& record ) noexcept override;
 
@@ -134,6 +182,18 @@ private:
 };
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+constexpr std::size_t MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::poolCapacity() noexcept
+{
+	return PoolSize;
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+constexpr std::size_t MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::indexCapacity() noexcept
+{
+	return IndexQueueCapacity;
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
 MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::MemoryPoolAsyncBatchSink(
 	kmac::nova::Sink& downstream,
 	Formatter* formatter
@@ -155,6 +215,18 @@ MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 	{
 		_consumerThread.join();
 	}
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+std::size_t MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::poolAvailable() const noexcept
+{
+	return _pool.available();
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+std::size_t MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::poolUsed() const noexcept
+{
+	return _pool.used();
 }
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
@@ -211,7 +283,10 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 	}
 
 	// always notify consumer (prevents deadlock in multi-threaded scenarios)
-	_cv.notify_one();
+	{
+		std::lock_guard< std::mutex > lock( _mutex );
+		_cv.notify_one();
+	}
 }
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >

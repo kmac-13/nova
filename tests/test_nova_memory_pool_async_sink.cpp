@@ -2,6 +2,7 @@
 // Comprehensive tests for MemoryPool and MemoryPoolAsyncSink
 
 #include "kmac/nova/extras/memory_pool.h"
+#include "kmac/nova/extras/memory_pool_async_batch_sink.h"
 #include "kmac/nova/extras/memory_pool_async_sink.h"
 
 #include <gtest/gtest.h>
@@ -515,6 +516,61 @@ TEST( MemoryPoolAsyncSinkTest, PoolMetrics )
 {
 	CaptureSink capture;
 	kmac::nova::extras::MemoryPoolAsyncSink< 64 * 1024 > sink( capture );
+
+	// check initial state
+	ASSERT_EQ( sink.poolCapacity(), 64 * 1024 );
+	ASSERT_EQ( sink.indexCapacity(), 8192 );
+	ASSERT_GT( sink.poolAvailable(), 60 * 1024 ); // should be nearly full
+	ASSERT_LT( sink.poolUsed(), 4 * 1024 );       // should be nearly empty
+
+	// log a message
+	kmac::nova::Record record{};
+	record.tag = "INFO";
+	record.tagId = 1;
+	record.file = "test.cpp";
+	record.function = "test_function";
+	record.line = 42;
+	record.timestamp = 0;
+
+	std::string msg = "Test message";
+	record.message = msg.c_str();
+	record.messageSize = msg.size();
+
+	sink.process( record );
+
+	// queue size should be greater than 0 immediately after enqueuing
+	// (check before background thread has time to process)
+	std::size_t queueSizeAfterEnqueue = sink.queueSize();
+	ASSERT_GT( queueSizeAfterEnqueue, 0 );
+
+	// actively poll for drain rather than sleeping a fixed amount of time.
+	// a fixed sleep is inherently racy under TSan because the sanitizer's
+	// instrumentation overhead can delay the worker thread far beyond what
+	// any reasonable sleep value anticipates
+	constexpr int MAX_WAIT_MS = 2000;
+	constexpr int POLL_INTERVAL_MS = 5;
+	int totalWaited = 0;
+
+	while ( totalWaited < MAX_WAIT_MS )
+	{
+		if ( sink.queueSize() == 0 && sink.processedCount() >= 1 )
+		{
+			break;
+		}
+
+		std::this_thread::sleep_for( std::chrono::milliseconds( POLL_INTERVAL_MS ) );
+		totalWaited += POLL_INTERVAL_MS;
+	}
+
+	// after waiting, message should be processed and queue should be empty
+	ASSERT_EQ( sink.queueSize(), 0 );
+	ASSERT_EQ( sink.processedCount(), 1 );
+}
+
+TEST( MemoryPoolAsyncBatchSinkTest, PoolMetrics )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncBatchSink< 64 * 1024 > sink( capture, nullptr );  // no formatter
 
 	// check initial state
 	ASSERT_EQ( sink.poolCapacity(), 64 * 1024 );

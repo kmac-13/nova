@@ -169,13 +169,16 @@ public:
 	 * @brief Get number of dropped messages.
 	 *
 	 * Messages are dropped when pool or index queue is full.
+	 * The total number of messages passed through process is processedCount() + droppedCount().
 	 *
 	 * @return dropped message count
 	 */
 	std::size_t droppedCount() const noexcept;
 
 	/**
-	 * @brief Get number of processed messages.
+	 * @brief Get number of processed messages, i.e. those that ended up in the queue.
+	 *
+	 * The total number of messages passed through process is processedCount() + droppedCount().
 	 *
 	 * @return processed message count
 	 */
@@ -305,7 +308,10 @@ void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 	}
 
 	// notify worker thread
-	_cv.notify_one();
+	{
+		std::lock_guard< std::mutex > lock( _mutex );
+		_cv.notify_one();
+	}
 }
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
