@@ -56,7 +56,7 @@ function( add_nova_gtest test_name test_source )
 	add_executable( ${test_name} ${test_source} ${NOVA_SOURCES} ${NOVA_EXTRAS_SOURCES} ${FLARE_SOURCES} )
 	target_link_libraries( ${test_name} PRIVATE GTest::gtest GTest::gtest_main pthread )
 
-	# Apply sanitizers (optional - customize as needed)
+	# sanitizers run automatically in repo, so don't force them here
 	# enable_asan( ${test_name} )
 	# enable_msan( ${test_name} )
 	# enable_tsan( ${test_name} )
@@ -78,6 +78,7 @@ add_nova_gtest( test_nova_logger test_nova_logger.cpp )
 add_nova_gtest( test_nova_scoped_configurator test_nova_scoped_configurator.cpp )
 
 # Nova Extras Tests
+add_nova_gtest( test_nova_mpsc_queue test_nova_mpsc_queue.cpp )
 add_nova_gtest( test_nova_sinks test_nova_sinks.cpp )
 add_nova_gtest( test_nova_formatters test_nova_formatters.cpp )
 add_nova_gtest( test_nova_synchronization test_nova_synchronization.cpp )
@@ -97,4 +98,4 @@ add_nova_gtest( test_integration test_integration.cpp )
 # Print summary
 message( STATUS "Nova/Flare gtest suite configured" )
 message( STATUS "  GTest version: ${GTest_VERSION}" )
-message( STATUS "  Tests: 15 test executables" )
+message( STATUS "  Tests: 16 test executables" )
