@@ -1,0 +1,58 @@
+name: clang-tidy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  clang-tidy:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            clang-18 clang-tidy-18 cmake ninja-build libgtest-dev
+
+      - name: Configure (generate compile_commands.json)
+        run: |
+          cmake -G Ninja -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        run: |
+          # Collect all project source files (exclude third-party / build dirs)
+          find nova/include nova_extras/include nova_extras/src flare/include flare/src \
+            -name "*.cpp" -o -name "*.h" \
+            | grep -v "build/" \
+            > files.txt
+
+          # clang-tidy exits non-zero if any check fires
+          # --warnings-as-errors promotes all enabled checks to errors
+          clang-tidy-18 \
+            -p build \
+            --warnings-as-errors="*" \
+            --checks="\
+              bugprone-*,\
+              -bugprone-easily-swappable-parameters,\
+              cert-*,\
+              clang-analyzer-*,\
+              concurrency-*,\
+              cppcoreguidelines-pro-type-reinterpret-cast,\
+              cppcoreguidelines-pro-bounds-array-to-pointer-decay,\
+              misc-*,\
+              -misc-non-private-member-variables-in-classes,\
+              modernize-use-nullptr,\
+              modernize-use-override,\
+              modernize-use-default-member-init,\
+              performance-*,\
+              portability-*,\
+              readability-misleading-indentation,\
+              readability-misplaced-array-index" \
+            $(cat files.txt)

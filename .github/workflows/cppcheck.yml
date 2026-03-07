@@ -1,0 +1,45 @@
+name: cppcheck
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  cppcheck:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cppcheck
+
+      - name: Run cppcheck
+        run: |
+          cppcheck \
+            --std=c++17 \
+            --language=c++ \
+            --enable=warning,style,performance,portability \
+            --error-exitcode=1 \
+            --inline-suppr \
+            --suppress=missingIncludeSystem \
+            --suppress=unmatchedSuppression \
+            -I nova/include \
+            -I nova_extras/include \
+            -I flare/include \
+            nova/include \
+            nova_extras/include \
+            nova_extras/src \
+            flare/include \
+            flare/src \
+            2>&1 | tee cppcheck-report.txt
+
+      - name: Upload cppcheck report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cppcheck-report
+          path: cppcheck-report.txt
