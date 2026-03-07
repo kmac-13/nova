@@ -34,6 +34,7 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 
 # collect all header files for IDE support
 file( GLOB_RECURSE NOVA_CORE_HEADERS
+	RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
 	"nova/include/*.h"
 	"nova/include/*.hpp"
 )
