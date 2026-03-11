@@ -239,56 +239,52 @@ uint8_t* MemoryPool< Capacity, Allocator >::allocate( std::size_t size ) noexcep
 	// align to 8-byte boundary for Record struct alignment
 	size = ( size + 7 ) & ~std::size_t{ 7 };
 
-	// try allocation (max 3 attempts to handle wrap-around and contention)
-	for ( int attempts = 0; attempts < 3; ++attempts )
+	// wrap retries and allocation retries are bounded independently so
+	// wrap contention doesn't consume allocation attempts (and vice versa)
+	constexpr int MAX_WRAP_RETRIES = 8;
+	constexpr int MAX_ALLOC_RETRIES = 8;
+
+	int wrapRetries = 0;
+
+	while ( wrapRetries < MAX_WRAP_RETRIES )
 	{
 		std::size_t write = _writeOffset.load( std::memory_order_relaxed );
 		std::size_t read = _readOffset.load( std::memory_order_acquire );
 
-		// calculate physical positions (handle overflow via modulo)
-		std::size_t writePos = write & ( Capacity - 1 );
-
-		// calculate available space (total, not contiguous)
-		std::size_t available = Capacity - ( write - read );
-
 		// check if we have enough total space
-		if ( size > available )
+		if ( size > ( Capacity - ( write - read ) ) )
 		{
 			// pool is full
 			return nullptr;
 		}
 
-		// check if we have contiguous space before wrap
-		std::size_t spaceBeforeWrap = Capacity - writePos;
+		// calculate physical positions (handle overflow via modulo)
+		std::size_t writePos = write & ( Capacity - 1 );
 
-		if ( size > spaceBeforeWrap )
+		if ( size > ( Capacity - writePos ) )
 		{
-			// need to wrap - advance to next pool boundary
-			// this wastes remaining space as padding
+			// need to wrap, compare-and-swap failure means another thread already wrapped,
+			// which is fine, just reload and retry without burning an alloc attempt
 			std::size_t nextBoundary = ( ( write / Capacity ) + 1 ) * Capacity;
-
-			if ( ! _writeOffset.compare_exchange_strong( write, nextBoundary, std::memory_order_release, std::memory_order_relaxed ) )
-			{
-				// contention - retry from beginning
-				continue;
-			}
-
-			// successfully wrapped - retry allocation from new position
-			// don't try to allocate here; loop back to reload state
+			_writeOffset.compare_exchange_weak( write, nextBoundary, std::memory_order_relaxed, std::memory_order_relaxed );
+			++wrapRetries;
 			continue;
 		}
 
-		// try to claim space (we have contiguous space)
-		if ( _writeOffset.compare_exchange_strong( write, write + size, std::memory_order_release, std::memory_order_relaxed ) )
+		// normal allocation attempt
+		for ( int allocRetries = 0; allocRetries < MAX_ALLOC_RETRIES; ++allocRetries )
 		{
-			// success, so return the pointer
-			return base() + writePos;
+			if ( _writeOffset.compare_exchange_weak( write, write + size, std::memory_order_release, std::memory_order_relaxed ) )
+			{
+				return base() + writePos;
+			}
 		}
 
-		// contention - retry
+		// too much contention - treat as full
+		return nullptr;
 	}
 
-	// failed after retries
+	// wrap contention exhausted - treat as full
 	return nullptr;
 }
 
