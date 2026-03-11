@@ -533,7 +533,7 @@ void ContinuationRecordBuilder< BufferSize >::append( char c ) noexcept
 template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( const char* str ) noexcept
 {
-	std::size_t len = std::strlen( str );
+	const std::size_t len = std::strlen( str );
 	append( std::string_view( str, len ) );
 }
 

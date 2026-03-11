@@ -3,7 +3,10 @@
 #define KMAC_NOVA_BUILDER_WRAPPER_H
 
 #include "continuation_record_builder.h"
+#include "sink.h"
 #include "truncating_record_builder.h"
+
+#include <cstddef>
 
 namespace kmac::nova
 {

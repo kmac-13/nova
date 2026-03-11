@@ -6,6 +6,7 @@
 #include "kmac/flare/emergency_sink.h"
 #include "kmac/flare/file_writer.h"
 #include "kmac/flare/reader.h"
+#include "kmac/flare/record.h"
 #include "kmac/nova/logger_traits.h"
 #include "kmac/nova/record.h"
 

@@ -89,8 +89,8 @@ private:
 	};
 
 	State _state;            ///< Current scanner state
-	size_t _offset;          ///< Current search position in buffer
-	uint32_t _expectedSize;  ///< Expected size of current candidate record
+	std::size_t _offset;          ///< Current search position in buffer
+	std::uint32_t _expectedSize;  ///< Expected size of current candidate record
 
 public:
 	/**
@@ -113,7 +113,7 @@ public:
 	 * @note Only valid after scan() returns true.
 	 * @note Undefined behavior if called before any successful scan().
 	 */
-	size_t recordOffset() const;
+	std::size_t recordOffset() const;
 
 	/**
 	 * @brief Get size of last found record.
@@ -139,7 +139,7 @@ public:
 	 *
 	 * This is enforced by scan() before returning true.
 	 */
-	size_t recordSize() const;
+	std::size_t recordSize() const;
 
 	/**
 	 * @brief Reset scanner to initial state.
@@ -169,7 +169,7 @@ public:
 	 *
 	 * @note The scanner will continue from the next scan() call at this offset.
 	 */
-	void setStartOffset( size_t offset );
+	void setStartOffset( std::size_t offset );
 
 	/**
 	 * @brief Scan buffer for next valid Flare record.
@@ -219,7 +219,7 @@ public:
 	 * - typical: O(k) where k = bytes to next valid record
 	 * - validation overhead: minimal per candidate
 	 */
-	bool scan( const uint8_t* data, size_t size );
+	bool scan( const std::uint8_t* data, std::size_t size );
 };
 
 } // namespace kmac::flare

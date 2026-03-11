@@ -17,6 +17,7 @@
 #include "kmac/flare/file_writer.h"
 #include "kmac/flare/emergency_sink.h"
 #include "kmac/flare/reader.h"
+#include "kmac/flare/record.h"
 
 #include <gtest/gtest.h>
 
@@ -127,7 +128,7 @@ TEST_F( Integration, FilteredLoggingPipeline )
 			// std::string tag( rec.tag );
 			// return tag != "DEBUG";
 
-			// new switch-based conditions
+			// new switch-based conditions on traits' tagId
 			switch ( rec.tagId )
 			{
 			case kmac::nova::logger_traits< DebugTag >::tagId:

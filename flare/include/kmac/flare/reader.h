@@ -2,11 +2,15 @@
 #ifndef KMAC_FLARE_READER_H
 #define KMAC_FLARE_READER_H
 
-#include "record.h"
 #include "scanner.h"
+
+#include <cstddef>
+#include <cstdint>
 
 namespace kmac::flare
 {
+
+class Record;
 
 /**
  * @brief Parses and decodes Flare binary records into structured data.
@@ -191,7 +195,7 @@ public:
 	 * presence, though you may want to check record.status to assess
 	 * data quality.
 	 */
-	bool parseNext( const uint8_t* data, size_t size, Record& outRecord );
+	bool parseNext( const std::uint8_t* data, std::size_t size, Record& outRecord );
 
 private:
 	/**
@@ -268,7 +272,7 @@ private:
 	 * Not thread-safe.  parseRecord() modifies outRecord.
 	 * Each thread must use its own Reader and Record instances.
 	 */
-	bool parseRecord( const uint8_t* data, size_t size, Record& outRecord );
+	bool parseRecord( const std::uint8_t* data, std::size_t size, Record& outRecord );
 };
 
 } // namespace kmac::flare

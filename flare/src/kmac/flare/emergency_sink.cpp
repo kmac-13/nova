@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstring>
+#include <stdint.h>
 
 // Platform-specific includes for process/thread IDs
 #if defined( __linux__ ) || defined( __unix__ ) || defined( __APPLE__ ) || defined( __FreeBSD__ )
@@ -40,7 +41,7 @@ void EmergencySink::process( const kmac::nova::Record& record ) noexcept
 
 	// encode to stack buffer
 	std::array< char, ENCODING_BUFFER_SIZE > buffer;
-	std::size_t encodedSize = encodeRecordTlv( record, buffer.data(), buffer.size() );
+	const std::size_t encodedSize = encodeRecordTlv( record, buffer.data(), buffer.size() );
 
 	if ( encodedSize > 0 )
 	{
@@ -112,7 +113,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 	{
 		return 0;
 	}
-	std::size_t statusOffset = offset - sizeof( status );  // remember where status is
+	const std::size_t statusOffset = offset - sizeof( status );  // remember where status is
 
 	// write the sequence number
 	if ( ! writeTlv( TlvType::SequenceNumber, &_sequenceNumber, sizeof( _sequenceNumber ) ) )
@@ -136,7 +137,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 	// write the file name (if not too long)
 	if ( record.file )
 	{
-		std::size_t fileLen = std::strlen( record.file );
+		const std::size_t fileLen = std::strlen( record.file );
 		if ( fileLen > 0 && fileLen <= UINT16_MAX )
 		{
 			// try to write, but don't fail if it doesn't fit
@@ -153,7 +154,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 	// write the function name (if not too long)
 	if ( record.function )
 	{
-		std::size_t funcLen = std::strlen( record.function );
+		const std::size_t funcLen = std::strlen( record.function );
 		if ( funcLen > 0 && funcLen <= UINT16_MAX )
 		{
 			writeTlv( TlvType::FunctionName, record.function, std::uint16_t( funcLen ) );
@@ -188,7 +189,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 			if ( ! writeTlv( TlvType::MessageBytes, record.message, std::uint16_t( record.messageSize ) ) )
 			{
 				// couldn't fit full message - try to fit what we can
-				std::size_t remaining = bufferSize - offset - ( sizeof( std::uint16_t ) * 2 + sizeof( std::uint16_t ) * 2 );  // reserve space for end marker
+				const std::size_t remaining = bufferSize - offset - ( sizeof( std::uint16_t ) * 2 + sizeof( std::uint16_t ) * 2 );  // reserve space for end marker
 				if ( remaining > 0 && remaining <= UINT16_MAX )
 				{
 					writeTlv( TlvType::MessageBytes, record.message, std::uint16_t( remaining ) );

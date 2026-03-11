@@ -1,46 +1,48 @@
 #include "kmac/flare/reader.h"
 
+#include "kmac/flare/record.h"
 #include "kmac/flare/tlv.h"
 
+#include <cstdint>
 #include <cstring>
 
 namespace kmac::flare
 {
 
-bool Reader::parseNext( const uint8_t* data, size_t size, Record& outRecord )
+bool Reader::parseNext( const std::uint8_t* data, std::size_t size, Record& outRecord )
 {
 	if ( ! _scanner.scan( data, size ) )
 	{
 		return false;
 	}
 
-	bool success = parseRecord(
+	const bool success = parseRecord(
 		data + _scanner.recordOffset(),
 		_scanner.recordSize(),
 		outRecord
 	);
-	
+
 	if ( success )
 	{
 		// advance scanner past this record for next call
-		std::size_t nextOffset = _scanner.recordOffset() + _scanner.recordSize();
+		const std::size_t nextOffset = _scanner.recordOffset() + _scanner.recordSize();
 		_scanner.setStartOffset( nextOffset );
 	}
-	
+
 	return success;
 }
 
-bool Reader::parseRecord( const uint8_t* data, size_t size, Record& outRecord )
+bool Reader::parseRecord( const std::uint8_t* data, std::size_t size, Record& outRecord )
 {
 	// clear the output record
 	outRecord.clear();
-	
-	size_t offset = sizeof( uint64_t ) + sizeof( uint32_t );
 
-	while ( offset + sizeof( uint16_t ) * 2 <= size )
+	std::size_t offset = sizeof( std::uint64_t ) + sizeof( std::uint32_t );
+
+	while ( offset + sizeof( std::uint16_t ) * 2 <= size )
 	{
-		uint16_t type;
-		uint16_t length;
+		std::uint16_t type;
+		std::uint16_t length;
 
 		std::memcpy( &type, data + offset, sizeof( type ) );
 		offset += sizeof( type );
@@ -53,7 +55,7 @@ bool Reader::parseRecord( const uint8_t* data, size_t size, Record& outRecord )
 			return false;
 		}
 
-		const uint8_t* value = data + offset;
+		const std::uint8_t* value = data + offset;
 
 		switch ( TlvType( type ) )
 		{
@@ -91,60 +93,60 @@ bool Reader::parseRecord( const uint8_t* data, size_t size, Record& outRecord )
 					std::memcpy( &outRecord.line, value, sizeof( uint32_t ) );
 				}
 				break;
-			
+
 			case TlvType::ProcessId:
 				if ( length == sizeof( uint32_t ) )
 				{
 					std::memcpy( &outRecord.processId, value, sizeof( uint32_t ) );
 				}
 				break;
-			
+
 			case TlvType::ThreadId:
 				if ( length == sizeof( uint32_t ) )
 				{
 					std::memcpy( &outRecord.threadId, value, sizeof( uint32_t ) );
 				}
 				break;
-			
+
 			case TlvType::FileName:
 			{
-				std::size_t copyLen = (length < Record::MAX_FILENAME_LEN - 1) 
-					? length 
-					: (Record::MAX_FILENAME_LEN - 1);
+				const std::size_t copyLen = ( length < Record::MAX_FILENAME_LEN - 1 )
+					? length
+					: ( Record::MAX_FILENAME_LEN - 1 );
 				std::memcpy( outRecord.file, value, copyLen );
-				outRecord.file[copyLen] = '\0';
+				outRecord.file[ copyLen ] = '\0';
 				outRecord.fileLen = copyLen;
 				break;
 			}
-			
+
 			case TlvType::FunctionName:
 			{
-				std::size_t copyLen = (length < Record::MAX_FUNCTION_LEN - 1)
+				const std::size_t copyLen = ( length < Record::MAX_FUNCTION_LEN - 1 )
 					? length
-					: (Record::MAX_FUNCTION_LEN - 1);
+					: ( Record::MAX_FUNCTION_LEN - 1 );
 				std::memcpy( outRecord.function, value, copyLen );
-				outRecord.function[copyLen] = '\0';
+				outRecord.function[ copyLen ] = '\0';
 				outRecord.functionLen = copyLen;
 				break;
 			}
 
 			case TlvType::MessageBytes:
 			{
-				std::size_t copyLen = (length < Record::MAX_MESSAGE_LEN - 1)
+				const std::size_t copyLen = ( length < Record::MAX_MESSAGE_LEN - 1 )
 					? length
-					: (Record::MAX_MESSAGE_LEN - 1);
+					: ( Record::MAX_MESSAGE_LEN - 1 );
 				std::memcpy( outRecord.message, value, copyLen );
-				outRecord.message[copyLen] = '\0';
+				outRecord.message[ copyLen ] = '\0';
 				outRecord.messageLen = copyLen;
 				break;
 			}
-			
+
 			case TlvType::MessageTruncated:
-				if ( length == sizeof( uint8_t ) )
+				if ( length == sizeof( std::uint8_t ) )
 				{
-					uint8_t flag;
-					std::memcpy( &flag, value, sizeof( uint8_t ) );
-					outRecord.messageTruncated = (flag != 0);
+					std::uint8_t flag;
+					std::memcpy( &flag, value, sizeof( std::uint8_t ) );
+					outRecord.messageTruncated = ( flag != 0 );
 				}
 				break;
 

@@ -2,6 +2,7 @@
 #ifndef KMAC_NOVA_DETAILS_H
 #define KMAC_NOVA_DETAILS_H
 
+#include <cstddef>
 #include <cstdint>
 
 namespace kmac::nova::details
