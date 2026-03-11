@@ -2,6 +2,7 @@
 
 #include "kmac/flare/tlv.h"
 
+#include <kmac/nova/details.h>
 #include <kmac/nova/record.h>
 
 #include <array>
@@ -45,10 +46,10 @@ void EmergencySink::process( const kmac::nova::Record& record ) noexcept
 	{
 		// single atomic write
 		_writer->write( buffer.data(), encodedSize );
-		
+
 		// flush for crash safety
 		_writer->flush();
-		
+
 		// increment sequence number for next record
 		++_sequenceNumber;
 	}
@@ -158,7 +159,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 			writeTlv( TlvType::FunctionName, record.function, std::uint16_t( funcLen ) );
 		}
 	}
-	
+
 	// write the process/thread info if enabled
 	if ( _captureProcessInfo )
 	{
@@ -224,7 +225,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 	offset += sizeof( zero );
 
 	// update the status to Complete (we made it to the end!)
-	status = messageTruncated 
+	status = messageTruncated
 		? std::uint8_t( RecordStatus::Truncated )
 		: std::uint8_t( RecordStatus::Complete );
 	std::memcpy( buffer + statusOffset, &status, sizeof( status ) );
@@ -238,23 +239,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 
 std::uint64_t EmergencySink::hashString( const char* str ) noexcept
 {
-	// FNV-1a hash algorithm
-	constexpr std::uint64_t FNV_OFFSET = 14695981039346656037ULL;
-	constexpr std::uint64_t FNV_PRIME = 1099511628211ULL;
-
-	std::uint64_t hash = FNV_OFFSET;
-	
-	if ( str )
-	{
-		while ( *str )
-		{
-			hash ^= std::uint64_t( *str );
-			hash *= FNV_PRIME;
-			++str;
-		}
-	}
-
-	return hash;
+	return ::kmac::nova::details::fnv1a( str );
 }
 
 } // namespace kmac::flare

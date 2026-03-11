@@ -116,7 +116,7 @@ void Logger< Tag >::log( const char* file, const char* function, std::uint32_t l
 	{
 		Record record {
 			logger_traits< Tag >::tagName,
-			logger_traits< Tag >::tagId(),
+			logger_traits< Tag >::tagId,
 			file,
 			function,
 			line,

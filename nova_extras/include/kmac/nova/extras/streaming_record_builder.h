@@ -14,29 +14,29 @@ namespace kmac::nova::extras
 
 /**
  * @brief Dynamic record builder using std::ostringstream.
- * 
+ *
  * StreamingRecordBuilder uses std::ostringstream for maximum flexibility
  * and ease of use. This variant provides:
  * - unlimited message length (heap allocation)
  * - support for all types with operator<<
  * - familiar std::ostream API
  * - simple implementation
- * 
+ *
  * IMPORTANT: This builder performs heap allocation and is NOT suitable for:
  * - real-time systems
  * - safety-critical applications
  * - crash handlers / emergency logging
  * - systems requiring deterministic behavior
- * 
+ *
  * Use this builder when:
  * - convenience is more important than determinism
  * - application is not real-time or safety-critical
  * - message lengths are highly variable and unpredictable
  * - heap allocation is acceptable
- * 
+ *
  * For deterministic, allocation-free logging, use TruncatingRecordBuilder
  * or ContinuationRecordBuilder from the core library instead.
- * 
+ *
  * @tparam Tag The logging tag type
  */
 template< typename Tag >
@@ -45,7 +45,7 @@ class StreamingRecordBuilder
 private:
 	std::ostringstream _stream;
 	std::string _message; // Owns the message data
-	
+
 	const char* _file;
 	const char* _function;
 	std::uint32_t _line;
@@ -58,14 +58,14 @@ public:
 
 	/**
 	 * Stream operator - leverages std::ostream's extensive type support.
-	 * 
+	 *
 	 * This works with:
 	 * - all primitive types (int, float, double, bool, char, etc.)
 	 * - strings (const char*, std::string, std::string_view)
 	 * - pointers (formatted as hex)
 	 * - any type with operator<< defined
 	 * - standard library types (if you include appropriate headers)
-	 * 
+	 *
 	 * Note: This may allocate heap memory multiple times.
 	 */
 	template< typename T >
@@ -131,7 +131,7 @@ void StreamingRecordBuilder< Tag >::commit()
 
 	kmac::nova::Record record {
 		kmac::nova::logger_traits< Tag >::tagName,
-		kmac::nova::logger_traits< Tag >::tagId(),
+		kmac::nova::logger_traits< Tag >::tagId,
 		_file,
 		_function,
 		_line,

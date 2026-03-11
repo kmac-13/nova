@@ -1,7 +1,7 @@
 /**
  * @file 06_hierarchical_tags.cpp
  * @brief Using HierarchicalTag for subsystem + severity organization
- * 
+ *
  * This example demonstrates:
  * - Organizing logs by subsystem and severity
  * - Traditional severity model with Nova's tag system
@@ -35,25 +35,25 @@ using RenderDebug  = nova_extras::HierarchicalTag< Rendering, nova_extras::Debug
 using RenderError  = nova_extras::HierarchicalTag< Rendering, nova_extras::Error >;
 
 // Specialize logger_traits with clean names
-// NOVA_LOGGER_TRAITS( AudioDebug, Audio.Debug, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
-// NOVA_LOGGER_TRAITS( AudioInfo, Audio.Info, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
-// NOVA_LOGGER_TRAITS( AudioError, Audio.Error, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
+NOVA_LOGGER_TRAITS( AudioDebug, Audio.Debug, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
+NOVA_LOGGER_TRAITS( AudioInfo, Audio.Info, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
+NOVA_LOGGER_TRAITS( AudioError, Audio.Error, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
 
-// NOVA_LOGGER_TRAITS( NetworkInfo, Network.Info, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
-// NOVA_LOGGER_TRAITS( NetworkError, Network.Error, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
+NOVA_LOGGER_TRAITS( NetworkInfo, Network.Info, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
+NOVA_LOGGER_TRAITS( NetworkError, Network.Error, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
 
-// NOVA_LOGGER_TRAITS( RenderDebug, Render.Debug, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
-// NOVA_LOGGER_TRAITS( RenderError, Render.Error, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
+NOVA_LOGGER_TRAITS( RenderDebug, Render.Debug, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
+NOVA_LOGGER_TRAITS( RenderError, Render.Error, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
 
 int main()
 {
 	std::cout << "=== Hierarchical Tags Example ===\n\n";
-	
+
 	nova_extras::OStreamSink consoleSink( std::cout );
-	
+
 	{
 		kmac::nova::ScopedConfigurator config;
-		
+
 		// bind all our hierarchical tags
 		config.bind< AudioDebug >( &consoleSink );
 		config.bind< AudioInfo >( &consoleSink );
@@ -62,30 +62,30 @@ int main()
 		config.bind< NetworkError >( &consoleSink );
 		config.bind< RenderDebug >( &consoleSink );
 		config.bind< RenderError >( &consoleSink );
-		
+
 		std::cout << "--- Audio subsystem logs ---\n";
 		NOVA_LOG( AudioDebug ) << "Initializing audio engine\n";
 		NOVA_LOG( AudioInfo ) << "Sample rate: 44100 Hz\n";
 		NOVA_LOG( AudioError ) << "Buffer underrun detected\n";
-		
+
 		std::cout << "\n--- Network subsystem logs ---\n";
 		NOVA_LOG( NetworkInfo ) << "Connecting to server\n";
 		NOVA_LOG( NetworkError ) << "Connection timeout\n";
-		
+
 		std::cout << "\n--- Rendering subsystem logs ---\n";
 		NOVA_LOG( RenderDebug ) << "Drawing 1000 triangles\n";
 		NOVA_LOG( RenderError ) << "Shader compilation failed\n";
-		
+
 		std::cout << "\n";
 	}
-	
+
 	std::cout << "\n=== Example Complete ===\n";
 	std::cout << "\nNotes:\n";
 	std::cout << "- Hierarchical tags combine Subsystem + Severity\n";
 	std::cout << "- Tags appear as 'Subsystem.Severity' in logs\n";
 	std::cout << "- Still compile-time routing (type-based)\n";
 	std::cout << "- Familiar model for traditional logger users\n";
-	
+
 	return 0;
 }
 

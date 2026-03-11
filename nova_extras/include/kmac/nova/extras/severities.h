@@ -2,8 +2,7 @@
 #ifndef KMAC_NOVA_EXTRAS_SEVERITIES_H
 #define KMAC_NOVA_EXTRAS_SEVERITIES_H
 
-#include "kmac/nova/logger_traits.h"
-#include "kmac/nova/macros.h"
+#include "kmac/nova/nova.h"
 
 namespace kmac::nova::extras
 {

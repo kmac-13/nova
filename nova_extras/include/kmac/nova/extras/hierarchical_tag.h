@@ -16,28 +16,28 @@ namespace kmac::nova::extras
  *
  * HierarchicalTag combines a Subsystem and Severity into a single tag type,
  * allowing you to organize logs by both category and importance level.
- * 
+ *
  * This provides a traditional logging model (subsystems + severity levels)
  * while maintaining Nova's compile-time tag-based routing.
- * 
+ *
  * Benefits:
  * - familiar model for users accustomed to traditional loggers
  * - compile-time type safety
  * - easy to bind all tags from a subsystem or severity level
  * - hierarchical filtering capabilities
- * 
+ *
  * Example:
  *   struct Audio {};
  *   struct Network {};
- *   
+ *
  *   struct Debug {};
  *   struct Info {};
  *   struct Error {};
- *   
+ *
  *   using AudioDebug = HierarchicalTag<Audio, Debug>;
  *   using AudioError = HierarchicalTag<Audio, Error>;
  *   using NetworkInfo = HierarchicalTag<Network, Info>;
- *   
+ *
  *   NOVA_LOG(AudioDebug) << "Buffer underrun";
  *   NOVA_LOG(NetworkInfo) << "Connected";
  */
@@ -46,7 +46,7 @@ struct HierarchicalTag
 {
 	using subsystem = Subsystem;
 	using severity = Severity;
-	
+
 	// compile-time name generation
 	// result format: "Subsystem.Severity"
 	// static constexpr const char* tagName = /* generated for associated logger_traits below */;
@@ -57,6 +57,8 @@ struct HierarchicalTag
 //
 // Specialization to provide automatic tag names
 //
+
+#define TAG_NAME( tag ) #tag
 
 template< typename Subsystem, typename Severity >
 struct kmac::nova::logger_traits< kmac::nova::extras::HierarchicalTag< Subsystem, Severity > >
@@ -92,7 +94,7 @@ namespace kmac::nova::extras
 	struct Warning {};
 	struct Error {};
 	struct Fatal {};
-	
+
 	// numeric severity values for filtering
 	enum class SeverityLevel : int
 	{
@@ -103,11 +105,11 @@ namespace kmac::nova::extras
 		Error   = 4,
 		Fatal   = 5
 	};
-	
+
 	// helper to get severity level
 	template< typename Severity >
 	struct SeverityValue;
-	
+
 	template<> struct SeverityValue< Trace >   { static constexpr int value = int( SeverityLevel::Trace   ); };
 	template<> struct SeverityValue< Debug >   { static constexpr int value = int( SeverityLevel::Debug   ); };
 	template<> struct SeverityValue< Info >    { static constexpr int value = int( SeverityLevel::Info    ); };

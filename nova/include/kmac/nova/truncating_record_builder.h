@@ -144,7 +144,7 @@ private:
 
 	// tag and logging details
 	const char* _tagName;
-	std::uintptr_t _tagId;
+	std::uint64_t _tagId;
 
 	using LogFunc = void (*)( const Record& ) noexcept;
 	LogFunc _logFunc;
@@ -377,7 +377,7 @@ void TruncatingRecordBuilder< BufferSize >::setContext( const char* file, const 
 
 	// store Tag info for later use in commitCurrent
 	_tagName = logger_traits< Tag >::tagName;
-	_tagId = logger_traits< Tag >::tagId();
+	_tagId = logger_traits< Tag >::tagId;
 
 	// store function pointer to Logger<Tag>::log
 	_logFunc = &Logger< Tag >::log;

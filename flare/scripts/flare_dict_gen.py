@@ -25,13 +25,18 @@ def fnv1a_hash(s):
     """
     FNV_OFFSET = 14695981039346656037
     FNV_PRIME = 1099511628211
-    
+    FNV_FINAL = 0xd6e8feb86659fd93
+
     hash_value = FNV_OFFSET
     for byte in s.encode('utf-8'):
         hash_value ^= byte
-        hash_value *= FNV_PRIME
-        hash_value &= 0xFFFFFFFFFFFFFFFF  # Keep it 64-bit
-    
+        hash_value = (hash_value * FNV_PRIME) & 0xFFFFFFFFFFFFFFFF  # Keep it 64-bit
+
+    # wyhash-style final avalanche mix (improves distribution for short strings)
+    hash_value ^= hash_value >> 32
+    hash_value = (hash_value * FNV_PRIME) & 0xFFFFFFFFFFFFFFFF  # Keep it 64-bit
+    hash_value ^= hash_value >> 32
+
     return hash_value
 
 def generate_dictionary(tags):

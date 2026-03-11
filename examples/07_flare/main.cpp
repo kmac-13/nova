@@ -62,7 +62,7 @@ int main()
 		// manually create a record to test direct API
 		kmac::nova::Record manualRecord {
 			"CRASH",
-			kmac::nova::logger_traits< CrashTag >::tagId(),
+			kmac::nova::logger_traits< CrashTag >::tagId,
 			"crash_handler.cpp",
 			"signal_handler",
 			99,
@@ -110,7 +110,7 @@ int main()
 			std::cout << "  Status:    " << record.statusString() << "\n";
 			std::cout << "  Timestamp: " << record.timestampNs << " ns\n";
 			std::cout << "  Tag ID:    0x" << std::hex << record.tagId << std::dec << "\n";
-			
+
 			// show process/thread info if available
 			if ( record.processId != 0 )
 			{
@@ -120,7 +120,7 @@ int main()
 			{
 				std::cout << "  Thread:    " << record.threadId << "\n";
 			}
-			
+
 			std::cout << "  File:      " << record.file << "\n";
 			std::cout << "  Line:      " << record.line << "\n";
 			std::cout << "  Function:  " << record.function << "\n";
@@ -192,10 +192,10 @@ int main()
 
 		// create a very large message (larger than UINT16_MAX)
 		std::string largeMsg( 70000, 'X' );  // 70KB of 'X'
-		
+
 		kmac::nova::Record largeRecord {
 			"CRASH",
-			kmac::nova::logger_traits< CrashTag >::tagId(),
+			kmac::nova::logger_traits< CrashTag >::tagId,
 			"test.cpp",
 			"testLarge",
 			100,
@@ -225,12 +225,12 @@ int main()
 			std::cout << "  Original size: " << largeMsg.size() << " bytes\n";
 			std::cout << "  Read back size: " << readBack.messageLen << " bytes\n";
 			std::cout << "  Truncated flag: " << ( readBack.messageTruncated ? "Yes" : "No" ) << "\n";
-			
+
 			if ( readBack.messageTruncated )
 			{
 				std::cout << "  truncation correctly flagged\n";
 			}
-			
+
 			if ( readBack.messageLen < largeMsg.size() )
 			{
 				std::cout << "  message was truncated (expected)\n";
@@ -253,7 +253,7 @@ int main()
 		std::FILE* f1 = std::fopen( "test_hash1.flare", "wb" );
 		kmac::flare::FileWriter f1Writer( f1 );
 		kmac::flare::EmergencySink sink1( &f1Writer );
-		
+
 		kmac::nova::Record rec1 {
 			"TestTag",
 			0,
@@ -272,7 +272,7 @@ int main()
 		std::FILE* f2 = std::fopen( "test_hash2.flare", "wb" );
 		kmac::flare::FileWriter f2Writer( f2 );
 		kmac::flare::EmergencySink sink2( &f2Writer );
-		
+
 		kmac::nova::Record rec2 {
 			"TestTag",
 			0,
@@ -309,7 +309,7 @@ int main()
 			std::cout << "read both records\n";
 			std::cout << "  record 1 tag hash: 0x" << std::hex << read1.tagId << std::dec << "\n";
 			std::cout << "  record 2 tag hash: 0x" << std::hex << read2.tagId << std::dec << "\n";
-			
+
 			if ( read1.tagId == read2.tagId )
 			{
 				std::cout << "  tag hashes match (consistent hashing)\n";
@@ -355,19 +355,19 @@ int main()
 		}
 		seqSink.flush();
 		std::fclose( seqFile );
-		
+
 		// read back and verify sequence
 		std::ifstream file( "test_sequence.flare", std::ios::binary );
 		std::vector< std::uint8_t > data{
 			std::istreambuf_iterator< char >( file ),
 			std::istreambuf_iterator< char >()
 		};
-		
+
 		kmac::flare::Reader reader;
 		kmac::flare::Record record;
 		std::uint64_t expectedSeq = 0;
 		int count = 0;
-		
+
 		while ( reader.parseNext( data.data(), data.size(), record ) )
 		{
 			if ( record.sequenceNumber != expectedSeq )
@@ -380,7 +380,7 @@ int main()
 			++expectedSeq;
 			++count;
 		}
-		
+
 		std::cout << "read " << count << " records\n";
 		std::cout << "sequence numbers 0-" << ( count - 1 ) << " in order\n";
 		std::cout << "\n";

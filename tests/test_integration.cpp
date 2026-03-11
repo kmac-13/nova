@@ -123,10 +123,18 @@ TEST_F( Integration, FilteredLoggingPipeline )
 	kmac::nova::extras::FilterSink filterSink(
 		baseSink,
 		[]( const kmac::nova::Record& rec ) {
-			std::string tag( rec.tag );
-			return tag != "DEBUG";
-		}
-		);
+			// string-based tag name comparison
+			// std::string tag( rec.tag );
+			// return tag != "DEBUG";
+
+			// new switch-based conditions
+			switch ( rec.tagId )
+			{
+			case kmac::nova::logger_traits< DebugTag >::tagId:
+				return false;
+			}
+			return true;
+		} );
 
 	kmac::nova::ScopedConfigurator config;
 	config.bind< AppTag >( &filterSink );

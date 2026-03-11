@@ -51,7 +51,7 @@ namespace kmac::nova
 struct Record
 {
 	const char* tag;         ///< tag name string (e.g., "ERROR", "DEBUG")
-	std::uintptr_t tagId;    ///< unique tag identifier (address-based)
+	std::uint64_t tagId;     ///< unique tag identifier (hash)
 
 	const char* file;        ///< source filename (e.g. __FILE__)
 	const char* function;    ///< function name (e.g. __FUNCTION__)
