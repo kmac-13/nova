@@ -81,6 +81,8 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           cmake -B build `
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
+            -DCMAKE_CXX_STANDARD=17 `
             -DNOVA_BUILD_TESTS=ON `
             -DNOVA_BUILD_EXAMPLES=OFF
 
