@@ -7,6 +7,8 @@
 #include <array>
 #include <charconv>
 #include <cstring>
+#include <iterator>
+#include <system_error>
 
 namespace kmac::nova::extras
 {
@@ -53,9 +55,9 @@ void MultilineFormatter::formatAndWrite(
 	{
 		const char* lineStart;
 		std::size_t lineLength;
-		
+
 		current = findNextLine( current, end, lineStart, lineLength );
-		
+
 		// skip empty lines if configured
 		if ( lineLength == 0 && !_preserveEmptyLines )
 		{
@@ -73,26 +75,26 @@ void MultilineFormatter::formatAndWrite(
 		if ( _addLineNumbers && totalLines > 1 )
 		{
 			char prefix[ MAX_LINE_NUMBER_PREFIX ];
-			char* prefixEnd = prefix;
-			
+			char* prefixEnd = std::data( prefix );
+
 			// format: "[N/Total] "
 			*prefixEnd++ = '[';
-			
-			auto [ ptr1, ec1 ] = std::to_chars( prefixEnd, prefix + sizeof( prefix ) - 10, lineNumber );
+
+			auto [ ptr1, ec1 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 10, lineNumber );
 			if ( ec1 == std::errc{} )
 			{
 				prefixEnd = ptr1;
 				*prefixEnd++ = '/';
 
-				auto [ ptr2, ec2 ] = std::to_chars( prefixEnd, prefix + sizeof( prefix ) - 3, totalLines );
+				auto [ ptr2, ec2 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 3, totalLines );
 				if ( ec2 == std::errc{} )
 				{
 					prefixEnd = ptr2;
 					*prefixEnd++ = ']';
 					*prefixEnd++ = ' ';
-					
-					std::size_t prefixLen = prefixEnd - prefix;
-					(void) buffer.append( prefix, prefixLen );
+
+					std::size_t prefixLen = prefixEnd - std::data( prefix );
+					(void) buffer.append( std::data( prefix ), prefixLen );
 				}
 			}
 		}
@@ -138,9 +140,9 @@ std::size_t MultilineFormatter::countLines(
 	{
 		const char* lineStart;
 		std::size_t lineLength;
-		
+
 		current = findNextLine( current, end, lineStart, lineLength );
-		
+
 		// count line if it's not empty, or if we're preserving empty lines
 		if ( lineLength > 0 || _preserveEmptyLines )
 		{
@@ -181,23 +183,23 @@ const char* MultilineFormatter::findNextLine(
 		{
 			// found newline
 			outLineLength = current - start;
-			
+
 			// skip the \n
 			++current;
-			
+
 			return current;
 		}
 		else if ( *current == '\r' && current + 1 < end && *( current + 1 ) == '\n' )
 		{
 			// found \r\n
 			outLineLength = current - start;
-			
+
 			// skip the \r\n
 			current += 2;
-			
+
 			return current;
 		}
-		
+
 		++current;
 	}
 
