@@ -1,0 +1,91 @@
+name: Build Matrix
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false  # let all matrix entries run even if one fails
+      matrix:
+        build_type: [ Debug, Release ]
+        include:
+          # -- Linux ----------------------------------------------------------
+          - os: ubuntu-24.04
+            compiler: gcc-13
+            cc: gcc-13
+            cxx: g++-13
+            install: sudo apt-get install -y gcc-13 g++-13
+
+          - os: ubuntu-24.04
+            compiler: clang-18
+            cc: clang-18
+            cxx: clang++-18
+            install: sudo apt-get install -y clang-18
+
+          # -- macOS ----------------------------------------------------------
+          # Apple Clang is pre-installed; no extra install step needed
+          - os: macos-14
+            compiler: apple-clang
+            cc: clang
+            cxx: clang++
+            install: ""
+
+          # -- Windows --------------------------------------------------------
+          # MSVC is pre-installed on windows-latest runners
+          - os: windows-latest
+            compiler: msvc
+            cc: ""
+            cxx: ""
+            install: ""
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install compiler (Linux)
+        if: runner.os == 'Linux' && matrix.install != ''
+        run: |
+          sudo apt-get update -qq
+          ${{ matrix.install }}
+
+      - name: Install compiler (macOS)
+        if: runner.os == 'macOS' && matrix.install != ''
+        run: ${{ matrix.install }}
+
+      # CMake is pre-installed on all GitHub-hosted runners; this step
+      # upgrades to a known version only if the runner ships an older one
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      - name: Configure (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DNOVA_BUILD_TESTS=ON \
+            -DNOVA_BUILD_EXAMPLES=OFF
+
+      - name: Configure (Windows / MSVC)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -B build `
+            -DNOVA_BUILD_TESTS=ON `
+            -DNOVA_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel
+
+      - name: Test
+        run: ctest --test-dir build --build-config ${{ matrix.build_type }} --output-on-failure --parallel 4
