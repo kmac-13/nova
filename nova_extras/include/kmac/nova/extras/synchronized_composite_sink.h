@@ -2,13 +2,14 @@
 #ifndef KMAC_NOVA_EXTRAS_SYNCHRONIZED_COMPOSITE_SINK_H
 #define KMAC_NOVA_EXTRAS_SYNCHRONIZED_COMPOSITE_SINK_H
 
-#include <mutex>
-
 #include "kmac/nova/sink.h"
-#include "composite_sink.h"
+
+#include <mutex>
 
 namespace kmac::nova::extras
 {
+
+class CompositeSink;
 
 /**
  * @brief Thread-safe composite sink using a mutex.
@@ -38,8 +39,8 @@ public:
 	 *
 	 * @param sink the sink to add
 	 */
-	void addSink( Sink& sink ) noexcept;
-	
+	void addSink( kmac::nova::Sink& sink ) noexcept;
+
 	/**
 	 * @brief Clears all sinks.
 	 *

@@ -4,6 +4,7 @@
 #include "kmac/nova/extras/buffer.h"
 #include "kmac/nova/extras/formatter.h"
 
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 
@@ -249,7 +250,7 @@ void RollingFileSink::openCurrentFile() noexcept
 	}
 
 	// set full buffering with large buffer for better performance
-	std::setvbuf( _currentFile, nullptr, _IOFBF, 128 * 1024 );
+	std::setvbuf( _currentFile, nullptr, _IOFBF, std::size_t( 128 * 1024 ) );
 
 	_currentSize = 0;
 	_bufferOffset = 0;
