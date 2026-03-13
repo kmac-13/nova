@@ -66,6 +66,14 @@ jobs:
           #   MISRA 8-4-*  High false-positive rate on sink/formatter
           #   constructors that take multiple size_t parameters by design.
           #
+          # cppcoreguidelines-pro-bounds-pointer-arithmetic
+          #   Fires on both explicit ptr+n arithmetic and operator[] subscripting of
+          #   raw buffers. Nova's internal buffers are fixed-size with explicit bounds
+          #   checking; the violations are controlled and reviewable. Cannot be
+          #   resolved without std::array which is not always possible (e.g.
+          #   TruncatingBuffer). Retain pro-bounds-array-to-pointer-decay and
+          #   pro-bounds-constant-array-index as the more targeted alternatives.
+          #
           clang-tidy-18 \
             -p build \
             --warnings-as-errors="*" \
@@ -133,7 +141,6 @@ jobs:
               cppcoreguidelines-no-malloc,\
               cppcoreguidelines-pro-bounds-array-to-pointer-decay,\
               cppcoreguidelines-pro-bounds-constant-array-index,\
-              cppcoreguidelines-pro-bounds-pointer-arithmetic,\
               cppcoreguidelines-pro-type-const-cast,\
               cppcoreguidelines-pro-type-cstyle-cast,\
               cppcoreguidelines-pro-type-member-init,\
