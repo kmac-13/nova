@@ -93,7 +93,7 @@ void MultilineFormatter::formatAndWrite(
 					*prefixEnd++ = ']';
 					*prefixEnd++ = ' ';
 
-					std::size_t prefixLen = prefixEnd - std::data( prefix );
+					const std::size_t prefixLen = prefixEnd - std::data( prefix );
 					(void) buffer.append( std::data( prefix ), prefixLen );
 				}
 			}

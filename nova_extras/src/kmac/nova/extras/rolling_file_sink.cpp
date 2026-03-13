@@ -43,7 +43,7 @@ void RollingFileSink::process( const kmac::nova::Record& record ) noexcept
 {
 	constexpr std::size_t BUFFER_HALF_SIZE = WRITE_BUFFER_SIZE / 2;
 
-	if ( ! _currentFile ) /*[[unlikely]]*/
+	if ( _currentFile == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -227,7 +227,7 @@ std::size_t RollingFileSink::findHighestIndex() const noexcept
 
 				try
 				{
-					std::size_t index = std::stoull( suffix );
+					const std::size_t index = std::stoull( suffix );
 					if ( index > highestIndex )
 					{
 						highestIndex = index;
@@ -236,6 +236,8 @@ std::size_t RollingFileSink::findHighestIndex() const noexcept
 				catch ( ... )
 				{
 					// suffix is not a valid integer — skip this file
+					(void) 0;
+
 				}
 			}
 		}
@@ -244,6 +246,7 @@ std::size_t RollingFileSink::findHighestIndex() const noexcept
 	{
 		// filesystem iteration failed (permissions, deleted directory, etc.),
 		// so return whatever highest index was found before the error
+		(void) 0;
 	}
 
 	return highestIndex;
@@ -313,6 +316,7 @@ void RollingFileSink::rotate() noexcept
 		catch ( ... )
 		{
 			// intentionally suppressed: callback exceptions must not propagate through a noexcept boundary
+			(void) 0;
 		}
 	}
 }

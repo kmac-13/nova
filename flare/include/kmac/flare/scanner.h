@@ -81,7 +81,7 @@ private:
 	 * Note: This state is primarily for internal tracking and debugging.
 	 * The scan() method is the primary interface.
 	 */
-	enum class State
+	enum class State : std::uint8_t
 	{
 		SeekingMagic,  ///< Searching for record start (FLARE_MAGIC)
 		ReadingSize,   ///< Reading size field after magic
