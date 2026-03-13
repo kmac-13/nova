@@ -3,6 +3,7 @@
 #define KMAC_NOVA_BUILDER_WRAPPER_H
 
 #include "continuation_record_builder.h"
+#include "immovable.h"
 #include "sink.h"
 #include "truncating_record_builder.h"
 
@@ -266,7 +267,7 @@ struct TlsContBuilderWrapper
  * @tparam BufferSize size of the builder buffer in bytes
  */
 template< typename Tag, std::size_t BufferSize >
-class StackTruncatingBuilder
+class StackTruncatingBuilder : private Immovable
 {
 private:
 	TruncatingRecordBuilder< BufferSize > _builder;
@@ -289,8 +290,6 @@ public:
 	 * Calls commit() on the builder to emit the record.
 	 */
 	~StackTruncatingBuilder() noexcept;
-
-	NO_COPY_NO_MOVE( StackTruncatingBuilder );
 
 	/**
 	 * @brief Stream insertion operator.
@@ -368,7 +367,7 @@ public:
  * @tparam BufferSize size of the builder buffer in bytes
  */
 template< typename Tag, std::size_t BufferSize >
-class StackContinuationBuilder
+class StackContinuationBuilder : private Immovable
 {
 private:
 	ContinuationRecordBuilder< BufferSize > _builder;
@@ -393,8 +392,6 @@ public:
 	 * during streaming if the buffer filled.
 	 */
 	~StackContinuationBuilder() noexcept;
-
-	NO_COPY_NO_MOVE( StackContinuationBuilder );
 
 	/**
 	 * @brief Stream insertion operator.

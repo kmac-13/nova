@@ -124,8 +124,6 @@ public:
 	 */
 	CompositeSink() noexcept = default;
 
-	NO_COPY_NO_MOVE( CompositeSink );
-
 	/**
 	 * @brief Add a child sink to the composite.
 	 *

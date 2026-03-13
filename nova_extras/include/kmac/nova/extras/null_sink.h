@@ -59,8 +59,6 @@ public:
 	 */
 	NullSink() noexcept = default;
 
-	NO_COPY_NO_MOVE( NullSink );
-
 	/**
 	 * @brief Discard log record (no-op).
 	 *

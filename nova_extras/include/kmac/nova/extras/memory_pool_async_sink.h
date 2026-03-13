@@ -142,8 +142,6 @@ public:
 	 */
 	~MemoryPoolAsyncSink() noexcept;
 
-	NO_COPY_NO_MOVE( MemoryPoolAsyncSink );
-
 	/**
 	 * @brief Process a record by copying it and its message into the pool.
 	 *

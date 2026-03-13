@@ -2,6 +2,7 @@
 #ifndef KMAC_NOVA_CONTINUATION_RECORD_BUILDER_H
 #define KMAC_NOVA_CONTINUATION_RECORD_BUILDER_H
 
+#include "immovable.h"
 #include "logger.h"
 #include "logger_traits.h"
 
@@ -163,7 +164,7 @@ namespace kmac::nova
  * @tparam BufferSize buffer size in bytes (default 1024)
  */
 template< std::size_t BufferSize = 1024 >
-class ContinuationRecordBuilder
+class ContinuationRecordBuilder : private Immovable
 {
 private:
 	static constexpr const char* CONTINUATION_PREFIX = "[cont] ";
@@ -226,8 +227,6 @@ public:
 	 * explicit call to commit() for RAII delivery.
 	 */
 	~ContinuationRecordBuilder() noexcept = default;
-
-	NO_COPY_NO_MOVE( ContinuationRecordBuilder );
 
 	/**
 	 * @brief Sets the context data for the log.

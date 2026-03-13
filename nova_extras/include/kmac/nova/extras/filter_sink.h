@@ -16,23 +16,23 @@ namespace kmac::nova::extras
  * FilterSink allows runtime filtering of log records without requiring
  * compile-time changes. Records are forwarded to the downstream sink
  * only if the filter predicate returns true.
- * 
+ *
  * This is useful for:
  * - Filtering by tag name
  * - Filtering by message content
  * - Filtering by source file/function
  * - Dynamic log level filtering
  * - Temporary debugging filters
- * 
+ *
  * Example:
  *   // Only forward errors
  *   auto errorFilter = [](const Record& r) {
  *       return strstr(r.message, "ERROR") != nullptr;
  *   };
- *   
+ *
  *   OStreamSink console(std::cout);
  *   FilterSink filtered(console, errorFilter);
- *   
+ *
  *   Logger<MyTag>::bindSink(&filtered);
  */
 template< typename FilterFn >
@@ -45,13 +45,11 @@ private:
 public:
 	/**
 	 * @brief Construct a filter sink.
-	 * 
+	 *
 	 * @param downstream Sink to forward filtered records to
 	 * @param filter Predicate function that returns true for records to forward
 	 */
 	FilterSink( kmac::nova::Sink& downstream, FilterFn filter ) noexcept;
-
-	NO_COPY_NO_MOVE( FilterSink );
 
 	/**
 	 * @brief Process record through all child sinks.
@@ -67,7 +65,7 @@ public:
 
 /**
  * @brief Helper function to create FilterSink with template argument deduction.
- * 
+ *
  * Usage:
  *   auto filtered = makeFilterSink(downstream, [](const Record& r) { ... });
  */

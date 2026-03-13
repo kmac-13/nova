@@ -2,12 +2,7 @@
 #ifndef KMAC_NOVA_SINK_H
 #define KMAC_NOVA_SINK_H
 
-// convenience macro to explicitly delete copy and move constructors and assignment operators
-#define NO_COPY_NO_MOVE( Type ) \
-	Type( const Type& ) = delete; \
-	Type& operator=( const Type& ) = delete; \
-	Type( const Type&& ) = delete; \
-	Type& operator=( const Type&& ) = delete
+#include "immovable.h"
 
 namespace kmac::nova
 {
@@ -51,7 +46,7 @@ struct Record;
  *   config.bind<SampleTag>(&sink);
  *   NOVA_LOG_TRUNC(SampleTag) << "Hello!";
  */
-class Sink
+class Sink : private Immovable
 {
 public:
 	virtual ~Sink() = default;
