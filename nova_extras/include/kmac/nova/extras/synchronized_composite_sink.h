@@ -29,8 +29,6 @@ public:
 	 */
 	explicit SynchronizedCompositeSink( CompositeSink& composite ) noexcept;
 
-	NO_COPY_NO_MOVE( SynchronizedCompositeSink );
-
 	/**
 	 * @brief Adds a sink.
 	 *
@@ -39,7 +37,7 @@ public:
 	 * @param sink the sink to add
 	 */
 	void addSink( Sink& sink ) noexcept;
-	
+
 	/**
 	 * @brief Clears all sinks.
 	 *

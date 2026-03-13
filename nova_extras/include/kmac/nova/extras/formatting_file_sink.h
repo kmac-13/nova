@@ -43,7 +43,7 @@ namespace kmac::nova::extras
  *   FILE* file = fopen("log.txt", "w");
  *   setvbuf( file, nullptr, _IOFBF, 128 * 1024 );
  *   FormattingFileSink<> sink( file );
- *   
+ *
  *   NOVA_LOG_TRUNC(Tag) << "Raw message\n";
  *   sink.flush();  // explicitly flush to disk
  *   fclose( file );
@@ -53,7 +53,7 @@ namespace kmac::nova::extras
  *   setvbuf( file, nullptr, _IOFBF, 128 * 1024 );
  *   ISO8601Formatter formatter;
  *   FormattingFileSink<> sink( file, &formatter );
- *   
+ *
  *   NOVA_LOG_TRUNC(Tag) << "Formatted message";
  *   sink.flush();  // explicitly flush formatted output
  *   fclose( file );
@@ -72,7 +72,7 @@ class FormattingFileSink final : public kmac::nova::Sink
 private:
 	FILE* _file;                         ///< output file (not owned, must remain valid)
 	Formatter* _formatter;               ///< formatter (optional, not owned)
-	
+
 	// fixed-size formatting buffer
 	char _formatBuffer[ BufferSize ];
 	std::size_t _formatOffset;
@@ -89,8 +89,6 @@ public:
 	 * @note NEVER auto-flushes (call flush() explicitly)
 	 */
 	explicit FormattingFileSink( FILE* file, Formatter* formatter = nullptr ) noexcept;
-
-	NO_COPY_NO_MOVE( FormattingFileSink );
 
 	/**
 	 * @brief Process a log record (format and write to file immediately).

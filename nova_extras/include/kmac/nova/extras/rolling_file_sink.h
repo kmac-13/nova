@@ -272,8 +272,6 @@ public:
 	 */
 	~RollingFileSink() noexcept override;
 
-	NO_COPY_NO_MOVE( RollingFileSink );
-
 	/**
 	 * @brief Set rollover callback.
 	 *

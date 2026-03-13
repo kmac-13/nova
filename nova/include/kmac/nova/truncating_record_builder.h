@@ -2,6 +2,7 @@
 #ifndef KMAC_NOVA_TRUNCATING_RECORD_BUILDER_H
 #define KMAC_NOVA_TRUNCATING_RECORD_BUILDER_H
 
+#include "immovable.h"
 #include "logger.h"
 #include "logger_traits.h"
 
@@ -183,8 +184,6 @@ public:
 	 * explicit call to commit() for RAII delivery.
 	 */
 	~TruncatingRecordBuilder() noexcept = default;
-
-	NO_COPY_NO_MOVE( TruncatingRecordBuilder );
 
 	/**
 	 * @brief Sets the context data for the log.

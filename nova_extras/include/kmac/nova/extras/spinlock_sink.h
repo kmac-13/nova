@@ -17,25 +17,25 @@ namespace kmac::nova::extras
  * SpinlockSink provides thread-safe access to a downstream sink using
  * a spinlock (busy-wait) instead of a mutex. This avoids kernel involvement
  * and is more suitable for real-time systems.
- * 
+ *
  * Trade-offs vs SynchronizedSink (mutex):
  * - Pros: No syscalls, deterministic, better for real-time
  * - Cons: Wastes CPU cycles while waiting, bad for long critical sections
- * 
+ *
  * Use when:
  * - Downstream sink operations are very short (< 1 microsecond)
  * - Real-time constraints (no kernel calls)
  * - Predictable latency required
- * 
+ *
  * Avoid when:
  * - Downstream sink is slow (I/O, network, etc.)
  * - Many threads contending
  * - Battery/power efficiency matters
- * 
+ *
  * Example:
  *   OStreamSink console(std::cout);
  *   SpinlockSink threadSafe(console);
- *   
+ *
  *   // Multiple threads can safely call:
  *   Logger<MyTag>::bindSink(&threadSafe);
  */
@@ -48,21 +48,19 @@ private:
 public:
 	/**
 	 * @brief Construct spinlock sink wrapping a downstream sink.
-	 * 
+	 *
 	 * @param downstream The sink to forward records to (must outlive this sink)
 	 */
 	explicit SpinlockSink( kmac::nova::Sink& downstream ) noexcept;
 
-	NO_COPY_NO_MOVE( SpinlockSink );
-
 	/**
 	 * @brief Process a record with spinlock protection.
-	 * 
+	 *
 	 * Acquires spinlock, calls downstream->process(), releases spinlock.
-	 * 
+	 *
 	 * WARNING: This busy-waits (spins) until the lock is acquired.
 	 * If another thread holds the lock for a long time, this wastes CPU.
-	 * 
+	 *
 	 * @param record The record to process
 	 */
 	void process( const kmac::nova::Record& record ) noexcept override;

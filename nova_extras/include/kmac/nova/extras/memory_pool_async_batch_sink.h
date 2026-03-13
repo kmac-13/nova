@@ -109,8 +109,6 @@ public:
 
 	~MemoryPoolAsyncBatchSink() noexcept override;
 
-	NO_COPY_NO_MOVE( MemoryPoolAsyncBatchSink );
-
 	/**
 	 * @brief Get approximate bytes available in pool.
 	 *

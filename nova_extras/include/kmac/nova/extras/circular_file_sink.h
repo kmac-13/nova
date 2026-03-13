@@ -35,7 +35,7 @@ class Formatter;
  *
  * File structure after wraparound:
  *   [newer data][wrap point][older data that will be overwritten next]
- *   
+ *
  * Reading the file:
  * - file may not be in chronological order
  * - may contain partial records at wrap point
@@ -67,9 +67,9 @@ class Formatter;
  *
  * Usage:
  *   CircularFileSink sink("app.log", 10*1024*1024);  // 10MB max
- *   
+ *
  *   Logger<MyTag>::bindSink(&sink);
- *   
+ *
  *   // writes up to 10MB, then wraps to beginning
  *   // always have most recent 10MB of logs
  *
@@ -81,7 +81,7 @@ class Formatter;
  *   // fixed 1MB log for embedded system
  *   CircularFileSink sink("diagnostics.log", 1*1024*1024);
  *   SpinlockSink<CircularFileSink> threadSafe(sink);
- *   
+ *
  *   // Guaranteed:
  *   // - never exceeds 1MB disk
  *   // - no file accumulation
@@ -89,7 +89,7 @@ class Formatter;
  *   // - always have recent logs for post-mortem
  *
  * DO-178C/IEC 61508/ISO 26262 COMPLIANCE:
- * 
+ *
  * This sink is suitable for certification at all levels:
  * - bounded resources (fixed disk usage)
  * - simple implementation (easier to verify)
@@ -145,8 +145,6 @@ public:
 	 * @brief Destructor - flushes and closes file.
 	 */
 	~CircularFileSink() noexcept override;
-
-	NO_COPY_NO_MOVE( CircularFileSink );
 
 	/**
 	 * @brief Process a record, wrapping to start if needed.

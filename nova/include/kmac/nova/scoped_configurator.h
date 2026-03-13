@@ -2,6 +2,7 @@
 #ifndef KMAC_NOVA_SCOPED_CONFIGURATOR_H
 #define KMAC_NOVA_SCOPED_CONFIGURATOR_H
 
+#include "immovable.h"
 #include "logger.h"
 #include "platform/config.h"
 #include "platform/array.h"
@@ -70,7 +71,7 @@ class Sink;
  * - exceeding capacity is silently ignored in release builds (fail-safe)
  */
 template< size_t MaxBindings = 32 >
-class ScopedConfigurator
+class ScopedConfigurator : private Immovable
 {
 private:
 	using UnbindFn = void ( * )( ) noexcept;
@@ -94,8 +95,6 @@ public:
 	 * Unbinds loggers in reverse registration order (LIFO/stack order).
 	 */
 	inline ~ScopedConfigurator() noexcept;
-
-	NO_COPY_NO_MOVE( ScopedConfigurator );
 
 	/**
 	 * @brief Bind sink to logger and register for automatic unbinding.

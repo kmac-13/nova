@@ -28,8 +28,6 @@ public:
 	 */
 	explicit SynchronizedSink( kmac::nova::Sink& downstream ) noexcept;
 
-	NO_COPY_NO_MOVE( SynchronizedSink );
-
 	/**
 	 * @brief Process a record with mutex protection.
 	 *
