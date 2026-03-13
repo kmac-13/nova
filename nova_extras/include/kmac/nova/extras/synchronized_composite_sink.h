@@ -30,8 +30,6 @@ public:
 	 */
 	explicit SynchronizedCompositeSink( CompositeSink& composite ) noexcept;
 
-	NO_COPY_NO_MOVE( SynchronizedCompositeSink );
-
 	/**
 	 * @brief Adds a sink.
 	 *

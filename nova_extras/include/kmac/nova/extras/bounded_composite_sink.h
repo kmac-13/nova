@@ -94,8 +94,6 @@ public:
 	 */
 	BoundedCompositeSink() noexcept;
 
-	NO_COPY_NO_MOVE( BoundedCompositeSink );
-
 	/**
 	 * @brief Get current number of child sinks.
 	 *

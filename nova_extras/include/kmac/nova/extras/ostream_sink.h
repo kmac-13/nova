@@ -73,8 +73,6 @@ public:
 	 */
 	explicit OStreamSink( std::ostream& stream, bool flushOnWrite = false ) noexcept;
 
-	NO_COPY_NO_MOVE( OStreamSink );
-
 	/**
 	 * @brief Write raw log message to stream.
 	 *

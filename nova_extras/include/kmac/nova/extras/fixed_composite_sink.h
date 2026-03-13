@@ -93,8 +93,6 @@ public:
 	 */
 	FixedCompositeSink( kmac::nova::Sink** sinks, std::size_t count ) noexcept;
 
-	NO_COPY_NO_MOVE( FixedCompositeSink );
-
 	/**
 	 * @brief Process record through all sinks in array.
 	 *

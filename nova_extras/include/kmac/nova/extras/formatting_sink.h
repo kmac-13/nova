@@ -67,8 +67,6 @@ public:
 	 */
 	FormattingSink( kmac::nova::Sink& downstream, Formatter& formatter ) noexcept;
 
-	NO_COPY_NO_MOVE( FormattingSink );
-
 	/**
 	 * @brief Format a record and forward to the downstream sink.
 	 *
