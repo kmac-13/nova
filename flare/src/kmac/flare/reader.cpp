@@ -113,7 +113,7 @@ bool Reader::parseRecord( const std::uint8_t* data, std::size_t size, Record& ou
 				const std::size_t copyLen = ( length < Record::MAX_FILENAME_LEN - 1 )
 					? length
 					: ( Record::MAX_FILENAME_LEN - 1 );
-				std::memcpy( outRecord.file, value, copyLen );
+				std::memcpy( outRecord.file.data(), value, copyLen );
 				outRecord.file[ copyLen ] = '\0';
 				outRecord.fileLen = copyLen;
 				break;
@@ -124,7 +124,7 @@ bool Reader::parseRecord( const std::uint8_t* data, std::size_t size, Record& ou
 				const std::size_t copyLen = ( length < Record::MAX_FUNCTION_LEN - 1 )
 					? length
 					: ( Record::MAX_FUNCTION_LEN - 1 );
-				std::memcpy( outRecord.function, value, copyLen );
+				std::memcpy( outRecord.function.data(), value, copyLen );
 				outRecord.function[ copyLen ] = '\0';
 				outRecord.functionLen = copyLen;
 				break;
@@ -135,7 +135,7 @@ bool Reader::parseRecord( const std::uint8_t* data, std::size_t size, Record& ou
 				const std::size_t copyLen = ( length < Record::MAX_MESSAGE_LEN - 1 )
 					? length
 					: ( Record::MAX_MESSAGE_LEN - 1 );
-				std::memcpy( outRecord.message, value, copyLen );
+				std::memcpy( outRecord.message.data(), value, copyLen );
 				outRecord.message[ copyLen ] = '\0';
 				outRecord.messageLen = copyLen;
 				break;
