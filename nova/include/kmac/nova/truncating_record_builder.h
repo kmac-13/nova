@@ -6,6 +6,7 @@
 #include "logger.h"
 #include "logger_traits.h"
 
+#include <array>
 #include <cassert>
 #include <charconv>
 #include <cstddef>
@@ -123,7 +124,7 @@ namespace kmac::nova
  * @tparam BufferSize buffer size in bytes (default 1024)
  */
 template< std::size_t BufferSize = 1024 >
-class TruncatingRecordBuilder
+class TruncatingRecordBuilder : private Immovable
 {
 private:
 	static constexpr std::size_t TRUNCATION_MARKER_SIZE = 3; // "..."
@@ -132,7 +133,7 @@ private:
 	static_assert( BufferSize >= 16, "Buffer size must be at least 16 bytes" );
 	static_assert( BufferSize <= 65536, "Buffer size must not exceed 64KB (stack safety)" );
 
-	char _buffer[ BufferSize ];  ///< stack-allocated message buffer
+	std::array< char, BufferSize > _buffer = { };  ///< stack-allocated message buffer
 	std::size_t _offset = 0;     ///< current write position
 	bool _busy = false;          ///< non-atomic, thread-local reentrancy guard, not used for synchronization
 	bool _truncated = false;     ///< true if truncation occurred
@@ -144,11 +145,11 @@ private:
 	std::uint64_t _timestamp = 0;      ///< captured timestamp
 
 	// tag and logging details
-	const char* _tagName;
-	std::uint64_t _tagId;
+	const char* _tagName = nullptr;
+	std::uint64_t _tagId = 0;
 
 	using LogFunc = void (*)( const Record& ) noexcept;
-	LogFunc _logFunc;
+	LogFunc _logFunc = nullptr;
 
 public:
 	/**
@@ -248,9 +249,9 @@ private:
 	/**
 	 * @brief Append single character to buffer.
 	 *
-	 * @param c character to append
+	 * @param chr character to append
 	 */
-	void append( char c ) noexcept;
+	void append( char chr ) noexcept;
 
 	/**
 	 * @brief Append C-string to buffer.
@@ -273,9 +274,12 @@ private:
 
 	 * @tparam N array size including null terminator
 	 * @param lit string literal to append
+	 *
+	 * @note marked as NOLINT since this is a string literal reference that can't
+	 * be updated to an array declaration; std::array cannot bind to string literals
 	 */
 	template< std::size_t N >
-	void append( const char ( &lit )[ N ] ) noexcept;
+	void append( const char ( &lit )[ N ] ) noexcept;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 
 	/**
 	 * @brief Append string view to buffer.
@@ -362,7 +366,11 @@ void TruncatingRecordBuilder< BufferSize >::setContext( const char* file, const 
 	assert( ! _busy && "Nested logging detected! Use NOVA_LOG_STACK to avoid TLS conflicts" );
 
 	// silently fail in release builds
-	if ( _busy ) return;  // drop nested log, prevent corruption
+	if ( _busy )
+	{
+		// drop nested log, prevent corruption
+		return;
+	}
 
 	_busy = true;
 	_offset = 0;
@@ -400,13 +408,16 @@ template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::commit() noexcept
 {
 	// don't attempt to commit if not busy or already committed
-	if ( ! _busy || _committed ) return;
+	if ( ! _busy || _committed )
+	{
+		return;
+	}
 
 	if ( _truncated )
 	{
 		// add truncation marker
 		const char* marker = "...";
-		std::memcpy( _buffer + _offset, marker, TRUNCATION_MARKER_SIZE );
+		std::memcpy( _buffer.data() + _offset, marker, TRUNCATION_MARKER_SIZE );
 		_offset += TRUNCATION_MARKER_SIZE;
 	}
 
@@ -419,7 +430,7 @@ void TruncatingRecordBuilder< BufferSize >::commit() noexcept
 		_function,
 		_line,
 		_timestamp,
-		_buffer,
+		_buffer.data(),
 		_offset
 	};
 
@@ -436,9 +447,12 @@ bool TruncatingRecordBuilder< BufferSize >::hasSpace( std::size_t needed ) const
 }
 
 template< std::size_t BufferSize >
-void TruncatingRecordBuilder< BufferSize >::append( char c ) noexcept
+void TruncatingRecordBuilder< BufferSize >::append( char chr ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	if ( ! hasSpace( 1 ) )
 	{
@@ -446,13 +460,16 @@ void TruncatingRecordBuilder< BufferSize >::append( char c ) noexcept
 		return;
 	}
 
-	_buffer[ _offset++ ] = c;
+	_buffer[ _offset++ ] = chr;
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( const char* str ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	std::size_t len = std::strlen( str );
 	append( std::string_view( str, len ) );
@@ -460,7 +477,7 @@ void TruncatingRecordBuilder< BufferSize >::append( const char* str ) noexcept
 
 template< std::size_t BufferSize >
 template< std::size_t N >
-void TruncatingRecordBuilder< BufferSize >::append( const char ( &lit )[ N ] ) noexcept
+void TruncatingRecordBuilder< BufferSize >::append( const char ( &lit )[ N ] ) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 {
 	// N includes the null terminator; pass N-1 as the actual string length
 	static_assert( N > 0 );
@@ -474,7 +491,10 @@ template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( const std::string_view& str ) noexcept
 {
 	// return early if truncation has already occurred or the string is empty
-	if ( _truncated || str.empty() ) return;
+	if ( _truncated || str.empty() )
+	{
+		return;
+	}
 
 	if ( ! hasSpace( str.length() ) )
 	{
@@ -483,20 +503,23 @@ void TruncatingRecordBuilder< BufferSize >::append( const std::string_view& str 
 		// compiler can lose track of the source bound when this is inlined from
 		// the array-reference append overload, generating -Wstringop-overread warning
 		const std::size_t available = std::min( USABLE_SIZE - _offset, str.length() );
-		std::memcpy( _buffer + _offset, str.data(), available );
+		std::memcpy( _buffer.data() + _offset, str.data(), available );
 		_offset += available;
 		_truncated = true;
 		return;
 	}
 
-	std::memcpy( _buffer + _offset, str.data(), str.length() );
+	std::memcpy( _buffer.data() + _offset, str.data(), str.length() );
 	_offset += str.length();
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( int value ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	// worst case: "-2147483648" = 11 chars
 	if ( ! hasSpace( 11 ) )
@@ -506,21 +529,24 @@ void TruncatingRecordBuilder< BufferSize >::append( int value ) noexcept
 	}
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( unsigned int value ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	// worst case: "4294967295" = 10 chars
 	if ( ! hasSpace( 10 ) )
@@ -530,14 +556,14 @@ void TruncatingRecordBuilder< BufferSize >::append( unsigned int value ) noexcep
 	}
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -554,21 +580,24 @@ void TruncatingRecordBuilder< BufferSize >::append( long value ) noexcept
 	}
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( long long value ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	// worst case: 64-bit = 20 chars
 	if ( ! hasSpace( 20 ) )
@@ -592,7 +621,10 @@ void TruncatingRecordBuilder< BufferSize >::append( long long value ) noexcept
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( unsigned long value ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	if ( ! hasSpace( 20 ) )
 	{
@@ -601,21 +633,24 @@ void TruncatingRecordBuilder< BufferSize >::append( unsigned long value ) noexce
 	}
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( unsigned long long value ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	if ( ! hasSpace( 20 ) )
 	{
@@ -624,21 +659,24 @@ void TruncatingRecordBuilder< BufferSize >::append( unsigned long long value ) n
 	}
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( double value ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	// worst case for double in fixed notation: ~25 chars
 	if ( ! hasSpace( 25 ) )
@@ -648,21 +686,24 @@ void TruncatingRecordBuilder< BufferSize >::append( double value ) noexcept
 	}
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( float value ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	if ( ! hasSpace( 15 ) )
 	{
@@ -671,14 +712,14 @@ void TruncatingRecordBuilder< BufferSize >::append( float value ) noexcept
 	}
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -691,7 +732,10 @@ void TruncatingRecordBuilder< BufferSize >::append( bool value ) noexcept
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	// hex pointer: "0x" + 16 hex digits = 18 chars max
 	if ( ! hasSpace( 18 ) )
@@ -701,15 +745,15 @@ void TruncatingRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 	}
 
 	auto [ p, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		reinterpret_cast< std::uintptr_t >( ptr ),
 		16
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = p - _buffer;
+		_offset = p - _buffer.data();
 	}
 }
 
