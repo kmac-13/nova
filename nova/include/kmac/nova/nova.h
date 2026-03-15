@@ -4,14 +4,19 @@
 
 #include "builder_wrapper.h"
 
+#include <cstddef>
+
 namespace kmac::nova
 {
 
 /**
  * Configuration: Default buffer size for all builders.
  */
-#ifndef NOVA_DEFAULT_BUFFER_SIZE
-#define NOVA_DEFAULT_BUFFER_SIZE 1024
+inline constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
+#ifdef NOVA_DEFAULT_BUFFER_SIZE_OVERRIDE
+	NOVA_DEFAULT_BUFFER_SIZE_OVERRIDE;
+#else
+	1024;
 #endif
 
 /**
@@ -21,8 +26,8 @@ namespace kmac::nova
 #define NOVA_DEFAULT_BUILDER NOVA_BUILDER_TRUNCATING
 #endif
 
-#define NOVA_BUILDER_TRUNCATING   1
-#define NOVA_BUILDER_CONTINUATION 2
+inline constexpr std::size_t NOVA_BUILDER_TRUNCATING = 1;
+inline constexpr std::size_t NOVA_BUILDER_CONTINUATION = 2;
 
 
 // compile-time stripping of path from, e.g., __FILE__
@@ -37,6 +42,14 @@ constexpr const char* fileName( const char* path );
 //
 // Core Logging Macros - Truncating Variant
 //
+
+// The following macros cannot be replaced with constexpr template functions:
+// - __FILE__, __func__, __LINE__ require macro expansion at the call site (C++20
+//   std::source_location would allow functions, but Nova targets C++17)
+// - if constexpr eliminates disabled tag branches entirely; a function call cannot
+//   suppress evaluation of its own arguments
+// - alias macros expand to the above and inherit the same constraints
+// NOLINT comments suppress cppcoreguidelines-macro-usage on each definition.
 
 /**
  * @brief Thread-local truncating logger with default buffer size (1024 bytes).
@@ -72,8 +85,8 @@ constexpr const char* fileName( const char* path );
  * @see NOVA_LOG_TRUNC_STACK for stack-based logging (signal handlers, nested contexts)
  * @see TlsTruncBuilderWrapper for implementation details
  */
-#define NOVA_LOG_TRUNC( TagType ) \
-	NOVA_LOG_TRUNC_BUF( TagType, NOVA_DEFAULT_BUFFER_SIZE )
+#define NOVA_LOG_TRUNC( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_TRUNC_BUF( TagType, ::kmac::nova::NOVA_DEFAULT_BUFFER_SIZE )
 
 /**
  * @brief Thread-local truncating logger with custom buffer size.
@@ -95,7 +108,7 @@ constexpr const char* fileName( const char* path );
  *
  * @see NOVA_LOG_TRUNC for default buffer size
  */
-#define NOVA_LOG_TRUNC_BUF( TagType, BufferSize ) \
+#define NOVA_LOG_TRUNC_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::TlsTruncBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
@@ -144,8 +157,8 @@ constexpr const char* fileName( const char* path );
  * @see NOVA_LOG_TRUNC_BUF_STACK for custom buffer sizes
  * @see StackTruncatingBuilder for implementation details
  */
-#define NOVA_LOG_TRUNC_STACK( TagType ) \
-	NOVA_LOG_TRUNC_BUF_STACK( TagType, NOVA_DEFAULT_BUFFER_SIZE )
+#define NOVA_LOG_TRUNC_STACK( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_TRUNC_BUF_STACK( TagType, ::kmac::nova::NOVA_DEFAULT_BUFFER_SIZE )
 
 /**
  * @brief Stack-based truncating logger with custom buffer size.
@@ -161,7 +174,7 @@ constexpr const char* fileName( const char* path );
  * @param TagType the logging tag type
  * @param BufferSize buffer size in bytes (16-65536, but keep <2KB for signal handlers)
  */
-#define NOVA_LOG_TRUNC_BUF_STACK( TagType, BufferSize ) \
+#define NOVA_LOG_TRUNC_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::StackTruncatingBuilder< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ )
@@ -218,8 +231,8 @@ constexpr const char* fileName( const char* path );
  * @see NOVA_LOG_CONT_STACK for stack-based logging (signal handlers, nested contexts)
  * @see TlsContBuilderWrapper for implementation details
  */
-#define NOVA_LOG_CONT( TagType ) \
-	NOVA_LOG_CONT_BUF( TagType, NOVA_DEFAULT_BUFFER_SIZE )
+#define NOVA_LOG_CONT( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_CONT_BUF( TagType, ::kmac::nova::NOVA_DEFAULT_BUFFER_SIZE )
 
 /**
  * @brief Thread-local continuation logger with custom buffer size.
@@ -241,7 +254,7 @@ constexpr const char* fileName( const char* path );
  *
  * @see NOVA_LOG_CONT for default buffer size
  */
-#define NOVA_LOG_CONT_BUF( TagType, BufferSize ) \
+#define NOVA_LOG_CONT_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::TlsContBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
@@ -291,8 +304,8 @@ constexpr const char* fileName( const char* path );
  * @see NOVA_LOG_CONT_BUF_STACK for custom buffer sizes
  * @see StackContinuationBuilder for implementation details
  */
-#define NOVA_LOG_CONT_STACK( TagType ) \
-	NOVA_LOG_CONT_BUF_STACK( TagType, NOVA_DEFAULT_BUFFER_SIZE )
+#define NOVA_LOG_CONT_STACK( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_CONT_BUF_STACK( TagType, ::kmac::nova::NOVA_DEFAULT_BUFFER_SIZE )
 
 /**
  * @brief Stack-based continuation logger with custom buffer size.
@@ -308,7 +321,7 @@ constexpr const char* fileName( const char* path );
  * @param TagType the logging tag type
  * @param BufferSize buffer size in bytes (16-65536, but keep <2KB for signal handlers)
  */
-#define NOVA_LOG_CONT_BUF_STACK( TagType, BufferSize ) \
+#define NOVA_LOG_CONT_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::StackContinuationBuilder< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ )
@@ -338,25 +351,25 @@ constexpr const char* fileName( const char* path );
 /**
  * NOVA_LOG_SMALL - Uses 512 byte buffer
  */
-#define NOVA_LOG_SMALL( TagType ) \
+#define NOVA_LOG_SMALL( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_LOG_BUF( TagType, 512 )
 
 /**
  * NOVA_LOG_MEDIUM - Uses 4KB buffer (same as default)
  */
-#define NOVA_LOG_MEDIUM( TagType ) \
+#define NOVA_LOG_MEDIUM( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_LOG_BUF( TagType, 4096 )
 
 /**
  * NOVA_LOG_LARGE - Uses 16KB buffer
  */
-#define NOVA_LOG_LARGE( TagType ) \
+#define NOVA_LOG_LARGE( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_LOG_BUF( TagType, 16384 )
 
 /**
  * NOVA_LOG_HUGE - Uses 64KB buffer
  */
-#define NOVA_LOG_HUGE( TagType ) \
+#define NOVA_LOG_HUGE( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_LOG_BUF( TagType, 65536 )
 
 

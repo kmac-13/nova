@@ -82,6 +82,12 @@ jobs:
           #   the preferred approach as it replaces the NO_COPY_NO_MOVE macro
           #   (cppcoreguidelines-macro-usage, MISRA 16-0-*).
           #
+          # Note: cppcoreguidelines-macro-usage is enabled but all macros in nova.h carry
+          # NOLINT suppressions - they require __FILE__/__func__/__LINE__ injection and
+          # if constexpr branch elimination at the call site, which C++17 functions cannot
+          # provide.  C++20 std::source_location would allow migrating the source location
+          # injection to functions, but the if constexpr elimination constraint remains.
+          #
           clang-tidy-18 \
             -p build \
             --warnings-as-errors="*" \
