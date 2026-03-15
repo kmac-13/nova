@@ -1,5 +1,10 @@
 #include "kmac/nova/extras/spinlock_sink.h"
 
+#include "kmac/nova/record.h"
+#include "kmac/nova/sink.h"
+
+#include <atomic>
+
 #if defined( __x86_64__ ) || defined( __i386__ )
 #include <immintrin.h>  // For _mm_pause()
 #endif

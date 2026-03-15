@@ -23,7 +23,7 @@ namespace kmac::nova::extras
  * @endcode
  *
  * Timestamp precision is milliseconds, always expressed in UTC (Z suffix).
- * The timestamp in the Record is assumed to be in nanoseconds — the caller
+ * The timestamp in the Record is assumed to be in nanoseconds - the caller
  * controls the clock source via logger_traits<Tag>::timestamp().
  *
  * ### Design
@@ -34,16 +34,16 @@ namespace kmac::nova::extras
  *
  * format() has three execution paths ordered from fastest to slowest:
  *
- *  1. **ultra-fast passthrough** — if tag, file, and function are all empty
+ *  1. **ultra-fast passthrough** - if tag, file, and function are all empty
  *     (pre-formatted message), the raw message bytes are appended directly
  *     with no framing.
  *
- *  2. **fast path** — if the complete formatted record fits within 480 bytes
+ *  2. **fast path** - if the complete formatted record fits within 480 bytes
  *     and the output buffer has sufficient remaining space, the entire record
  *     is assembled into a 512-byte stack buffer and copied to the output in a
  *     single append.  This eliminates per-field boundary checks.
  *
- *  3. **slow path** — a resumable state machine that writes one field at a
+ *  3. **slow path** - a resumable state machine that writes one field at a
  *     time.  Used for large records (> 480 bytes total) or when the output
  *     buffer fills mid-record and format() must be called again to continue.
  *

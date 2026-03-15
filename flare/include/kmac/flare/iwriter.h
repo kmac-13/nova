@@ -2,6 +2,8 @@
 #ifndef KMAC_FLARE_IWRITER_H
 #define KMAC_FLARE_IWRITER_H
 
+#include <kmac/nova/immovable.h>
+
 #include <cstddef>
 
 namespace kmac::flare
@@ -33,7 +35,7 @@ namespace kmac::flare
  *       }
  *   };
  */
-class IWriter
+class IWriter : private kmac::nova::Immovable
 {
 public:
 	virtual ~IWriter() = default;

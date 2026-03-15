@@ -54,7 +54,8 @@ file( GLOB FLARE_SOURCES
 # Helper function to create a gtest test
 function( add_nova_gtest test_name test_source )
 	add_executable( ${test_name} ${test_source} ${NOVA_SOURCES} ${NOVA_EXTRAS_SOURCES} ${FLARE_SOURCES} )
-	target_link_libraries( ${test_name} PRIVATE GTest::gtest GTest::gtest_main pthread )
+	find_package( Threads REQUIRED )
+	target_link_libraries( ${test_name} PRIVATE GTest::gtest GTest::gtest_main Threads::Threads )
 
 	# sanitizers run automatically in repo, so don't force them here
 	# enable_asan( ${test_name} )

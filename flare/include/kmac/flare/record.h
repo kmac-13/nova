@@ -2,6 +2,7 @@
 #ifndef KMAC_FLARE_RECORD_H
 #define KMAC_FLARE_RECORD_H
 
+#include <array>
 #include <cstdint>
 #include <cstddef>
 
@@ -51,9 +52,9 @@ struct Record
 	// message flags
 	bool messageTruncated = false;  // true if message was truncated
 
-	char file[ MAX_FILENAME_LEN ] = { };
-	char function[ MAX_FUNCTION_LEN ] = { };
-	char message[ MAX_MESSAGE_LEN ] = { };
+	std::array< char, MAX_FILENAME_LEN > file = { };
+	std::array< char, MAX_FUNCTION_LEN > function = { };
+	std::array< char, MAX_MESSAGE_LEN > message = { };
 
 	// actual lengths (may be less than buffer size)
 	std::size_t fileLen = 0;

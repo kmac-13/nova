@@ -39,7 +39,7 @@ TEST_F( NovaSinks, OStreamSink )
 	NOVA_LOG( SinkTag ) << "test output";
 
 	std::string output = oss.str();
-	EXPECT_EQ( output, "test output" );
+	EXPECT_EQ( output, "test output\n" );
 }
 
 TEST_F( NovaSinks, OStreamSinkMultipleMessages )

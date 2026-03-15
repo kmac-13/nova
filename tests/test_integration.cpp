@@ -414,7 +414,7 @@ TEST_F( Integration, RealWorldCrashScenario )
 
 	while ( reader.parseNext( crashData.data(), crashData.size(), record ) )
 	{
-		messages.push_back( std::string( record.message ) );
+		messages.push_back( std::string( record.message.data() ) );
 	}
 
 	EXPECT_EQ( messages.size(), 3 );

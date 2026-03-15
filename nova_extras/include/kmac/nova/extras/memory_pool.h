@@ -248,7 +248,7 @@ uint8_t* MemoryPool< Capacity, Allocator >::allocate( std::size_t size ) noexcep
 
 	while ( wrapRetries < MAX_WRAP_RETRIES )
 	{
-		std::size_t write = _writeOffset.load( std::memory_order_relaxed );
+		std::size_t write = _writeOffset.load( std::memory_order_acquire );
 		std::size_t read = _readOffset.load( std::memory_order_acquire );
 
 		// check if we have enough total space
@@ -266,7 +266,7 @@ uint8_t* MemoryPool< Capacity, Allocator >::allocate( std::size_t size ) noexcep
 			// need to wrap, compare-and-swap failure means another thread already wrapped,
 			// which is fine, just reload and retry without burning an alloc attempt
 			std::size_t nextBoundary = ( ( write / Capacity ) + 1 ) * Capacity;
-			_writeOffset.compare_exchange_weak( write, nextBoundary, std::memory_order_relaxed, std::memory_order_relaxed );
+			_writeOffset.compare_exchange_weak( write, nextBoundary, std::memory_order_release, std::memory_order_relaxed );
 			++wrapRetries;
 			continue;
 		}
@@ -278,10 +278,28 @@ uint8_t* MemoryPool< Capacity, Allocator >::allocate( std::size_t size ) noexcep
 			{
 				return base() + writePos;
 			}
+
+			// write is now updated to the current _writeOffset value, and now writePos
+			// needs to be recomputed so we don't return a stale/claimed address
+			writePos = write & ( Capacity - 1 );
+
+			// if the updated write position requires a wrap, break to the
+			// outer loop rather than retrying with an unusable writePos
+			if ( size > ( Capacity - writePos ) )
+			{
+				break;
+			}
+
+			// re-check pool fullness with the updated read/write positions
+			read = _readOffset.load( std::memory_order_acquire );
+			if ( size > ( Capacity - ( write - read ) ) )
+			{
+				return nullptr;
+			}
 		}
 
-		// too much contention - treat as full
-		return nullptr;
+		// counts outer iterations regardless of why inner exited
+		++wrapRetries;
 	}
 
 	// wrap contention exhausted - treat as full

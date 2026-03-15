@@ -22,6 +22,29 @@
 #include <windows.h>  // GetCurrentProcessId()
 #endif
 
+namespace
+{
+
+// helper class used to address clang-tidy cognitive complexity
+// issues by breaking up the encoding into smaller pieces
+struct TlvWriteHelper
+{
+	char* buffer;
+	std::size_t& offset;
+	const std::size_t bufferSize;
+
+	bool writeTlv( kmac::flare::TlvType type, const void* data, std::uint16_t len ) noexcept;
+
+	void writeStringTlv( kmac::flare::TlvType type, const char* str ) noexcept;
+
+	void writeProcessInfoTlv() noexcept;
+
+	// returns true if message was truncated
+	bool writeMessageTlv( const kmac::nova::Record& record ) noexcept;
+};
+
+} // anonymous namespace
+
 namespace kmac::flare
 {
 
@@ -34,13 +57,13 @@ EmergencySink::EmergencySink( IWriter* writer, bool captureProcessInfo ) noexcep
 
 void EmergencySink::process( const kmac::nova::Record& record ) noexcept
 {
-	if ( ! _writer )
+	if ( _writer == nullptr )
 	{
 		return;
 	}
 
 	// encode to stack buffer
-	std::array< char, ENCODING_BUFFER_SIZE > buffer;
+	std::array< char, ENCODING_BUFFER_SIZE > buffer = { };
 	const std::size_t encodedSize = encodeRecordTlv( record, buffer.data(), buffer.size() );
 
 	if ( encodedSize > 0 )
@@ -58,7 +81,7 @@ void EmergencySink::process( const kmac::nova::Record& record ) noexcept
 
 void EmergencySink::flush() noexcept
 {
-	if ( _writer )
+	if ( _writer != nullptr )
 	{
 		_writer->flush();
 	}
@@ -67,28 +90,7 @@ void EmergencySink::flush() noexcept
 std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, char* buffer, std::size_t bufferSize ) noexcept
 {
 	std::size_t offset = 0;
-
-	// helper lambda to write TLV
-	auto writeTlv = [ & ]( TlvType type, const void* data, std::uint16_t len ) -> bool
-	{
-		const std::size_t needed = sizeof( std::uint16_t ) * 2 + len;
-		if ( ( offset + needed ) > bufferSize )
-		{
-			return false; // not enough space
-		}
-
-		std::uint16_t typeVal = std::uint16_t( type );
-		std::memcpy( buffer + offset, &typeVal, sizeof( typeVal ) );
-		offset += sizeof( typeVal );
-
-		std::memcpy( buffer + offset, &len, sizeof( len ) );
-		offset += sizeof(len);
-
-		std::memcpy( buffer + offset, data, len );
-		offset += len;
-
-		return true;
-	};
+	::TlvWriteHelper writeHelper{ buffer, offset, bufferSize };
 
 	// write magic number
 	if ( offset + sizeof( FLARE_MAGIC ) > bufferSize )
@@ -98,8 +100,8 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 	std::memcpy( buffer + offset, &FLARE_MAGIC, sizeof( FLARE_MAGIC ) );
 	offset += sizeof( FLARE_MAGIC );
 
-	// reserve space for total size (we'll fill it in later)
-	std::size_t sizeOffset = offset;
+	// reserve space for total size (filled in at the end)
+	const std::size_t sizeOffset = offset;
 	if ( ( offset + sizeof( std::uint32_t ) ) > bufferSize )
 	{
 		return 0;
@@ -109,112 +111,62 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 	// write the status as InProgress initially
 	// (if we crash before updating it, reader knows it's a torn write)
 	std::uint8_t status = std::uint8_t( RecordStatus::InProgress );
-	if ( ! writeTlv( TlvType::RecordStatus, &status, sizeof( status ) ) )
+	if ( ! writeHelper.writeTlv( TlvType::RecordStatus, &status, sizeof( status ) ) )
 	{
 		return 0;
 	}
 	const std::size_t statusOffset = offset - sizeof( status );  // remember where status is
 
-	// write the sequence number
-	if ( ! writeTlv( TlvType::SequenceNumber, &_sequenceNumber, sizeof( _sequenceNumber ) ) )
+	// write mandatory fields, starting with the sequence number
+	if ( ! writeHelper.writeTlv( TlvType::SequenceNumber, &_sequenceNumber, sizeof( _sequenceNumber ) ) )
 	{
 		return 0;
 	}
 
 	// write the timestamp
-	if ( ! writeTlv( TlvType::TimestampNs, &record.timestamp, sizeof( record.timestamp ) ) )
+	if ( ! writeHelper.writeTlv( TlvType::TimestampNs, &record.timestamp, sizeof( record.timestamp ) ) )
 	{
 		return 0;
 	}
 
 	// write the tag as hash (for compact storage)
 	std::uint64_t tagHash = hashString( record.tag );
-	if ( ! writeTlv( TlvType::TagId, &tagHash, sizeof( tagHash ) ) )
+	if ( ! writeHelper.writeTlv( TlvType::TagId, &tagHash, sizeof( tagHash ) ) )
 	{
 		return 0;
 	}
 
-	// write the file name (if not too long)
-	if ( record.file )
-	{
-		const std::size_t fileLen = std::strlen( record.file );
-		if ( fileLen > 0 && fileLen <= UINT16_MAX )
-		{
-			// try to write, but don't fail if it doesn't fit
-			writeTlv( TlvType::FileName, record.file, std::uint16_t( fileLen ) );
-		}
-	}
+	// write optional source location fields, starting with the file name (if not too long)
+	writeHelper.writeStringTlv( TlvType::FileName, record.file );
 
 	// write the line number
-	if ( ! writeTlv( TlvType::LineNumber, &record.line, sizeof( record.line ) ) )
+	if ( ! writeHelper.writeTlv( TlvType::LineNumber, &record.line, sizeof( record.line ) ) )
 	{
 		return 0;
 	}
 
 	// write the function name (if not too long)
-	if ( record.function )
-	{
-		const std::size_t funcLen = std::strlen( record.function );
-		if ( funcLen > 0 && funcLen <= UINT16_MAX )
-		{
-			writeTlv( TlvType::FunctionName, record.function, std::uint16_t( funcLen ) );
-		}
-	}
+	writeHelper.writeStringTlv( TlvType::FunctionName, record.function );
 
 	// write the process/thread info if enabled
 	if ( _captureProcessInfo )
 	{
-		// Process ID - available on most platforms
-#if defined( _WIN32 )
-		std::uint32_t pid = std::uint32_t( GetCurrentProcessId() );
-		writeTlv( TlvType::ProcessId, &pid, sizeof( pid ) );
-#elif defined( __linux__ ) || defined( __unix__ ) || defined( __APPLE__ ) || defined( __FreeBSD__ )
-		std::uint32_t pid = std::uint32_t( getpid() );
-		writeTlv( TlvType::ProcessId, &pid, sizeof( pid ) );
-#endif
-
-// thread ID - Linux only for async-signal-safety
-#ifdef __linux__
-		std::uint32_t tid = std::uint32_t( syscall( SYS_gettid ) );
-		writeTlv( TlvType::ThreadId, &tid, sizeof( tid ) );
-#endif
+		writeHelper.writeProcessInfoTlv();
 	}
 
-	// write the message bytes (using messageSize - no strlen needed!)
-	bool messageTruncated = false;
-	if ( record.message && record.messageSize > 0 )
-	{
-		if ( record.messageSize <= UINT16_MAX )
-		{
-			if ( ! writeTlv( TlvType::MessageBytes, record.message, std::uint16_t( record.messageSize ) ) )
-			{
-				// couldn't fit full message - try to fit what we can
-				const std::size_t remaining = bufferSize - offset - ( sizeof( std::uint16_t ) * 2 + sizeof( std::uint16_t ) * 2 );  // reserve space for end marker
-				if ( remaining > 0 && remaining <= UINT16_MAX )
-				{
-					writeTlv( TlvType::MessageBytes, record.message, std::uint16_t( remaining ) );
-					messageTruncated = true;
-				}
-			}
-		}
-		else
-		{
-			// message too long - truncate to max uint16
-			writeTlv( TlvType::MessageBytes, record.message, UINT16_MAX );
-			messageTruncated = true;
-		}
-	}
+	// write message, with truncation fallback
+	const bool messageTruncated = writeHelper.writeMessageTlv( record );
 
 	// if message was truncated, add truncation marker
 	if ( messageTruncated )
 	{
-		std::uint8_t truncFlag = 1;
-		writeTlv( TlvType::MessageTruncated, &truncFlag, sizeof( truncFlag ) );
+		const std::uint8_t truncFlag = 1;
+		writeHelper.writeTlv( TlvType::MessageTruncated, &truncFlag, sizeof( truncFlag ) );
 	}
 
 	// write end marker
-	std::uint16_t endType = std::uint16_t( TlvType::RecordEnd );
-	std::uint16_t zero = 0;
+	const std::uint16_t endType = std::uint16_t( TlvType::RecordEnd );
+	const std::uint16_t zero = 0;
 	if ( ( offset + sizeof( endType ) + sizeof( zero ) ) > bufferSize )
 	{
 		return 0;
@@ -232,7 +184,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 	std::memcpy( buffer + statusOffset, &status, sizeof( status ) );
 
 	// write the total size
-	std::uint32_t totalSize = std::uint32_t( offset );
+	const std::uint32_t totalSize = std::uint32_t( offset );
 	std::memcpy( buffer + sizeOffset, &totalSize, sizeof( totalSize ) );
 
 	return offset;
@@ -244,3 +196,98 @@ std::uint64_t EmergencySink::hashString( const char* str ) noexcept
 }
 
 } // namespace kmac::flare
+
+namespace
+{
+
+bool TlvWriteHelper::writeTlv( kmac::flare::TlvType type, const void* data, std::uint16_t len ) noexcept
+{
+	const std::size_t needed = sizeof( std::uint16_t ) * 2 + len;
+	if ( ( offset + needed ) > bufferSize )
+	{
+		// not enough space
+		return false;
+	}
+
+	std::uint16_t typeVal = std::uint16_t( type );
+	std::memcpy( buffer + offset, &typeVal, sizeof( typeVal ) );
+	offset += sizeof( typeVal );
+
+	std::memcpy( buffer + offset, &len, sizeof( len ) );
+	offset += sizeof( len );
+
+	std::memcpy( buffer + offset, data, len );
+	offset += len;
+
+	return true;
+}
+
+void TlvWriteHelper::writeStringTlv( kmac::flare::TlvType type, const char* str ) noexcept
+{
+	if ( str == nullptr )
+	{
+		return;
+	}
+	const std::size_t len = std::strlen( str );
+	if ( len > 0 && len <= UINT16_MAX )
+	{
+		writeTlv( type, str, std::uint16_t( len ) );
+	}
+}
+
+void TlvWriteHelper::writeProcessInfoTlv() noexcept
+{
+	// process ID
+#if defined( _WIN32 )
+	std::uint32_t pid = std::uint32_t( GetCurrentProcessId() );
+	writeTlv( kmac::flare::TlvType::ProcessId, &pid, sizeof( pid ) );
+#elif defined( __linux__ ) || defined( __unix__ ) || defined( __APPLE__ ) || defined( __FreeBSD__ )
+	std::uint32_t pid = std::uint32_t( getpid() );
+	writeTlv( kmac::flare::TlvType::ProcessId, &pid, sizeof( pid ) );
+#endif
+
+	// thread ID
+#ifdef __linux__
+	// TODO: MISRA deviation
+	std::uint32_t tid = std::uint32_t( syscall( SYS_gettid ) ) ; // NO LINT(cppcoreguidelines-pro-type-vararg,hicpp-vararg)
+	writeTlv( kmac::flare::TlvType::ThreadId, &tid, sizeof( tid ) );
+#endif
+}
+
+// returns true if message was truncated
+bool TlvWriteHelper::writeMessageTlv( const kmac::nova::Record& record ) noexcept
+{
+	// make sure message and messageSize are valid
+	if ( record.message == nullptr || record.messageSize == 0 )
+	{
+		return false;
+	}
+
+	// check if the message is smaller than uint16 max
+	if ( record.messageSize <= UINT16_MAX )
+	{
+		if ( writeTlv( kmac::flare::TlvType::MessageBytes, record.message, std::uint16_t( record.messageSize ) ) )
+		{
+			// wrote successfully, no truncation
+			return false;
+		}
+
+		// couldn't fit full message, so try to fit what we can
+		const std::size_t remaining = bufferSize - offset - ( sizeof( std::uint16_t ) * 2 + sizeof( std::uint16_t ) * 2 );
+		if ( remaining > 0 && remaining <= UINT16_MAX )
+		{
+			writeTlv( kmac::flare::TlvType::MessageBytes, record.message, std::uint16_t( remaining ) );
+		}
+	}
+
+	// message exceeds uint16 max, so truncate to fit
+	else
+	{
+		writeTlv( kmac::flare::TlvType::MessageBytes, record.message, UINT16_MAX );
+	}
+
+	// truncated
+	return true;
+}
+
+} // anonymous namespace

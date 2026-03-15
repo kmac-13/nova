@@ -10,14 +10,20 @@ FileWriter::FileWriter( std::FILE* file ) noexcept
 
 std::size_t FileWriter::write( const void* data, std::size_t size ) noexcept
 {
-	if ( !_file ) return 0;
+	if ( _file == nullptr )
+	{
+		return 0;
+	}
 	return std::fwrite( data, 1, size, _file );
 }
 
 void FileWriter::flush() noexcept
 {
-	// NOTE: silencing disregarded fflush return value
-	if ( _file ) (void) std::fflush( _file );
+	if ( _file != nullptr )
+	{
+		// NOTE: silencing disregarded fflush return value
+		(void) std::fflush( _file );
+	}
 }
 
 } // kmac::flare

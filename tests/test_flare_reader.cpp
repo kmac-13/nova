@@ -92,11 +92,11 @@ TEST_F( FlareReader, ReaderParseSingleRecord )
 	bool success = reader.parseNext( data.data(), data.size(), readRecord );
 	EXPECT_TRUE( success );
 
-	EXPECT_STREQ( readRecord.file, "file.cpp" );
-	EXPECT_STREQ( readRecord.function, "testFunc" );
+	EXPECT_STREQ( readRecord.file.data(), "file.cpp" );
+	EXPECT_STREQ( readRecord.function.data(), "testFunc" );
 	EXPECT_EQ( readRecord.line, 123u );
 	EXPECT_EQ( readRecord.timestampNs, 1704067200000000000ULL );
-	EXPECT_NE( std::string( readRecord.message ).find( "test message" ), std::string::npos );
+	EXPECT_NE( std::string( readRecord.message.data() ).find( "test message" ), std::string::npos );
 }
 
 TEST_F( FlareReader, ReaderParseMultipleRecords )
@@ -143,7 +143,7 @@ TEST_F( FlareReader, ReaderParseMultipleRecords )
 		EXPECT_EQ( record.timestampNs, uint64_t( 1000 + count ) );
 
 		std::string expectedMsg = "message " + std::to_string( count );
-		EXPECT_NE( std::string( record.message ).find( expectedMsg ), std::string::npos );
+		EXPECT_NE( std::string( record.message.data() ).find( expectedMsg ), std::string::npos );
 
 		++count;
 	}
@@ -286,7 +286,7 @@ TEST_F( FlareReader, ReaderEmptyFile )
 	EXPECT_FALSE( success );  // should return false for empty file
 }
 
-TEST_F(FlareReader, ReaderLargeMessage)
+TEST_F( FlareReader, ReaderLargeMessage )
 {
 	std::string filepath = getTempFilePath( "reader_large.flare" );
 

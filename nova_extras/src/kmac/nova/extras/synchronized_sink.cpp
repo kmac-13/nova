@@ -1,5 +1,9 @@
 #include "kmac/nova/extras/synchronized_sink.h"
 
+#include "kmac/nova/sink.h"
+
+#include <mutex>
+
 namespace kmac::nova::extras
 {
 
@@ -10,7 +14,7 @@ SynchronizedSink::SynchronizedSink( kmac::nova::Sink& downstream ) noexcept
 
 void SynchronizedSink::process( const kmac::nova::Record& record ) noexcept
 {
-	std::lock_guard< std::mutex > lock( _mutex );
+	const std::lock_guard< std::mutex > lock( _mutex );
 	_downstream->process( record );
 }
 
