@@ -83,14 +83,14 @@ private:
 	 */
 	enum class State : std::uint8_t
 	{
-		SeekingMagic,  ///< Searching for record start (FLARE_MAGIC)
-		ReadingSize,   ///< Reading size field after magic
-		Validating     ///< Validating record structure
+		SeekingMagic,  ///< searching for record start (FLARE_MAGIC)
+		ReadingSize,   ///< reading size field after magic
+		Validating     ///< validating record structure
 	};
 
-	State _state;            ///< Current scanner state
-	std::size_t _offset;          ///< Current search position in buffer
-	std::uint32_t _expectedSize;  ///< Expected size of current candidate record
+	State _state { State::SeekingMagic };  ///< vurrent scanner state
+	std::size_t _offset { 0 };             ///< current search position in buffer
+	std::uint32_t _expectedSize { 0 };     ///< expected size of current candidate record
 
 public:
 	/**
