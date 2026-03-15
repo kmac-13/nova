@@ -25,11 +25,18 @@ namespace kmac::nova
  * };
  * @endcode
  *
- * Inheritance should be private — Immovable is a implementation detail,
+ * Inheritance should be private - Immovable is a implementation detail,
  * not part of the public interface of the derived class.
  *
  * @note This class has no data members and imposes no runtime overhead.
- */struct Immovable
+ * Inheriting classes do not need to redeclare the deleted copy/move operations.
+ * The cppcoreguidelines-special-member-functions check, which would require
+ * those redundant declarations, is disabled in the clang-tidy workflow because
+ * it conflicts with this pattern - see clang-tidy.yml for the documented exclusion.
+ * Otherwise, the following comment would have to be added in several places:
+ *     // NOLINT(cppcoreguidelines-special-member-functions) comment would
+ */
+struct Immovable
 {
 	Immovable() = default;
 	Immovable( const Immovable& ) = delete;

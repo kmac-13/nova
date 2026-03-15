@@ -57,9 +57,9 @@ jobs:
           # a suppression strategy before enabling:
           #
           # readability-magic-numbers / cppcoreguidelines-avoid-magic-numbers
-          #   MISRA 5-0-*  These are aliased checks. They fire on template
+          #   MISRA 5-0-*  These are aliased checks.  They fire on template
           #   parameters (e.g. MemoryPool<2097152ul, 16384ul>) and physical
-          #   constants throughout the codebase. Enable once NOVA_POOL_SIZE
+          #   constants throughout the codebase.  Enable once NOVA_POOL_SIZE
           #   and similar named constants are in place at all call sites.
           #
           # bugprone-easily-swappable-parameters
@@ -68,11 +68,19 @@ jobs:
           #
           # cppcoreguidelines-pro-bounds-pointer-arithmetic
           #   Fires on both explicit ptr+n arithmetic and operator[] subscripting of
-          #   raw buffers. Nova's internal buffers are fixed-size with explicit bounds
-          #   checking; the violations are controlled and reviewable. Cannot be
+          #   raw buffers.  Nova's internal buffers are fixed-size with explicit bounds
+          #   checking; the violations are controlled and reviewable.  Cannot be
           #   resolved without std::array which is not always possible (e.g.
-          #   TruncatingBuffer). Retain pro-bounds-array-to-pointer-decay and
+          #   TruncatingBuffer).  Retain pro-bounds-array-to-pointer-decay and
           #   pro-bounds-constant-array-index as the more targeted alternatives.
+          #
+          # cppcoreguidelines-special-member-functions
+          #   Requires all five special members to be explicitly declared in any class
+          #   that declares any one of them.  This conflicts with the Immovable base
+          #   class pattern, which centralises the deleted copy/move declarations to
+          #   avoid repeating them in every derived class.  The Immovable pattern is
+          #   the preferred approach as it replaces the NO_COPY_NO_MOVE macro
+          #   (cppcoreguidelines-macro-usage, MISRA 16-0-*).
           #
           clang-tidy-18 \
             -p build \
@@ -149,7 +157,6 @@ jobs:
               cppcoreguidelines-pro-type-union-access,\
               cppcoreguidelines-pro-type-vararg,\
               cppcoreguidelines-slicing,\
-              cppcoreguidelines-special-member-functions,\
               cppcoreguidelines-virtual-class-destructor,\
               hicpp-avoid-goto,\
               hicpp-exception-baseclass,\
