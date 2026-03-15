@@ -130,8 +130,8 @@ inline constexpr const char* tagIdOwner = nullptr;
 //
 
 // FNV-1a constants
-constexpr std::uint64_t FNV_OFFSET = 14695981039346656037Ull;
-constexpr std::uint64_t FNV_PRIME = 1099511628211Ull;
+constexpr std::uint64_t FNV_OFFSET = 14695981039346656037ULL;
+constexpr std::uint64_t FNV_PRIME = 1099511628211ULL;
 constexpr std::uint64_t FNV_FINAL = 0xd6e8feb86659fd93ULL;
 
 // string hash

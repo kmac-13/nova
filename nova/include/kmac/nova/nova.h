@@ -331,15 +331,15 @@ constexpr const char* fileName( const char* path );
 //
 
 #if NOVA_DEFAULT_BUILDER == NOVA_BUILDER_TRUNCATING
-#define NOVA_LOG( TagType ) NOVA_LOG_TRUNC( TagType )
-#define NOVA_LOG_BUF( TagType, BufferSize ) NOVA_LOG_TRUNC_BUF( TagType, BufferSize )
-#define NOVA_LOG_STACK( TagType ) NOVA_LOG_TRUNC_STACK( TagType )
-#define NOVA_LOG_BUF_STACK( TagType, BufferSize ) NOVA_LOG_TRUNC_BUF_STACK( TagType, BufferSize )
+#define NOVA_LOG( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ NOVA_LOG_TRUNC( TagType )
+#define NOVA_LOG_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ NOVA_LOG_TRUNC_BUF( TagType, BufferSize )
+#define NOVA_LOG_STACK( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ NOVA_LOG_TRUNC_STACK( TagType )
+#define NOVA_LOG_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ NOVA_LOG_TRUNC_BUF_STACK( TagType, BufferSize )
 #elif NOVA_DEFAULT_BUILDER == NOVA_BUILDER_CONTINUATION
-#define NOVA_LOG( TagType ) NOVA_LOG_CONT( TagType )
-#define NOVA_LOG_BUF( TagType, BufferSize ) NOVA_LOG_CONT_BUF( TagType, BufferSize )
-#define NOVA_LOG_STACK( TagType ) NOVA_LOG_CONT_STACK( TagType )
-#define NOVA_LOG_BUF_STACK( TagType, BufferSize ) NOVA_LOG_CONT_BUF_STACK( TagType, BufferSize )
+#define NOVA_LOG( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ NOVA_LOG_CONT( TagType )
+#define NOVA_LOG_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ NOVA_LOG_CONT_BUF( TagType, BufferSize )
+#define NOVA_LOG_STACK( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ NOVA_LOG_CONT_STACK( TagType )
+#define NOVA_LOG_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ NOVA_LOG_CONT_BUF_STACK( TagType, BufferSize )
 #else
 #error "Invalid NOVA_DEFAULT_BUILDER - must be NOVA_BUILDER_TRUNCATING or NOVA_BUILDER_CONTINUATION"
 #endif

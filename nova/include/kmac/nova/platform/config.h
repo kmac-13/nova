@@ -2,6 +2,11 @@
 #ifndef KMAC_NOVA_PLATFORM_CONFIG_H
 #define KMAC_NOVA_PLATFORM_CONFIG_H
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
+// config.h is a preprocessor-level platform configuration header.
+// All macros here operate before the C++ compiler and cannot be replaced
+// with constexpr constructs.  See clang-tidy.yml for the documented rationale.
+
 /**
  * @file config.h
  * @brief Platform configuration and feature detection for Nova logging framework
@@ -337,7 +342,7 @@
 // ============================================================================
 
 #ifndef NOVA_ASSERT
-	#if defined(NOVA_BARE_METAL)
+	#if defined( NOVA_BARE_METAL )
 		// bare-metal: user must provide their own assert
 		// example: #define NOVA_ASSERT( x ) if ( ! ( x ) ) { bsp_halt(); }
 		#ifndef NOVA_ASSERT
@@ -370,5 +375,7 @@
 
 // mark platform-specific code
 #define NOVA_PLATFORM_SPECIFIC
+
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
 #endif // KMAC_NOVA_PLATFORM_CONFIG_H
