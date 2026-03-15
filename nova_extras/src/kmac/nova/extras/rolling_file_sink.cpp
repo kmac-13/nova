@@ -72,14 +72,14 @@ void RollingFileSink::flush() noexcept
 	const std::size_t written = std::fwrite( std::data( _writeBuffer ), 1, _bufferOffset, _currentFile );
 	if ( written != _bufferOffset )
 	{
-		// partial or failed write — data lost, nothing actionable in noexcept context
+		// partial or failed write - data lost, nothing actionable in noexcept context
 		_bufferOffset = 0;
 		return;
 	}
 
 	if ( std::fflush( _currentFile ) != 0 )
 	{
-		// flush failed — OS buffer may not have been committed to disk
+		// flush failed - OS buffer may not have been committed to disk
 	}
 
 	_currentSize += _bufferOffset;
@@ -235,7 +235,7 @@ std::size_t RollingFileSink::findHighestIndex() const noexcept
 				}
 				catch ( ... )
 				{
-					// suffix is not a valid integer — skip this file
+					// suffix is not a valid integer - skip this file
 					(void) 0;
 
 				}
@@ -271,7 +271,7 @@ void RollingFileSink::openCurrentFile() noexcept
 	// set full buffering with large buffer for better performance
 	if ( std::setvbuf( _currentFile, nullptr, _IOFBF, std::size_t( 128 * 1024 ) ) != 0 )
 	{
-		// buffer hint rejected — file remains open with default buffering
+		// buffer hint rejected - file remains open with default buffering
 	}
 
 	_currentSize = 0;
@@ -285,7 +285,7 @@ void RollingFileSink::closeCurrentFile() noexcept
 	{
 		if ( std::fclose( _currentFile ) != 0 )
 		{
-			// flush failed — buffered data may have been lost;
+			// flush failed - buffered data may have been lost;
 			// nothing actionable in a noexcept context
 			// TODO: consider using a return value and logging issue in next file aftter rotate
 		}

@@ -101,7 +101,7 @@ constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits
  * Each invocation registers the tag with the tagIdOwner guard (see details.h).
  * If two tags in the same binary hash to the same tagId, the compiler produces
  * a redefinition error.  For cross-binary collision detection across independently
- * compiled shared libraries, provide a validation translation unit — see the
+ * compiled shared libraries, provide a validation translation unit - see the
  * documentation on details::tagIdOwner for the recommended pattern.
  *
  * Usage:

@@ -80,7 +80,7 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;
  * } // namespace
  * @endcode
  *
- * The function is never called — the compiler validates case labels regardless.
+ * The function is never called - the compiler validates case labels regardless.
  * Placing it in an anonymous namespace suppresses unused-function warnings without
  * needing compiler-specific attributes.
  *

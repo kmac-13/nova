@@ -162,19 +162,19 @@ public:
 	 * Defaulted (trivial) rather than user-provided for two reasons:
 	 *
 	 * 1. MSVC tls_atexit crash (Windows):
-	 * A user-provided destructor — even with an empty body — causes MSVC to
+	 * A user-provided destructor - even with an empty body - causes MSVC to
 	 * heap-allocate a tls_atexit registration record for every thread that
 	 * constructs this thread_local.  That record is freed via atexit during
 	 * CRT shutdown, which races with other library atexit handlers and causes
 	 * RtlFreeHeap to receive an invalid address at process exit.  A defaulted
 	 * destructor is trivial (all members are trivially destructible), so MSVC
-	 * never registers tls_atexit for it — no heap allocation, no shutdown race.
+	 * never registers tls_atexit for it - no heap allocation, no shutdown race.
 	 *
 	 * 2. FLS/sink rebind race (Windows):
 	 * Even if the crash were absent, calling commit() here would be hazardous.
 	 * On thread exit the FLS callback fires this destructor asynchronously,
 	 * which could race with a ScopedConfigurator on another thread rebinding
-	 * the same tag's sink — causing phantom records to land in the new sink
+	 * the same tag's sink - causing phantom records to land in the new sink
 	 * and inflating delivery counts (which affects unit test results).
 	 *
 	 * Commit safety: TlsTruncBuilderWrapper::~TlsTruncBuilderWrapper() is the

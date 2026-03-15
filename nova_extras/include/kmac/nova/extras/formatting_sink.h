@@ -20,7 +20,7 @@ namespace kmac::nova::extras
  * FormattingSink applies a Formatter to each record and forwards the result
  * to a downstream Sink.  It is the general-purpose counterpart to
  * FormattingFileSink: where FormattingFileSink writes to a FILE*, this class
- * forwards to any Sink — an OStreamSink, CompositeSink, SynchronizedSink,
+ * forwards to any Sink - an OStreamSink, CompositeSink, SynchronizedSink,
  * or any user-defined Sink.
  *
  * Formatting model:
@@ -29,7 +29,7 @@ namespace kmac::nova::extras
  * If the formatting buffer fills before the record is complete, the buffer is
  * flushed to the downstream sink mid-record and format() is called again.
  * Each flush produces a separate downstream process() call carrying a partial
- * formatted message — this is expected behavior for large records with small
+ * formatted message - this is expected behavior for large records with small
  * buffer sizes.  Choose BufferSize large enough for typical records to avoid
  * unnecessary fragmentation.
  *
