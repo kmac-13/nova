@@ -471,7 +471,7 @@ void TruncatingRecordBuilder< BufferSize >::append( const char* str ) noexcept
 		return;
 	}
 
-	std::size_t len = std::strlen( str );
+	const std::size_t len = std::strlen( str );
 	append( std::string_view( str, len ) );
 }
 
@@ -570,7 +570,10 @@ void TruncatingRecordBuilder< BufferSize >::append( unsigned int value ) noexcep
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( long value ) noexcept
 {
-	if ( _truncated ) return;
+	if ( _truncated )
+	{
+		return;
+	}
 
 	// worst case: 64-bit = 20 chars
 	if ( ! hasSpace( 20 ) )
@@ -744,10 +747,11 @@ void TruncatingRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 		return;
 	}
 
+	// NOLINT comment: pointer-to-integer for address formatting (std::bit_cast requires C++20)
 	auto [ p, ec ] = std::to_chars(
 		_buffer.data() + _offset,
 		_buffer.data() + BufferSize - 1,
-		reinterpret_cast< std::uintptr_t >( ptr ),
+		reinterpret_cast< std::uintptr_t >( ptr ),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 		16
 	);
 

@@ -7,10 +7,10 @@
 #include <array>
 #include <cstddef>
 
-namespace kmac::nova
-{
-struct Record;
-} // namespace kmac::nova
+// namespace kmac::nova
+// {
+// struct Record;
+// } // namespace kmac::nova
 
 namespace kmac::nova::extras
 {
@@ -85,8 +85,8 @@ template< std::size_t MaxSinks >
 class BoundedCompositeSink final : public kmac::nova::Sink
 {
 private:
-	std::array< kmac::nova::Sink*, MaxSinks > _sinks;  ///< fixed array of child sinks
-	std::size_t _count;                                ///< current number of sinks
+	std::array< kmac::nova::Sink*, MaxSinks > _sinks { };  ///< fixed array of child sinks
+	std::size_t _count = 0;                                ///< current number of sinks
 
 public:
 	/**
@@ -157,8 +157,6 @@ public:
 
 template< std::size_t MaxSinks >
 BoundedCompositeSink< MaxSinks >::BoundedCompositeSink() noexcept
-	: _sinks{}
-	, _count( 0 )
 {
 }
 
@@ -177,13 +175,8 @@ std::size_t BoundedCompositeSink< MaxSinks >::capacity() const noexcept
 template< std::size_t MaxSinks >
 bool BoundedCompositeSink< MaxSinks >::add( kmac::nova::Sink& sink ) noexcept
 {
-	// can't add if already at capacity
-	if ( _count >= MaxSinks )
-	{
-		return false;
-	}
-	// don't add if the sink is already registered
-	else if ( contains( sink ) )
+	// can't add if already at capacity or already registered
+	if ( _count >= MaxSinks || contains( sink ) )
 	{
 		return false;
 	}
