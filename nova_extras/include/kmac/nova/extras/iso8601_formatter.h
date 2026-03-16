@@ -5,6 +5,7 @@
 #include "formatter.h"
 #include "buffer.h"
 
+#include <array>
 #include <cstdint>
 #include <ctime>
 
@@ -55,7 +56,7 @@ class ISO8601Formatter final : public Formatter
 {
 private:
 	// fields written to the output buffer in this order by the slow path
-	enum class Stage
+	enum class Stage : std::uint8_t
 	{
 		TimestampWithSpace,  ///< "2025-02-07T12:34:56.789Z "
 		OpenBracket,         ///< "["
@@ -72,22 +73,22 @@ private:
 		Done                 ///< record fully written
 	};
 
-	Stage _stage;         ///< current slow-path position; reset to TimestampWithSpace by begin()
-	std::size_t _offset;  ///< byte offset within the field currently being written
+	Stage _stage = Stage::Done;  ///< current slow-path position; reset to TimestampWithSpace by begin()
+	std::size_t _offset = 0;     ///< byte offset within the field currently being written
 
 	// pre-formatted timestamp built once in begin() and reused across format() calls
-	char _timestampBuf[ 32 ];   ///< "YYYY-MM-DDTHH:MM:SS.mmmZ " (25 bytes used)
-	std::size_t _timestampLen;  ///< actual byte count in _timestampBuf
+	std::array< char, 32 > _timestampBuf = { };  ///< "YYYY-MM-DDTHH:MM:SS.mmmZ " (25 bytes used)
+	std::size_t _timestampLen = 0;               ///< actual byte count in _timestampBuf
 
 	// pre-formatted line number built once in begin(); includes a trailing space
 	// so Stage::LineWithSpace writes "42 " as a single append
-	char _lineBuf[ 16 ];
-	std::size_t _lineLen;
+	std::array< char, 16 > _lineBuf = { };
+	std::size_t _lineLen = 0;
 
 	// string lengths cached in begin() to avoid repeated strlen() in format()
-	std::size_t _tagNameLen;
-	std::size_t _fileNameLen;
-	std::size_t _funcNameLen;
+	std::size_t _tagNameLen = 0;
+	std::size_t _fileNameLen = 0;
+	std::size_t _funcNameLen = 0;
 
 public:
 	ISO8601Formatter() noexcept;

@@ -22,8 +22,8 @@ CircularFileSink::CircularFileSink( const std::string& filename, std::size_t max
 {
 	// open file for writing (create or truncate)
 	_file = std::fopen( _filename.c_str(), "wb" );
-	
-	if ( ! _file ) /*[[unlikely]]*/
+
+	if ( _file == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -35,8 +35,8 @@ CircularFileSink::CircularFileSink( const std::string& filename, std::size_t max
 CircularFileSink::~CircularFileSink() noexcept
 {
 	flush();
-	
-	if ( _file )
+
+	if ( _file != nullptr )
 	{
 		std::fclose( _file );
 		_file = nullptr;
@@ -97,8 +97,8 @@ void CircularFileSink::flush() noexcept
 
 		// write as much as fits
 		const std::size_t toWrite = ( remaining <= spaceLeft ) ? remaining : spaceLeft;
-		std::fwrite( _writeBuffer + offset, 1, toWrite, _file );
-		
+		std::fwrite( _writeBuffer.data() + offset, 1, toWrite, _file );
+
 		_currentSize += toWrite;
 		_totalWritten += toWrite;
 		remaining -= toWrite;
@@ -152,7 +152,7 @@ void CircularFileSink::processFormatted( const kmac::nova::Record& record ) noex
 		}
 
 		// format the record into the buffer
-		Buffer buf( _writeBuffer + _bufferOffset, WRITE_BUFFER_SIZE - _bufferOffset );
+		Buffer buf( _writeBuffer.data() + _bufferOffset, WRITE_BUFFER_SIZE - _bufferOffset );
 		const bool done = _formatter->format( record, buf );
 
 		// update buffer offset
@@ -179,7 +179,7 @@ void CircularFileSink::wrap() noexcept
 
 	// seek to beginning of file
 	std::fseek( _file, 0, SEEK_SET );
-	
+
 	// reset position
 	_currentSize = 0;
 	_hasWrapped = true;
@@ -196,7 +196,7 @@ void CircularFileSink::write( const char* data, std::size_t size ) noexcept
 	if ( _bufferOffset + size <= WRITE_BUFFER_SIZE )
 	{
 		// copy to buffer
-		std::memcpy( _writeBuffer + _bufferOffset, data, size );
+		std::memcpy( _writeBuffer.data() + _bufferOffset, data, size );
 		_bufferOffset += size;
 	}
 	else
@@ -209,12 +209,12 @@ void CircularFileSink::write( const char* data, std::size_t size ) noexcept
 		{
 			// data larger than entire buffer - write directly
 			// this bypasses buffering for very large writes
-			
+
 			// check if we need to wrap
 			if ( _currentSize + size > _maxFileSize )
 			{
 				const std::size_t beforeWrap = _maxFileSize - _currentSize;
-				
+
 				if ( beforeWrap > 0 )
 				{
 					std::fwrite( data, 1, beforeWrap, _file );
@@ -241,7 +241,7 @@ void CircularFileSink::write( const char* data, std::size_t size ) noexcept
 		else
 		{
 			// data fits in buffer now that it's empty
-			std::memcpy( _writeBuffer, data, size );
+			std::memcpy( _writeBuffer.data(), data, size );
 			_bufferOffset = size;
 		}
 	}

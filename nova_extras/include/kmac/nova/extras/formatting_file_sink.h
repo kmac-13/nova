@@ -7,6 +7,7 @@
 #include "kmac/nova/extras/buffer.h"
 #include "kmac/nova/extras/formatter.h"
 
+#include <array>
 #include <cstdio>
 
 namespace kmac::nova::extras
@@ -66,16 +67,16 @@ namespace kmac::nova::extras
  *
  * @tparam BufferSize size of formatting buffer
  */
-template< std::size_t BufferSize = 256 * 1024 >
+template< std::size_t BufferSize = 256UL * 1024UL >
 class FormattingFileSink final : public kmac::nova::Sink
 {
 private:
-	FILE* _file;                         ///< output file (not owned, must remain valid)
-	Formatter* _formatter;               ///< formatter (optional, not owned)
+	FILE* _file = nullptr;            ///< output file (not owned, must remain valid)
+	Formatter* _formatter = nullptr;  ///< formatter (optional, not owned)
 
 	// fixed-size formatting buffer
-	char _formatBuffer[ BufferSize ];
-	std::size_t _formatOffset;
+	std::array< char, BufferSize > _formatBuffer = { };
+	std::size_t _formatOffset = 0;
 
 public:
 	/**
@@ -140,19 +141,18 @@ template< std::size_t BufferSize >
 FormattingFileSink< BufferSize >::FormattingFileSink( FILE* file, Formatter* formatter ) noexcept
 	: _file( file )
 	, _formatter( formatter )
-	, _formatOffset( 0 )
 {
 }
 
 template< std::size_t BufferSize >
 void FormattingFileSink< BufferSize >::process( const kmac::nova::Record& record ) noexcept
 {
-	if ( ! _file )
+	if ( _file == nullptr )
 	{
 		return;
 	}
 
-	if ( _formatter )
+	if ( _formatter != nullptr )
 	{
 		// format record using Formatter interface
 		_formatter->begin( record );
@@ -162,7 +162,7 @@ void FormattingFileSink< BufferSize >::process( const kmac::nova::Record& record
 		while ( ! done )
 		{
 			// create Buffer wrapper for remaining space
-			Buffer buf( _formatBuffer + _formatOffset, BufferSize - _formatOffset );
+			Buffer buf( _formatBuffer.data() + _formatOffset, BufferSize - _formatOffset );
 
 			// format into buffer
 			done = _formatter->format( record, buf );
@@ -192,26 +192,33 @@ void FormattingFileSink< BufferSize >::process( const kmac::nova::Record& record
 template< std::size_t BufferSize >
 void FormattingFileSink< BufferSize >::flush() noexcept
 {
-	if ( ! _file )
+	if ( _file == nullptr )
 	{
 		return;
 	}
 
 	// since process() already writes formatted data immediately,
 	// we only need to flush the FILE* stream to disk
-	fflush( _file );
+	if ( std::fflush( _file ) != 0 )
+	{
+		// flush failed, OS buffer may not have been committed to disk
+	}
 }
 
 template< std::size_t BufferSize >
 void FormattingFileSink< BufferSize >::flushFormatBuffer() noexcept
 {
-	if ( _formatOffset == 0 || ! _file )
+	if ( _formatOffset == 0 || _file == nullptr )
 	{
 		return;
 	}
 
 	// write formatted buffer to file
-	fwrite( _formatBuffer, 1, _formatOffset, _file );
+	const std::size_t written = std::fwrite( _formatBuffer.data(), 1, _formatOffset, _file );
+	if ( written != _formatOffset )
+	{
+		// partial or failed write, formatted data lost, nothing actionable in noexcept context
+	}
 
 	// reset buffer
 	_formatOffset = 0;

@@ -4,6 +4,7 @@
 
 #include "kmac/nova/sink.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <string>
@@ -109,7 +110,7 @@ class Formatter;
 class CircularFileSink final : public kmac::nova::Sink
 {
 	// write buffering for improved performance
-	static constexpr std::size_t WRITE_BUFFER_SIZE = 256 * 1024;  // 256 KB buffer
+	static constexpr std::size_t WRITE_BUFFER_SIZE = 256UL * 1024UL;  // 256 KB buffer
 
 private:
 	std::string _filename;
@@ -118,15 +119,15 @@ private:
 	std::size_t _totalWritten;   ///< Total bytes written (may exceed maxFileSize)
 	bool _hasWrapped;            ///< True if we've wrapped around at least once
 
-	FILE* _file;
+	FILE* _file = nullptr;
 
-	Formatter* _formatter;
+	Formatter* _formatter = nullptr;
 
-	char _writeBuffer[ WRITE_BUFFER_SIZE ];
-	std::size_t _bufferOffset;
+	std::array< char, WRITE_BUFFER_SIZE > _writeBuffer = { };
+	std::size_t _bufferOffset = 0;
 
 	using ProcessFunc = void ( CircularFileSink::* )( const kmac::nova::Record& );
-	ProcessFunc _process;
+	ProcessFunc _process = nullptr;
 
 public:
 	/**

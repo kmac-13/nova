@@ -130,13 +130,6 @@ static constexpr const char DIGITS_3[ 1000 ][ 4 ] = {
 };
 
 ISO8601Formatter::ISO8601Formatter() noexcept
-	: _stage( Stage::Done )
-	, _offset( 0 )
-	, _timestampLen( 0 )
-	, _lineLen( 0 )
-	, _tagNameLen( 0 )
-	, _fileNameLen( 0 )
-	, _funcNameLen( 0 )
 {
 }
 
@@ -220,7 +213,7 @@ bool ISO8601Formatter::format( const kmac::nova::Record& record, Buffer& buffer 
 			char* dest = tempBuf;
 
 			// timestamp
-			std::memcpy( dest, _timestampBuf, _timestampLen );
+			std::memcpy( dest, _timestampBuf.data(), _timestampLen );
 			dest += _timestampLen;
 
 			// [tag]
@@ -240,7 +233,7 @@ bool ISO8601Formatter::format( const kmac::nova::Record& record, Buffer& buffer 
 				dest += _fileNameLen;
 			}
 			*dest++ = ':';
-			std::memcpy( dest, _lineBuf, _lineLen );
+			std::memcpy( dest, _lineBuf.data(), _lineLen );
 			dest += _lineLen;
 
 			// function - message
@@ -288,7 +281,7 @@ bool ISO8601Formatter::format( const kmac::nova::Record& record, Buffer& buffer 
 		switch ( _stage )
 		{
 		case Stage::TimestampWithSpace:
-			if ( ! buffer.append( _timestampBuf, _timestampLen ) )
+			if ( ! buffer.append( _timestampBuf.data(), _timestampLen ) )
 			{
 				return false;
 			}
@@ -351,7 +344,7 @@ bool ISO8601Formatter::format( const kmac::nova::Record& record, Buffer& buffer 
 			[[fallthrough]];
 
 		case Stage::LineWithSpace:
-			if ( ! buffer.append( _lineBuf, _lineLen ) )
+			if ( ! buffer.append( _lineBuf.data(), _lineLen ) )
 			{
 				return false;
 			}
@@ -416,7 +409,7 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 	gmtime_r( &tt, &tm );
 #endif
 
-	char* out = _timestampBuf;
+	char* out = _timestampBuf.data();
 
 	// year-month-day
 	const int year = 1900 + tm.tm_year;
@@ -454,7 +447,7 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 	*out++ = 'Z';
 	*out++ = ' ';
 
-	_timestampLen = static_cast< std::size_t >( out - _timestampBuf );
+	_timestampLen = static_cast< std::size_t >( out - _timestampBuf.data() );
 }
 
 } // namespace kmac::nova::extras

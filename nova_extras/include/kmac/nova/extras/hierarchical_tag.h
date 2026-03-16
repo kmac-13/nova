@@ -58,7 +58,8 @@ struct HierarchicalTag
 // Specialization to provide automatic tag names
 //
 
-#define TAG_NAME( tag ) #tag
+// NOLINT NOTE: stringification operator # has no constexpr equivalent
+#define TAG_NAME( tag ) #tag /* NOLINT(cppcoreguidelines-macro-usage) */
 
 template< typename Subsystem, typename Severity >
 struct kmac::nova::logger_traits< kmac::nova::extras::HierarchicalTag< Subsystem, Severity > >
@@ -69,7 +70,8 @@ struct kmac::nova::logger_traits< kmac::nova::extras::HierarchicalTag< Subsystem
 	static constexpr char tagIdStorage = '\0';
 	static /*constexpr*/ std::uintptr_t tagId() noexcept
 	{
-		return reinterpret_cast< std::uintptr_t >( &tagIdStorage );
+		// NOLINT NOTE: pointer-to-integer for unique tag ID generation; no safer alternative in C++17
+		return reinterpret_cast< std::uintptr_t >( &tagIdStorage );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 	}
 
 	static constexpr bool enabled = true;
@@ -96,7 +98,7 @@ namespace kmac::nova::extras
 	struct Fatal {};
 
 	// numeric severity values for filtering
-	enum class SeverityLevel : int
+	enum class SeverityLevel : std::uint8_t
 	{
 		Trace   = 0,
 		Debug   = 1,
