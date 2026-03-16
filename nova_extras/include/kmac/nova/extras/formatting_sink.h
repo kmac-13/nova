@@ -7,6 +7,7 @@
 #include "kmac/nova/extras/buffer.h"
 #include "kmac/nova/extras/formatter.h"
 
+#include <array>
 #include <cstddef>
 
 namespace kmac::nova::extras
@@ -50,13 +51,13 @@ namespace kmac::nova::extras
  *
  * @tparam BufferSize size of the internal formatting buffer in bytes
  */
-template< std::size_t BufferSize = 256 * 1024 >
+template< std::size_t BufferSize = 256UL * 1024UL >
 class FormattingSink final : public kmac::nova::Sink
 {
 private:
-	kmac::nova::Sink* _downstream;   ///< downstream sink (not owned)
-	Formatter* _formatter;           ///< formatter (not owned)
-	char _formatBuffer[ BufferSize ];
+	kmac::nova::Sink* _downstream = nullptr;   ///< downstream sink (not owned)
+	Formatter* _formatter = nullptr;           ///< formatter (not owned)
+	std::array< char, BufferSize > _formatBuffer = { };
 
 public:
 	/**
@@ -108,7 +109,7 @@ void FormattingSink< BufferSize >::process( const kmac::nova::Record& record ) n
 	bool done = false;
 	while ( ! done )
 	{
-		Buffer buf( _formatBuffer, BufferSize );
+		Buffer buf( _formatBuffer.data(), BufferSize );
 		done = _formatter->format( record, buf );
 
 		if ( buf.size() > 0 )
@@ -125,7 +126,7 @@ void FormattingSink< BufferSize >::flushBuffer( const kmac::nova::Record& record
 	// all other fields (tag, timestamp, file, line, function) are preserved so the
 	// downstream sink can use them if needed
 	kmac::nova::Record formatted = record;
-	formatted.message = _formatBuffer;
+	formatted.message = _formatBuffer.data();
 	formatted.messageSize = size;
 	_downstream->process( formatted );
 }

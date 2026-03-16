@@ -15,7 +15,7 @@ namespace kmac::nova::extras
 /**
  * @brief Memory allocation strategy for pool storage.
  */
-enum class PoolAllocator
+enum class PoolAllocator : std::uint8_t
 {
 	Heap,  // use std::unique_ptr (default, flexible size)
 	Stack  // use std::array (faster, but limited by stack constraints)
@@ -54,11 +54,11 @@ class MemoryPool
 {
 	// ensure power of 2 for efficient modulo via bitwise AND
 	static_assert( ( Capacity & ( Capacity - 1 ) ) == 0, "Capacity must be power of 2" );
-	static_assert( Capacity >= 1024, "Minimum capacity is 1KB" );
-	static_assert( Capacity <= 256 * 1024 * 1024, "Maximum capacity is 256MB" );
+	static_assert( Capacity >= 1024UL, "Minimum capacity is 1KB" );
+	static_assert( Capacity <= 256UL * 1024UL * 1024UL, "Maximum capacity is 256MB" );
 
 	// stack allocation safety limits
-	static_assert( Allocator != PoolAllocator::Stack || Capacity <= 256 * 1024,
+	static_assert( Allocator != PoolAllocator::Stack || Capacity <= 256UL * 1024UL,
 		"Stack allocation limited to 256KB for portability" );
 
 private:
@@ -67,7 +67,8 @@ private:
 	alignas( 64 ) std::atomic< std::size_t > _readOffset;
 
 	// conditional storage based on allocator type
-	using HeapStorage = std::unique_ptr< uint8_t[] >;
+	// NOLINT NOTE: array unique_ptr is the correct idiom for heap-allocated runtime-sized buffers; std::array requires stack allocation
+	using HeapStorage = std::unique_ptr< uint8_t[] >;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 	using StackStorage = std::array< uint8_t, Capacity >;
 
 	std::conditional_t< Allocator == PoolAllocator::Heap, HeapStorage, StackStorage > _pool;
@@ -344,7 +345,8 @@ auto MemoryPool< Capacity, Allocator >::initializePool() noexcept
 {
 	if constexpr ( Allocator == PoolAllocator::Heap )
 	{
-		return std::make_unique< uint8_t[] >( Capacity );
+		// NOLINT NOTE: see HeapStorage declaration above
+		return std::make_unique< uint8_t[] >( Capacity );  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 	}
 	else
 	{
