@@ -19,7 +19,7 @@ RollingFileSink::RollingFileSink( const std::string& baseFilename, std::size_t m
 	, _maxFileSize( maxFileSize )
 	, _formatter( formatter )
 	, _remaining( maxFileSize )
-	, _process( _formatter ? &RollingFileSink::processFormatted : &RollingFileSink::processRaw )
+	, _process( _formatter != nullptr ? &RollingFileSink::processFormatted : &RollingFileSink::processRaw )
 {
 	initialize();
 }
@@ -141,7 +141,7 @@ void RollingFileSink::processFormatted( const kmac::nova::Record& record ) noexc
 		flush();
 		rotate();
 
-		if ( ! _currentFile ) /*[[unlikely]]*/
+		if ( _currentFile == nullptr ) /*[[unlikely]]*/
 		{
 			return;
 		}

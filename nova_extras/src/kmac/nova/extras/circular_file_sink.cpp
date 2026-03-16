@@ -12,13 +12,8 @@ namespace kmac::nova::extras
 CircularFileSink::CircularFileSink( const std::string& filename, std::size_t maxFileSize, Formatter* formatter ) noexcept
 	: _filename( filename )
 	, _maxFileSize( maxFileSize )
-	, _currentSize( 0 )
-	, _totalWritten( 0 )
-	, _hasWrapped( false )
-	, _file( nullptr )
 	, _formatter( formatter )
-	, _bufferOffset( 0 )
-	, _process( _formatter ? &CircularFileSink::processFormatted : &CircularFileSink::processRaw )
+	, _process( _formatter != nullptr ? &CircularFileSink::processFormatted : &CircularFileSink::processRaw )
 {
 	// open file for writing (create or truncate)
 	_file = std::fopen( _filename.c_str(), "wb" );
@@ -68,7 +63,7 @@ void CircularFileSink::flush() noexcept
 		return;
 	}
 
-	if ( ! _file ) /*[[unlikely]]*/
+	if ( _file == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -172,7 +167,7 @@ void CircularFileSink::processFormatted( const kmac::nova::Record& record ) noex
 
 void CircularFileSink::wrap() noexcept
 {
-	if ( ! _file ) /*[[unlikely]]*/
+	if ( _file == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -187,7 +182,7 @@ void CircularFileSink::wrap() noexcept
 
 void CircularFileSink::write( const char* data, std::size_t size ) noexcept
 {
-	if ( ! _file || ! data || size == 0 ) /*[[unlikely]]*/
+	if ( _file == nullptr || data == nullptr || size == 0 ) /*[[unlikely]]*/
 	{
 		return;
 	}

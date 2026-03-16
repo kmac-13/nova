@@ -114,16 +114,16 @@ class CircularFileSink final : public kmac::nova::Sink
 
 private:
 	std::string _filename;
-	std::size_t _maxFileSize;
-	std::size_t _currentSize;    ///< Current position in file (0 to maxFileSize-1)
-	std::size_t _totalWritten;   ///< Total bytes written (may exceed maxFileSize)
-	bool _hasWrapped;            ///< True if we've wrapped around at least once
+	std::size_t _maxFileSize = 0;
+	std::size_t _currentSize = 0;   ///< Current position in file (0 to maxFileSize-1)
+	std::size_t _totalWritten = 0;  ///< Total bytes written (may exceed maxFileSize)
+	bool _hasWrapped = false;       ///< True if we've wrapped around at least once
 
 	FILE* _file = nullptr;
 
 	Formatter* _formatter = nullptr;
 
-	std::array< char, WRITE_BUFFER_SIZE > _writeBuffer = { };
+	std::array< char, WRITE_BUFFER_SIZE > _writeBuffer{};
 	std::size_t _bufferOffset = 0;
 
 	using ProcessFunc = void ( CircularFileSink::* )( const kmac::nova::Record& );
