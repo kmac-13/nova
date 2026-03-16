@@ -378,11 +378,11 @@ namespace kmac::nova
 constexpr const char* fileName( const char* path )
 {
 	const char* file = path;
-	for ( const char* p = path; *p; ++p )
+	for ( const char* ptr = path; *ptr != '\0'; ++ptr )
 	{
-		if ( *p == '/' || *p == '\\' )
+		if ( *ptr == '/' || *ptr == '\\' )
 		{
-			file = p + 1;
+			file = ptr + 1;
 		}
 	}
 	return file;

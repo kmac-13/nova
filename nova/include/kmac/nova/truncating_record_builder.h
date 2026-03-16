@@ -747,7 +747,7 @@ void TruncatingRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 		return;
 	}
 
-	// NOLINT comment: pointer-to-integer for address formatting (std::bit_cast requires C++20)
+	// NOLINT NOTE: pointer-to-integer for address formatting (std::bit_cast requires C++20)
 	auto [ p, ec ] = std::to_chars(
 		_buffer.data() + _offset,
 		_buffer.data() + BufferSize - 1,

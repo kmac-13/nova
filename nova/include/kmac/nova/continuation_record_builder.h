@@ -741,10 +741,11 @@ void ContinuationRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 	// hex pointer: "0x" + 16 hex digits = 18 chars max
 	ensureSpace( 18 );
 
+	// NOLINT NOTE: pointer-to-integer for address formatting (std::bit_cast requires C++20)
 	auto [ p, ec ] = std::to_chars(
 		_buffer + _offset,
 		_buffer + BufferSize - 1,
-		reinterpret_cast< std::uintptr_t >( ptr ),
+		reinterpret_cast< std::uintptr_t >( ptr ),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 		16
 	);
 

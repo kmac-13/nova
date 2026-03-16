@@ -367,7 +367,8 @@ void ScopedConfigurator< MaxBindings >::add( UnbindFn unbindFn ) noexcept
 	if ( _count >= MaxBindings )
 	{
 		// in debug, assert to catch programming error
-		NOVA_ASSERT( false && "ScopedConfigurator capacity exceeded - increase MaxBindings" );
+		// NOLINT NOTE: runtime guard, not compile-time; overflow is a runtime condition
+		NOVA_ASSERT( false && "ScopedConfigurator capacity exceeded - increase MaxBindings" );  // NOLINT(cert-dcl03-c,misc-static-assert)
 
 #ifndef NDEBUG
 		_overflowed = true;
