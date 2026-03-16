@@ -17,12 +17,8 @@ namespace kmac::nova::extras
 RollingFileSink::RollingFileSink( const std::string& baseFilename, std::size_t maxFileSize, Formatter* formatter ) noexcept
 	: _baseFilename( baseFilename )
 	, _maxFileSize( maxFileSize )
-	, _currentIndex( 0 )
-	, _currentSize( 0 )
-	, _currentFile( nullptr )
 	, _formatter( formatter )
-	, _bufferOffset( 0 )
-	, _remaining( _maxFileSize )
+	, _remaining( maxFileSize )
 	, _process( _formatter ? &RollingFileSink::processFormatted : &RollingFileSink::processRaw )
 {
 	initialize();
@@ -64,7 +60,7 @@ void RollingFileSink::flush() noexcept
 		return;
 	}
 
-	if ( ! _currentFile ) /*[[unlikely]]*/
+	if ( _currentFile == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -263,7 +259,7 @@ void RollingFileSink::openCurrentFile() noexcept
 
 	_currentFile = std::fopen( filename.c_str(), "wb" );
 
-	if ( ! _currentFile ) /*[[unlikely]]*/
+	if ( _currentFile == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -281,7 +277,7 @@ void RollingFileSink::openCurrentFile() noexcept
 
 void RollingFileSink::closeCurrentFile() noexcept
 {
-	if ( _currentFile )
+	if ( _currentFile != nullptr )
 	{
 		if ( std::fclose( _currentFile ) != 0 )
 		{
@@ -307,7 +303,7 @@ void RollingFileSink::rotate() noexcept
 
 	const std::string newFilename = makeFilename( _currentIndex );
 
-	if ( _rolloverCallback )
+	if ( _rolloverCallback != nullptr )
 	{
 		try
 		{

@@ -145,6 +145,7 @@
 
 #include "kmac/nova/sink.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <functional>
@@ -211,7 +212,7 @@ class Formatter;
 class RollingFileSink final : public kmac::nova::Sink
 {
 	// write buffering for improved performance
-	static constexpr std::size_t WRITE_BUFFER_SIZE = 256 * 1024;  // # KB buffer
+	static constexpr std::size_t WRITE_BUFFER_SIZE = 256UL * 1024UL;  // # KB buffer
 
 public:
 	/**
@@ -234,22 +235,22 @@ public:
 
 private:
 	std::string _baseFilename;
-	std::size_t _maxFileSize;
-	std::size_t _currentIndex;
-	std::size_t _currentSize;
+	std::size_t _maxFileSize = 0;
+	std::size_t _currentIndex = 0;
+	std::size_t _currentSize = 0;
 
-	FILE* _currentFile;
+	FILE* _currentFile = nullptr;
 
-	RolloverCallback _rolloverCallback;
+	RolloverCallback _rolloverCallback = nullptr;
 
-	Formatter* _formatter;
+	Formatter* _formatter = nullptr;
 
-	char _writeBuffer[ WRITE_BUFFER_SIZE ];
-	std::size_t _bufferOffset;
-	std::size_t _remaining;
+	std::array< char, WRITE_BUFFER_SIZE > _writeBuffer = { };
+	std::size_t _bufferOffset = 0;
+	std::size_t _remaining = 0;
 
 	using ProcessFunc = void (RollingFileSink::*)( const kmac::nova::Record& );
-	ProcessFunc _process;
+	ProcessFunc _process = nullptr;
 
 public:
 	/**
@@ -263,7 +264,7 @@ public:
 	 */
 	explicit RollingFileSink(
 		const std::string& baseFilename,
-		std::size_t maxFileSize = 10 * 1024 * 1024,  // 10 MB default
+		std::size_t maxFileSize = 10UL * 1024UL * 1024UL,  // 10 MB default
 		Formatter* formatter = nullptr
 	) noexcept;
 
