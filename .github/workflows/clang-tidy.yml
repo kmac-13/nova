@@ -98,6 +98,10 @@ jobs:
           # runtime-sized arrays.  std::array is not a substitute as it requires compile-time
           # size and stack allocation.
           #
+          # Note: cppcoreguidelines-pro-bounds-constant-array-index fires on std::array
+          # subscript with runtime loop indices.  Fixed by using .data()[i] to make the
+          # pointer arithmetic explicit, which is accepted by the check.
+          #
           clang-tidy-18 \
             -p build \
             --warnings-as-errors="*" \

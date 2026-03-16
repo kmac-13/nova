@@ -307,9 +307,9 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 			// get record pointers
 			for ( std::size_t i = 0; i < batchSize; ++i )
 			{
-				uint8_t* entryPtr = _pool.offsetToPointer( indexBatch[ i ].offset );
+				uint8_t* entryPtr = _pool.offsetToPointer( indexBatch.data()[ i ].offset );
 				// NOLINT NOTE: retrieving Record from pool buffer; same justification as process()
-				recordBatch[ i ] = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+				recordBatch.data()[ i ] = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 			}
 
 			// format and send batch
@@ -318,7 +318,7 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 			// release pool entries
 			for ( std::size_t i = 0; i < batchSize; ++i )
 			{
-				std::size_t entrySize = sizeof( kmac::nova::Record ) + recordBatch[ i ]->messageSize;
+				std::size_t entrySize = sizeof( kmac::nova::Record ) + recordBatch.data()[ i ]->messageSize;
 				_pool.release( entrySize );
 			}
 
@@ -347,7 +347,7 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 
 	for ( std::size_t i = 0; i < count; ++i )
 	{
-		if ( _formatter )
+		if ( _formatter != nullptr )
 		{
 			// begin formatting this record
 			_formatter->begin( *records[ i ] );
