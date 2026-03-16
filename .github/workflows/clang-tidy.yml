@@ -91,7 +91,12 @@ jobs:
           # Note: misc-static-assert falsely triggers on NOVA_ASSERT( false && "string" ),
           # where false is used as a runtime unreachable guard rather than a compile-time
           # constant.  These must remain runtime assertions since they guard conditions
-          # that can only be evaluated at runtime (e.g. capacity overflow in ScopedConfigurator).          #
+          # that can only be evaluated at runtime (e.g. capacity overflow in ScopedConfigurator).
+          #
+          # Note: cppcoreguidelines-avoid-c-arrays falsely triggers on std::unique_ptr<T[]>
+          # and std::make_unique<T[]>, which are the correct C++ idioms for heap-allocated
+          # runtime-sized arrays.  std::array is not a substitute as it requires compile-time
+          # size and stack allocation.
           #
           clang-tidy-18 \
             -p build \
