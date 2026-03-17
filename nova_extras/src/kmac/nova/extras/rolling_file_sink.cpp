@@ -4,8 +4,12 @@
 #include "kmac/nova/extras/buffer.h"
 #include "kmac/nova/extras/formatter.h"
 
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <iterator>
+#include <string>
+#include <utility>
 
 namespace kmac::nova::extras
 {
@@ -13,13 +17,9 @@ namespace kmac::nova::extras
 RollingFileSink::RollingFileSink( const std::string& baseFilename, std::size_t maxFileSize, Formatter* formatter ) noexcept
 	: _baseFilename( baseFilename )
 	, _maxFileSize( maxFileSize )
-	, _currentIndex( 0 )
-	, _currentSize( 0 )
-	, _currentFile( nullptr )
 	, _formatter( formatter )
-	, _bufferOffset( 0 )
-	, _remaining( _maxFileSize )
-	, _process( _formatter ? &RollingFileSink::processFormatted : &RollingFileSink::processRaw )
+	, _remaining( maxFileSize )
+	, _process( _formatter != nullptr ? &RollingFileSink::processFormatted : &RollingFileSink::processRaw )
 {
 	initialize();
 }
@@ -39,7 +39,7 @@ void RollingFileSink::process( const kmac::nova::Record& record ) noexcept
 {
 	constexpr std::size_t BUFFER_HALF_SIZE = WRITE_BUFFER_SIZE / 2;
 
-	if ( ! _currentFile ) /*[[unlikely]]*/
+	if ( _currentFile == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -60,13 +60,23 @@ void RollingFileSink::flush() noexcept
 		return;
 	}
 
-	if ( ! _currentFile ) /*[[unlikely]]*/
+	if ( _currentFile == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
 
-	std::fwrite( _writeBuffer, 1, _bufferOffset, _currentFile );
-	std::fflush( _currentFile );
+	const std::size_t written = std::fwrite( std::data( _writeBuffer ), 1, _bufferOffset, _currentFile );
+	if ( written != _bufferOffset )
+	{
+		// partial or failed write - data lost, nothing actionable in noexcept context
+		_bufferOffset = 0;
+		return;
+	}
+
+	if ( std::fflush( _currentFile ) != 0 )
+	{
+		// flush failed - OS buffer may not have been committed to disk
+	}
 
 	_currentSize += _bufferOffset;
 	_bufferOffset = 0;
@@ -111,7 +121,7 @@ void RollingFileSink::processRaw( const kmac::nova::Record& record ) noexcept
 	}
 
 	std::memcpy(
-		_writeBuffer + _bufferOffset,
+		std::data( _writeBuffer ) + _bufferOffset,
 		record.message,
 		record.messageSize
 		);
@@ -131,7 +141,7 @@ void RollingFileSink::processFormatted( const kmac::nova::Record& record ) noexc
 		flush();
 		rotate();
 
-		if ( ! _currentFile ) /*[[unlikely]]*/
+		if ( _currentFile == nullptr ) /*[[unlikely]]*/
 		{
 			return;
 		}
@@ -146,7 +156,7 @@ void RollingFileSink::processFormatted( const kmac::nova::Record& record ) noexc
 		}
 
 		// format the record into the buffer
-		Buffer buf( _writeBuffer + _bufferOffset, WRITE_BUFFER_SIZE - _bufferOffset );
+		Buffer buf( std::data( _writeBuffer ) + _bufferOffset, WRITE_BUFFER_SIZE - _bufferOffset );
 		const bool done = _formatter->format( record, buf );
 
 		// check if what was formatted is larger than the remaining space in the file
@@ -182,9 +192,9 @@ std::size_t RollingFileSink::findHighestIndex() const noexcept
 	{
 		namespace fs = std::filesystem;
 
-		fs::path basePath( _baseFilename );
+		const fs::path basePath( _baseFilename );
 		fs::path directory = basePath.parent_path();
-		std::string filename = basePath.filename().string();
+		const std::string filename = basePath.filename().string();
 
 		if ( directory.empty() )
 		{
@@ -213,7 +223,7 @@ std::size_t RollingFileSink::findHighestIndex() const noexcept
 
 				try
 				{
-					std::size_t index = std::stoull( suffix );
+					const std::size_t index = std::stoull( suffix );
 					if ( index > highestIndex )
 					{
 						highestIndex = index;
@@ -221,12 +231,18 @@ std::size_t RollingFileSink::findHighestIndex() const noexcept
 				}
 				catch ( ... )
 				{
+					// suffix is not a valid integer - skip this file
+					(void) 0;
+
 				}
 			}
 		}
 	}
 	catch ( ... )
 	{
+		// filesystem iteration failed (permissions, deleted directory, etc.),
+		// so return whatever highest index was found before the error
+		(void) 0;
 	}
 
 	return highestIndex;
@@ -243,13 +259,16 @@ void RollingFileSink::openCurrentFile() noexcept
 
 	_currentFile = std::fopen( filename.c_str(), "wb" );
 
-	if ( ! _currentFile ) /*[[unlikely]]*/
+	if ( _currentFile == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
 
 	// set full buffering with large buffer for better performance
-	std::setvbuf( _currentFile, nullptr, _IOFBF, 128 * 1024 );
+	if ( std::setvbuf( _currentFile, nullptr, _IOFBF, std::size_t( 128 * 1024 ) ) != 0 )
+	{
+		// buffer hint rejected - file remains open with default buffering
+	}
 
 	_currentSize = 0;
 	_bufferOffset = 0;
@@ -258,9 +277,14 @@ void RollingFileSink::openCurrentFile() noexcept
 
 void RollingFileSink::closeCurrentFile() noexcept
 {
-	if ( _currentFile )
+	if ( _currentFile != nullptr )
 	{
-		std::fclose( _currentFile );
+		if ( std::fclose( _currentFile ) != 0 )
+		{
+			// flush failed - buffered data may have been lost;
+			// nothing actionable in a noexcept context
+			// TODO: consider using a return value and logging issue in next file aftter rotate
+		}
 		_currentFile = nullptr;
 	}
 }
@@ -279,7 +303,7 @@ void RollingFileSink::rotate() noexcept
 
 	const std::string newFilename = makeFilename( _currentIndex );
 
-	if ( _rolloverCallback )
+	if ( _rolloverCallback != nullptr )
 	{
 		try
 		{
@@ -287,6 +311,8 @@ void RollingFileSink::rotate() noexcept
 		}
 		catch ( ... )
 		{
+			// intentionally suppressed: callback exceptions must not propagate through a noexcept boundary
+			(void) 0;
 		}
 	}
 }

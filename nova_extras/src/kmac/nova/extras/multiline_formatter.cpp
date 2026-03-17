@@ -7,6 +7,8 @@
 #include <array>
 #include <charconv>
 #include <cstring>
+#include <iterator>
+#include <system_error>
 
 namespace kmac::nova::extras
 {
@@ -51,11 +53,11 @@ void MultilineFormatter::formatAndWrite(
 
 	while ( current < end )
 	{
-		const char* lineStart;
-		std::size_t lineLength;
-		
+		const char* lineStart = nullptr;
+		std::size_t lineLength = 0;
+
 		current = findNextLine( current, end, lineStart, lineLength );
-		
+
 		// skip empty lines if configured
 		if ( lineLength == 0 && !_preserveEmptyLines )
 		{
@@ -66,33 +68,33 @@ void MultilineFormatter::formatAndWrite(
 
 		// format the line
 		constexpr std::size_t BUFFER_SIZE = 4096;
-		std::array< char, BUFFER_SIZE + 1 > bufferStorage; // +1 for null terminator
-		Buffer buffer( bufferStorage.data(), BUFFER_SIZE ); // Reserve last byte for null
+		std::array< char, BUFFER_SIZE + 1 > bufferStorage{};  // +1 for null terminator
+		Buffer buffer( bufferStorage.data(), BUFFER_SIZE );   // Reserve last byte for null
 
 		// add line number prefix if enabled
 		if ( _addLineNumbers && totalLines > 1 )
 		{
-			char prefix[ MAX_LINE_NUMBER_PREFIX ];
-			char* prefixEnd = prefix;
-			
+			std::array< char, MAX_LINE_NUMBER_PREFIX > prefix{};
+			char* prefixEnd = prefix.data();
+
 			// format: "[N/Total] "
 			*prefixEnd++ = '[';
-			
-			auto [ ptr1, ec1 ] = std::to_chars( prefixEnd, prefix + sizeof( prefix ) - 10, lineNumber );
+
+			auto [ ptr1, ec1 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 10, lineNumber );
 			if ( ec1 == std::errc{} )
 			{
 				prefixEnd = ptr1;
 				*prefixEnd++ = '/';
 
-				auto [ ptr2, ec2 ] = std::to_chars( prefixEnd, prefix + sizeof( prefix ) - 3, totalLines );
+				auto [ ptr2, ec2 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 3, totalLines );
 				if ( ec2 == std::errc{} )
 				{
 					prefixEnd = ptr2;
 					*prefixEnd++ = ']';
 					*prefixEnd++ = ' ';
-					
-					std::size_t prefixLen = prefixEnd - prefix;
-					(void) buffer.append( prefix, prefixLen );
+
+					const std::size_t prefixLen = prefixEnd - std::data( prefix );
+					(void) buffer.append( std::data( prefix ), prefixLen );
 				}
 			}
 		}
@@ -104,7 +106,7 @@ void MultilineFormatter::formatAndWrite(
 		}
 
 		// null-terminate the buffer
-		bufferStorage[ buffer.size() ] = '\0';
+		bufferStorage.data()[ buffer.size() ] = '\0';
 
 		// emit record for this line
 		kmac::nova::Record lineRecord = record;
@@ -120,10 +122,7 @@ void MultilineFormatter::formatAndWrite(
 	}
 }
 
-std::size_t MultilineFormatter::countLines(
-	const char* message,
-	std::size_t messageSize
-) const noexcept
+std::size_t MultilineFormatter::countLines( const char* message, std::size_t messageSize ) const noexcept
 {
 	if ( messageSize == 0 )
 	{
@@ -136,11 +135,11 @@ std::size_t MultilineFormatter::countLines(
 
 	while ( current < end )
 	{
-		const char* lineStart;
-		std::size_t lineLength;
-		
+		const char* lineStart = nullptr;
+		std::size_t lineLength = 0;
+
 		current = findNextLine( current, end, lineStart, lineLength );
-		
+
 		// count line if it's not empty, or if we're preserving empty lines
 		if ( lineLength > 0 || _preserveEmptyLines )
 		{
@@ -181,23 +180,24 @@ const char* MultilineFormatter::findNextLine(
 		{
 			// found newline
 			outLineLength = current - start;
-			
+
 			// skip the \n
 			++current;
-			
+
 			return current;
 		}
-		else if ( *current == '\r' && current + 1 < end && *( current + 1 ) == '\n' )
+
+		if ( *current == '\r' && current + 1 < end && *( current + 1 ) == '\n' )
 		{
 			// found \r\n
 			outLineLength = current - start;
-			
+
 			// skip the \r\n
 			current += 2;
-			
+
 			return current;
 		}
-		
+
 		++current;
 	}
 

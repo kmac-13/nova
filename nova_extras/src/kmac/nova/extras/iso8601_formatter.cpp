@@ -10,7 +10,8 @@ namespace kmac::nova::extras
 /**
  * @brief Lookup table for 2-digit strings: "00" to "99"
  */
-static constexpr const char DIGITS_2[ 100 ][ 3 ] = {
+// NOLINT NOTE: 2D string literal lookup table; using std::array<std::array> would be cumbersome
+static constexpr const char DIGITS_2[ 100 ][ 3 ] = {  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 	"00", "01", "02", "03", "04", "05", "06", "07", "08", "09",
 	"10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
 	"20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
@@ -26,7 +27,8 @@ static constexpr const char DIGITS_2[ 100 ][ 3 ] = {
 /**
  * @brief Lookup table for 3-digit strings: "000" to "999"
  */
-static constexpr const char DIGITS_3[ 1000 ][ 4 ] = {
+// NOLINT NOTE: 2D string literal lookup table; using std::array<std::array> would be cumbersome
+static constexpr const char DIGITS_3[ 1000 ][ 4 ] = {  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 	"000", "001", "002", "003", "004", "005", "006", "007", "008", "009",
 	"010", "011", "012", "013", "014", "015", "016", "017", "018", "019",
 	"020", "021", "022", "023", "024", "025", "026", "027", "028", "029",
@@ -130,13 +132,6 @@ static constexpr const char DIGITS_3[ 1000 ][ 4 ] = {
 };
 
 ISO8601Formatter::ISO8601Formatter() noexcept
-	: _stage( Stage::Done )
-	, _offset( 0 )
-	, _timestampLen( 0 )
-	, _lineLen( 0 )
-	, _tagNameLen( 0 )
-	, _fileNameLen( 0 )
-	, _funcNameLen( 0 )
 {
 }
 
@@ -151,144 +146,170 @@ void ISO8601Formatter::begin( const kmac::nova::Record& record ) noexcept
 	// pre-format line number
 	_lineLen = 0;
 	unsigned int line = record.line;
-	char tmp[ 16 ];
-	int i = 0;
+	std::array< char, 16 > tmp{};
+	int idx = 0;
 	do
 	{
-		tmp[ i++ ] = char( '0' + ( line % 10 ) );
+		tmp.data()[ idx++ ] = char( '0' + ( line % 10 ) );
 		line /= 10;
-	} while ( line && i < 15 );
+	} while ( line != 0U && idx < 15 );
 
-	while ( i-- )
+	while ( idx-- != 0 )
 	{
-		_lineBuf[ _lineLen++ ] = tmp[ i ];
+		_lineBuf.data()[ _lineLen++ ] = tmp.data()[ idx ];
 	}
-	_lineBuf[ _lineLen++ ] = ' ';
+	_lineBuf.data()[ _lineLen++ ] = ' ';
 
 	// cache the string lengths
-	_tagNameLen = record.tag ? std::strlen( record.tag ) : 0;
-	_fileNameLen = record.file ? std::strlen( record.file ) : 0;
-	_funcNameLen = record.function ? std::strlen( record.function ) : 0;
+	_tagNameLen = record.tag != nullptr ? std::strlen( record.tag ) : 0;
+	_fileNameLen = record.file != nullptr ? std::strlen( record.file ) : 0;
+	_funcNameLen = record.function != nullptr ? std::strlen( record.function ) : 0;
 }
 
 bool ISO8601Formatter::format( const kmac::nova::Record& record, Buffer& buffer ) noexcept
+{
+	if ( isPassthrough() )
+	{
+		return formatPassthrough( record, buffer );
+	}
+
+	if ( _stage == Stage::TimestampWithSpace )
+	{
+		if ( tryFormatFast( record, buffer ) )
+		{
+			return true;
+		}
+		// fall through to slow path if record doesn't fit
+	}
+
+	return formatSlow( record, buffer );
+}
+
+bool ISO8601Formatter::isPassthrough() const noexcept
+{
+	return _stage == Stage::TimestampWithSpace
+		&& _tagNameLen == 0
+		&& _fileNameLen == 0
+		&& _funcNameLen == 0;
+}
+
+bool ISO8601Formatter::formatPassthrough( const kmac::nova::Record& record, Buffer& buffer ) noexcept
 {
 	// ULTRA-FAST PATH: raw message passthrough (when called with zero-length tag, file, and func)
 	//
 	// assume the message is pre-formatted, so process only the message part of the record
 
-	if ( _stage == Stage::TimestampWithSpace
-		&& _tagNameLen == 0 && _fileNameLen == 0 && _funcNameLen == 0 )
+	// this is likely a pre-formatted message, just attempt to append it
+	if ( ! buffer.append( record.message, record.messageSize ) )
 	{
-		// this is likely a pre-formatted message, just attempt to append it
-		if ( ! buffer.append( record.message, record.messageSize ) )
-		{
-			return false;
-		}
-		_stage = Stage::Done;
-		return true;
+		return false;
 	}
+	_stage = Stage::Done;
+	return true;
+}
 
+bool ISO8601Formatter::tryFormatFast( const kmac::nova::Record& record, Buffer& buffer ) noexcept
+{
 	// FAST PATH: try to write entire record in one go
 	//
 	// this avoids the state machine overhead for the common case where
 	// the record fits entirely in the buffer
 
-	if ( _stage == Stage::TimestampWithSpace )
+	const std::size_t totalSize =
+		_timestampLen +       // "2025-02-07T12:34:56.789Z "
+		1 +                   // "["
+		_tagNameLen +         // "INFO"
+		1 +                   // "]"
+		1 +                   // " "
+		_fileNameLen +        // "main.cpp"
+		1 +                   // ":"
+		_lineLen +            // "42 "
+		_funcNameLen +        // "main"
+		3 +                   // " - "
+		record.messageSize +  // "Test message"
+		1;                    // "\n"
+
+	// check if we have enough space AND record fits in temp buffer
+	// use 480 bytes max to leave safety margin (512 - 32 byte alignment)
+	if ( buffer.remaining() < totalSize || totalSize > 480 )
 	{
-		const std::size_t totalSize =
-			_timestampLen +       // "2025-02-07T12:34:56.789Z "
-			1 +                   // "["
-			_tagNameLen +         // "INFO"
-			1 +                   // "]"
-			1 +                   // " "
-			_fileNameLen +        // "main.cpp"
-			1 +                   // ":"
-			_lineLen +            // "42 "
-			_funcNameLen +        // "main"
-			3 +                   // " - "
-			record.messageSize +  // "Test message"
-			1;                    // "\n"
-
-		// check if we have enough space AND record fits in temp buffer
-		// use 480 bytes max to leave safety margin (512 - 32 byte alignment)
-		if ( buffer.remaining() >= totalSize && totalSize <= 480 )
-		{
-			// fast path: format into temp buffer, then single memcpy to destination,
-			// which eliminates all the Buffer::append() overhead and boundary checks
-			char tempBuf[ 512 ];  // stack-allocated temporary (typical record ~150-200 bytes)
-			char* dest = tempBuf;
-
-			// timestamp
-			std::memcpy( dest, _timestampBuf, _timestampLen );
-			dest += _timestampLen;
-
-			// [tag]
-			*dest++ = '[';
-			if ( _tagNameLen )
-			{
-				std::memcpy( dest, record.tag, _tagNameLen );
-				dest += _tagNameLen;
-			}
-			*dest++ = ']';
-			*dest++ = ' ';
-
-			// file:line
-			if ( _fileNameLen )
-			{
-				std::memcpy( dest, record.file, _fileNameLen );
-				dest += _fileNameLen;
-			}
-			*dest++ = ':';
-			std::memcpy( dest, _lineBuf, _lineLen );
-			dest += _lineLen;
-
-			// function - message
-			if ( _funcNameLen )
-			{
-				std::memcpy( dest, record.function, _funcNameLen );
-				dest += _funcNameLen;
-			}
-			std::memcpy( dest, " - ", 3 );
-			dest += 3;
-			if ( record.messageSize )
-			{
-				std::memcpy( dest, record.message, record.messageSize );
-				dest += record.messageSize;
-			}
-			*dest++ = '\n';
-
-			// single append to output buffer
-			const std::size_t bytesWritten = dest - tempBuf;
-
-			// safety check - should match totalSize
-			if ( bytesWritten != totalSize )
-			{
-				// something went wrong, fall through to slow path
-				_stage = Stage::TimestampWithSpace;
-			}
-			else
-			{
-				(void) buffer.append( tempBuf, bytesWritten );
-				_stage = Stage::Done;
-				return true;
-			}
-		}
-
-		// fall through to slow path if record doesn't fit
+		return false;
 	}
 
+	// fast path: format into temp buffer, then single memcpy to destination,
+	// which eliminates all the Buffer::append() overhead and boundary checks
+	std::array< char, 512 > tempBuff{};
+	char* dest = tempBuff.data();
+
+	// timestamp
+	std::memcpy( dest, _timestampBuf.data(), _timestampLen );
+	dest += _timestampLen;
+
+	// [tag]
+	*dest++ = '[';
+	if ( _tagNameLen != 0 )
+	{
+		std::memcpy( dest, record.tag, _tagNameLen );
+		dest += _tagNameLen;
+	}
+	*dest++ = ']';
+	*dest++ = ' ';
+
+	// file:line
+	if ( _fileNameLen != 0 )
+	{
+		std::memcpy( dest, record.file, _fileNameLen );
+		dest += _fileNameLen;
+	}
+	*dest++ = ':';
+	std::memcpy( dest, _lineBuf.data(), _lineLen );
+	dest += _lineLen;
+
+	// function - message
+	if ( _funcNameLen != 0 )
+	{
+		std::memcpy( dest, record.function, _funcNameLen );
+		dest += _funcNameLen;
+	}
+	std::memcpy( dest, " - ", 3 );
+	dest += 3;
+	if ( record.messageSize != 0 )
+	{
+		std::memcpy( dest, record.message, record.messageSize );
+		dest += record.messageSize;
+	}
+	*dest++ = '\n';
+
+	// single append to output buffer
+	const std::size_t bytesWritten = dest - tempBuff.data();
+
+	// safety check - should match totalSize
+	if ( bytesWritten != totalSize )
+	{
+		// something went wrong, fall through to slow path
+		_stage = Stage::TimestampWithSpace;
+		return false;
+	}
+
+	(void) buffer.append( tempBuff.data(), bytesWritten );
+	_stage = Stage::Done;
+	return true;
+}
+
+bool ISO8601Formatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer ) noexcept  // NOLINT(readability-function-cognitive-complexity)
+{
 	// SLOW PATH: state machine for incremental formatting
 	//
 	// only used for large records that don't fit in one buffer,
 	// or when resuming after a partial write
 	//
+
 	while ( true )
 	{
 		switch ( _stage )
 		{
 		case Stage::TimestampWithSpace:
-			if ( ! buffer.append( _timestampBuf, _timestampLen ) )
+			if ( ! buffer.append( _timestampBuf.data(), _timestampLen ) )
 			{
 				return false;
 			}
@@ -351,7 +372,7 @@ bool ISO8601Formatter::format( const kmac::nova::Record& record, Buffer& buffer 
 			[[fallthrough]];
 
 		case Stage::LineWithSpace:
-			if ( ! buffer.append( _lineBuf, _lineLen ) )
+			if ( ! buffer.append( _lineBuf.data(), _lineLen ) )
 			{
 				return false;
 			}
@@ -394,8 +415,8 @@ bool ISO8601Formatter::format( const kmac::nova::Record& record, Buffer& buffer 
 			_stage = Stage::Done;
 			return true;
 
-		// if stage is already Done at this point, return true, but likely
-		// indicates a missing begin() call to reset the formatter
+			// if stage is already Done at this point, return true, but likely
+			// indicates a missing begin() call to reset the formatter
 		case Stage::Done:
 			return true;
 		}
@@ -404,22 +425,28 @@ bool ISO8601Formatter::format( const kmac::nova::Record& record, Buffer& buffer 
 
 void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 {
+	// NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay,cppcoreguidelines-pro-bounds-constant-array-index)
+	// DIGITS_2/DIGITS_3 are 2D C-style arrays of string literals; each element
+	// decays to const char* on access and is indexed with a runtime value.
+	// Converting to std::array would require replacing all string literal
+	// initialisers with explicit char lists.
+
 	const std::uint64_t seconds = timestamp / 1'000'000'000ULL;
 	const std::uint64_t millis = ( timestamp / 1'000'000ULL ) % 1000ULL;
 
-	std::time_t tt = static_cast< std::time_t >( seconds );
-	std::tm tm {};
+	const std::time_t timeVal = static_cast< std::time_t >( seconds );
+	std::tm time {};
 
 #if defined( _WIN32 )
-	gmtime_s( &tm, &tt );
+	gmtime_s( &time, &timeVal );
 #else
-	gmtime_r( &tt, &tm );
+	gmtime_r( &timeVal, &time );
 #endif
 
-	char* out = _timestampBuf;
+	char* out = _timestampBuf.data();
 
 	// year-month-day
-	const int year = 1900 + tm.tm_year;
+	const int year = 1900 + time.tm_year;
 	out[ 0 ] = char( '0' + ( year / 1000 ) );
 	out[ 1 ] = char( '0' + ( ( year / 100 ) % 10 ) );
 	out[ 2 ] = char( '0' + ( ( year / 10 ) % 10 ) );
@@ -428,23 +455,23 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 
 	*out++ = '-';
 
-	std::memcpy( out, DIGITS_2[ tm.tm_mon + 1 ], 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_mon + 1 ], 2 );
 	out += 2;
 	*out++ = '-';
-	std::memcpy( out, DIGITS_2[ tm.tm_mday ], 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_mday ], 2 );
 	out += 2;
 
 	// separator between date and time
 	*out++ = 'T';
 
 	// hour:month:sec.milliseconds
-	std::memcpy( out, DIGITS_2[ tm.tm_hour ], 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_hour ], 2 );
 	out += 2;
 	*out++ = ':';
-	std::memcpy( out, DIGITS_2[ tm.tm_min ], 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_min ], 2 );
 	out += 2;
 	*out++ = ':';
-	std::memcpy( out, DIGITS_2[ tm.tm_sec ], 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_sec ], 2 );
 	out += 2;
 	*out++ = '.';
 	std::memcpy( out, DIGITS_3[ millis ], 3 );
@@ -454,7 +481,9 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 	*out++ = 'Z';
 	*out++ = ' ';
 
-	_timestampLen = static_cast< std::size_t >( out - _timestampBuf );
+	_timestampLen = static_cast< std::size_t >( out - _timestampBuf.data() );
+
+	// NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay,cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 } // namespace kmac::nova::extras

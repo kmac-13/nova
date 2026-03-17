@@ -38,8 +38,8 @@ namespace kmac::nova::extras
  * @tparam Allocator pool allocation strategy
  */
 template<
-	std::size_t PoolSize = 1024 * 1024,
-	std::size_t IndexQueueCapacity = 8192,
+	std::size_t PoolSize = 1024UL * 1024UL,
+	std::size_t IndexQueueCapacity = 8192UL,
 	typename IndexType = uint32_t,
 	PoolAllocator Allocator = PoolAllocator::Heap
 >
@@ -62,15 +62,15 @@ private:
 	MPSCQueue< EntryIndex, IndexQueueCapacity > _indexQueue;
 
 	// downstream sink (typically RollingFileSink)
-	kmac::nova::Sink* _downstream;
+	kmac::nova::Sink* _downstream = nullptr;
 
 	// formatter for records (must remain valid for sink's lifetime)
-	Formatter* _formatter;
+	Formatter* _formatter = nullptr;
 
 	// fixed-size formatting buffer (256KB for batch formatting)
-	static constexpr std::size_t FORMAT_BUFFER_SIZE = 256 * 1024;
-	char _formatBuffer[ FORMAT_BUFFER_SIZE ];
-	std::size_t _formatOffset;
+	static constexpr std::size_t FORMAT_BUFFER_SIZE = 256UL * 1024UL;
+	std::array< char, FORMAT_BUFFER_SIZE > _formatBuffer = { };
+	std::size_t _formatOffset = 0;
 
 	// consumer thread
 	std::thread _consumerThread;
@@ -198,7 +198,6 @@ MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 ) noexcept
 	: _downstream( &downstream )
 	, _formatter( formatter )
-	, _formatOffset( 0 )
 {
 	_consumerThread = std::thread( &MemoryPoolAsyncBatchSink::processLoop, this );
 }
@@ -253,21 +252,23 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 
 	// allocate from pool
 	uint8_t* entryPtr = _pool.allocate( entrySize );
-	if ( ! entryPtr )
+	if ( entryPtr == nullptr )
 	{
 		_dropped.fetch_add( 1, std::memory_order_relaxed );
 		return;
 	}
 
 	// copy Record struct
-	kmac::nova::Record* storedRecord = reinterpret_cast< kmac::nova::Record* >( entryPtr );
+	// NOLINT NOTE: placement of trivially-copyable Record into raw pool buffer; well-defined for standard-layout types, no C++17 alternative
+	kmac::nova::Record* storedRecord = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 	*storedRecord = record;
 
 	// copy message data
 	std::memcpy( entryPtr + sizeof( kmac::nova::Record ), record.message, record.messageSize );
 
 	// update message pointer to point into pool
-	storedRecord->message = reinterpret_cast< const char* >( entryPtr + sizeof( kmac::nova::Record ) );
+	// NOLINT NOTE: pointer into pool buffer after Record storage; well-defined for standard-layout types
+	storedRecord->message = reinterpret_cast< const char* >( entryPtr + sizeof( kmac::nova::Record ) );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
 	// enqueue index
 	EntryIndex entry;
@@ -291,32 +292,33 @@ template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexTy
 void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::processLoop() noexcept
 {
 	constexpr std::size_t BATCH_SIZE = 64;
-	EntryIndex indexBatch[ BATCH_SIZE ];
-	kmac::nova::Record* recordBatch[ BATCH_SIZE ];
+	std::array< EntryIndex, BATCH_SIZE > indexBatch = { };
+	std::array< kmac::nova::Record*, BATCH_SIZE > recordBatch = { };
 
 	while ( true )
 	{
 		bool shutdown = _shutdown.load( std::memory_order_acquire );
 
 		// dequeue batch
-		std::size_t batchSize = _indexQueue.popBatch( indexBatch, BATCH_SIZE );
+		std::size_t batchSize = _indexQueue.popBatch( indexBatch.data(), BATCH_SIZE );
 
 		if ( batchSize > 0 )
 		{
 			// get record pointers
 			for ( std::size_t i = 0; i < batchSize; ++i )
 			{
-				uint8_t* entryPtr = _pool.offsetToPointer( indexBatch[ i ].offset );
-				recordBatch[ i ] = reinterpret_cast< kmac::nova::Record* >( entryPtr );
+				uint8_t* entryPtr = _pool.offsetToPointer( indexBatch.data()[ i ].offset );
+				// NOLINT NOTE: retrieving Record from pool buffer; same justification as process()
+				recordBatch.data()[ i ] = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 			}
 
 			// format and send batch
-			formatBatch( recordBatch, batchSize );
+			formatBatch( recordBatch.data(), batchSize );
 
 			// release pool entries
 			for ( std::size_t i = 0; i < batchSize; ++i )
 			{
-				std::size_t entrySize = sizeof( kmac::nova::Record ) + recordBatch[ i ]->messageSize;
+				std::size_t entrySize = sizeof( kmac::nova::Record ) + recordBatch.data()[ i ]->messageSize;
 				_pool.release( entrySize );
 			}
 
@@ -345,7 +347,7 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 
 	for ( std::size_t i = 0; i < count; ++i )
 	{
-		if ( _formatter )
+		if ( _formatter != nullptr )
 		{
 			// begin formatting this record
 			_formatter->begin( *records[ i ] );
@@ -356,7 +358,7 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 			{
 				// create Buffer wrapper for remaining space
 				Buffer buf(
-					_formatBuffer + _formatOffset,
+					_formatBuffer.data() + _formatOffset,
 					FORMAT_BUFFER_SIZE - _formatOffset
 				);
 
@@ -384,7 +386,7 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 
 			if ( records[ i ]->messageSize <= FORMAT_BUFFER_SIZE - _formatOffset )
 			{
-				std::memcpy( _formatBuffer + _formatOffset, records[ i ]->message, records[ i ]->messageSize );
+				std::memcpy( _formatBuffer.data() + _formatOffset, records[ i ]->message, records[ i ]->messageSize );
 				_formatOffset += records[ i ]->messageSize;
 			}
 		}
@@ -406,14 +408,14 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 	}
 
 	// create Record pointing to formatted buffer
-	kmac::nova::Record formattedRecord;
+	kmac::nova::Record formattedRecord{};
 	formattedRecord.tag = nullptr;
 	formattedRecord.tagId = 0;
 	formattedRecord.file = nullptr;
 	formattedRecord.function = nullptr;
 	formattedRecord.line = 0;
 	formattedRecord.timestamp = 0;
-	formattedRecord.message = _formatBuffer;
+	formattedRecord.message = _formatBuffer.data();
 	formattedRecord.messageSize = _formatOffset;
 
 	// send to downstream (RollingFileSink will write directly)

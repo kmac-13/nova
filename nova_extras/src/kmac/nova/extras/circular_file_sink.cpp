@@ -12,33 +12,35 @@ namespace kmac::nova::extras
 CircularFileSink::CircularFileSink( const std::string& filename, std::size_t maxFileSize, Formatter* formatter ) noexcept
 	: _filename( filename )
 	, _maxFileSize( maxFileSize )
-	, _currentSize( 0 )
-	, _totalWritten( 0 )
-	, _hasWrapped( false )
-	, _file( nullptr )
 	, _formatter( formatter )
-	, _bufferOffset( 0 )
-	, _process( _formatter ? &CircularFileSink::processFormatted : &CircularFileSink::processRaw )
+	, _process( _formatter != nullptr ? &CircularFileSink::processFormatted : &CircularFileSink::processRaw )
 {
 	// open file for writing (create or truncate)
 	_file = std::fopen( _filename.c_str(), "wb" );
-	
-	if ( ! _file ) /*[[unlikely]]*/
+
+	if ( _file == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
 
 	// set full buffering with large buffer for better performance
-	std::setvbuf( _file, nullptr, _IOFBF, 128 * 1024 );
+	if ( std::setvbuf( _file, nullptr, _IOFBF, 128UL * 1024UL ) != 0 )
+	{
+		// buffer hint rejected,q file remains open with default buffering
+	}
 }
 
 CircularFileSink::~CircularFileSink() noexcept
 {
 	flush();
-	
-	if ( _file )
+
+	if ( _file != nullptr )
 	{
-		std::fclose( _file );
+		if ( std::fclose( _file ) != 0 )
+		{
+			// flush failed, buffered data may have been lost;
+			// nothing actionable in destructor
+		}
 		_file = nullptr;
 	}
 }
@@ -47,7 +49,7 @@ void CircularFileSink::process( const kmac::nova::Record& record ) noexcept
 {
 	constexpr std::size_t BUFFER_HALF_SIZE = WRITE_BUFFER_SIZE / 2;
 
-	if ( ! _file ) /*[[unlikely]]*/
+	if ( _file == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -68,7 +70,7 @@ void CircularFileSink::flush() noexcept
 		return;
 	}
 
-	if ( ! _file ) /*[[unlikely]]*/
+	if ( _file == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -88,7 +90,10 @@ void CircularFileSink::flush() noexcept
 		// if we're at max size, wrap before writing
 		if ( _currentSize >= _maxFileSize )
 		{
-			std::fflush( _file );
+			if ( std::fflush( _file ) == 0 )
+			{
+				// flush failed, OS buffer may not have been committed to disk
+			}
 			wrap();
 		}
 
@@ -97,15 +102,22 @@ void CircularFileSink::flush() noexcept
 
 		// write as much as fits
 		const std::size_t toWrite = ( remaining <= spaceLeft ) ? remaining : spaceLeft;
-		std::fwrite( _writeBuffer + offset, 1, toWrite, _file );
-		
+		const std::size_t written = std::fwrite( _writeBuffer.data() + offset, 1, toWrite, _file );
+		if ( written != toWrite )
+		{
+			// partial or failed write, data lost, nothing actionable in noexcept context
+		}
+
 		_currentSize += toWrite;
 		_totalWritten += toWrite;
 		remaining -= toWrite;
 		offset += toWrite;
 	}
 
-	std::fflush( _file );
+	if ( std::fflush( _file ) == 0 )
+	{
+		// flush failed, OS buffer may not have been committed to disk
+	}
 	_bufferOffset = 0;
 }
 
@@ -152,7 +164,7 @@ void CircularFileSink::processFormatted( const kmac::nova::Record& record ) noex
 		}
 
 		// format the record into the buffer
-		Buffer buf( _writeBuffer + _bufferOffset, WRITE_BUFFER_SIZE - _bufferOffset );
+		Buffer buf( _writeBuffer.data() + _bufferOffset, WRITE_BUFFER_SIZE - _bufferOffset );
 		const bool done = _formatter->format( record, buf );
 
 		// update buffer offset
@@ -172,14 +184,17 @@ void CircularFileSink::processFormatted( const kmac::nova::Record& record ) noex
 
 void CircularFileSink::wrap() noexcept
 {
-	if ( ! _file ) /*[[unlikely]]*/
+	if ( _file == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
 
 	// seek to beginning of file
-	std::fseek( _file, 0, SEEK_SET );
-	
+	if ( std::fseek( _file, 0, SEEK_SET ) != 0 )
+	{
+		// seek failed, circular wrap position lost, subsequent writes may be incorrect
+	}
+
 	// reset position
 	_currentSize = 0;
 	_hasWrapped = true;
@@ -187,7 +202,7 @@ void CircularFileSink::wrap() noexcept
 
 void CircularFileSink::write( const char* data, std::size_t size ) noexcept
 {
-	if ( ! _file || ! data || size == 0 ) /*[[unlikely]]*/
+	if ( _file == nullptr || data == nullptr || size == 0 ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -196,54 +211,71 @@ void CircularFileSink::write( const char* data, std::size_t size ) noexcept
 	if ( _bufferOffset + size <= WRITE_BUFFER_SIZE )
 	{
 		// copy to buffer
-		std::memcpy( _writeBuffer + _bufferOffset, data, size );
+		std::memcpy( _writeBuffer.data() + _bufferOffset, data, size );
 		_bufferOffset += size;
+
+		return;
+	}
+
+	// data larger than remaining buffer space
+	// flush buffer first, then handle large data
+	flush();
+
+	if ( size >= WRITE_BUFFER_SIZE )
+	{
+		writeLarge( data, size );
 	}
 	else
 	{
-		// data larger than remaining buffer space
-		// flush buffer first, then handle large data
-		flush();
+		// data fits in buffer now that it's empty
+		std::memcpy( _writeBuffer.data(), data, size );
+		_bufferOffset = size;
+	}
+}
 
-		if ( size >= WRITE_BUFFER_SIZE )
+void CircularFileSink::writeLarge( const char* data, std::size_t size ) noexcept
+{
+	// data larger than entire buffer - write directly
+	// this bypasses buffering for very large writes
+
+	// check if we need to wrap
+	if ( _currentSize + size > _maxFileSize )
+	{
+		const std::size_t beforeWrap = _maxFileSize - _currentSize;
+
+		if ( beforeWrap > 0 )
 		{
-			// data larger than entire buffer - write directly
-			// this bypasses buffering for very large writes
-			
-			// check if we need to wrap
-			if ( _currentSize + size > _maxFileSize )
+			const std::size_t writtenBefore = std::fwrite( data, 1, beforeWrap, _file );
+			if ( writtenBefore != beforeWrap )
 			{
-				const std::size_t beforeWrap = _maxFileSize - _currentSize;
-				
-				if ( beforeWrap > 0 )
-				{
-					std::fwrite( data, 1, beforeWrap, _file );
-					_totalWritten += beforeWrap;
-				}
-
-				wrap();
-
-				const std::size_t afterWrap = size - beforeWrap;
-				if ( afterWrap > 0 )
-				{
-					std::fwrite( data + beforeWrap, 1, afterWrap, _file );
-					_currentSize = afterWrap;
-					_totalWritten += afterWrap;
-				}
+				// partial write before wrap, data lost, nothing actionable in noexcept context
 			}
-			else
-			{
-				std::fwrite( data, 1, size, _file );
-				_currentSize += size;
-				_totalWritten += size;
-			}
+			_totalWritten += beforeWrap;
 		}
-		else
+
+		wrap();
+
+		const std::size_t afterWrap = size - beforeWrap;
+		if ( afterWrap > 0 )
 		{
-			// data fits in buffer now that it's empty
-			std::memcpy( _writeBuffer, data, size );
-			_bufferOffset = size;
+			const std::size_t writtenAfter = std::fwrite( data + beforeWrap, 1, afterWrap, _file );
+			if ( writtenAfter != afterWrap )
+			{
+				// partial write after wrap, data lost, nothing actionable in noexcept context
+			}
+			_currentSize = afterWrap;
+			_totalWritten += afterWrap;
 		}
+	}
+	else
+	{
+		const std::size_t written = std::fwrite( data, 1, size, _file );
+		if ( written != size )
+		{
+			// partial write, data lost, nothing actionable in noexcept context
+		}
+		_currentSize += size;
+		_totalWritten += size;
 	}
 }
 

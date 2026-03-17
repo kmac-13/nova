@@ -85,8 +85,8 @@ struct EntryIndex
  * @tparam Allocator pool allocation strategy (Heap or Stack)
  */
 template<
-	std::size_t PoolSize = 256 * 1024,
-	std::size_t IndexQueueCapacity = 8192,
+	std::size_t PoolSize = 256UL * 1024UL,
+	std::size_t IndexQueueCapacity = 8192UL,
 	typename IndexType = uint32_t,
 	PoolAllocator Allocator = PoolAllocator::Heap
 >
@@ -98,12 +98,12 @@ class MemoryPoolAsyncSink final : public kmac::nova::Sink
 
 private:
 	MemoryPool< PoolSize, Allocator > _pool;
-	MPSCQueue< EntryIndex< IndexType >, IndexQueueCapacity > _indexQueue;
+	MPSCQueue< EntryIndex< IndexType >, IndexQueueCapacity > _indexQueue{ };
 
-	kmac::nova::Sink* _downstream;
-	std::atomic< bool > _shutdown;
-	std::atomic< std::size_t > _dropped;
-	std::atomic< std::size_t > _processed;
+	kmac::nova::Sink* _downstream = nullptr;
+	std::atomic< bool > _shutdown{ false };
+	std::atomic< std::size_t > _dropped{ 0 };
+	std::atomic< std::size_t > _processed{ 0 };
 
 	std::mutex _mutex;
 	std::condition_variable _cv;
@@ -140,7 +140,7 @@ public:
 	 * Signals shutdown and waits for all queued records to be processed.
 	 * Remaining entries in the pool are processed before thread exits.
 	 */
-	~MemoryPoolAsyncSink() noexcept;
+	~MemoryPoolAsyncSink() noexcept override;
 
 	/**
 	 * @brief Process a record by copying it and its message into the pool.
@@ -271,7 +271,7 @@ void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 
 	// allocate from pool (lock-free)
 	uint8_t* entryPtr = _pool.allocate( entrySize );
-	if ( ! entryPtr )
+	if ( entryPtr == nullptr )
 	{
 		// pool is full, so drop the record/message
 		_dropped.fetch_add( 1, std::memory_order_relaxed );
@@ -279,11 +279,13 @@ void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 	}
 
 	// copy Record struct to pool
-	kmac::nova::Record* storedRecord = reinterpret_cast< kmac::nova::Record* >( entryPtr );
+	// NOLINT NOTE: placement of trivially-copyable Record into raw pool buffer; well-defined for standard-layout types, no C++17 alternative
+	kmac::nova::Record* storedRecord = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 	std::memcpy( storedRecord, &record, sizeof( kmac::nova::Record ) );
 
 	// copy message data immediately after Record
-	char* messagePtr = reinterpret_cast< char* >( entryPtr + sizeof( kmac::nova::Record ) );
+	// NOLINT NOTE: pointer into pool buffer after Record storage; well-defined for standard-layout types
+	char* messagePtr = reinterpret_cast< char* >( entryPtr + sizeof( kmac::nova::Record ) );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 	std::memcpy( messagePtr, record.message, record.messageSize );
 
 	// update Record's message pointer to point to copied data in pool
@@ -346,7 +348,7 @@ template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexTy
 void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::processLoop() noexcept
 {
 	constexpr std::size_t BATCH_SIZE = 64;
-	EntryIndex< IndexType > indexBatch[ BATCH_SIZE ];
+	std::array< EntryIndex< IndexType >, BATCH_SIZE > indexBatch{};
 
 	while ( true )
 	{
@@ -354,14 +356,15 @@ void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 		bool shutdown = _shutdown.load( std::memory_order_acquire );
 
 		// dequeue batch of indices (lock-free pop)
-		std::size_t batchSize = _indexQueue.popBatch( indexBatch, BATCH_SIZE );
+		std::size_t batchSize = _indexQueue.popBatch( indexBatch.data(), BATCH_SIZE );
 
 		// process each entry in batch
 		for ( std::size_t i = 0; i < batchSize; ++i )
 		{
 			// get pointer to Record in pool
 			uint8_t* entryPtr = _pool.offsetToPointer( indexBatch[ i ].offset );
-			kmac::nova::Record* record = reinterpret_cast< kmac::nova::Record* >( entryPtr );
+			// NOLINT NOTE: placement of trivially-copyable Record into raw pool buffer; well-defined for standard-layout types, no C++17 alternative
+			kmac::nova::Record* record = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
 			// process the record (message pointer is valid - points into pool)
 			_downstream->process( *record );

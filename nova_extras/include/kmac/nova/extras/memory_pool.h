@@ -15,7 +15,7 @@ namespace kmac::nova::extras
 /**
  * @brief Memory allocation strategy for pool storage.
  */
-enum class PoolAllocator
+enum class PoolAllocator : std::uint8_t
 {
 	Heap,  // use std::unique_ptr (default, flexible size)
 	Stack  // use std::array (faster, but limited by stack constraints)
@@ -54,11 +54,11 @@ class MemoryPool
 {
 	// ensure power of 2 for efficient modulo via bitwise AND
 	static_assert( ( Capacity & ( Capacity - 1 ) ) == 0, "Capacity must be power of 2" );
-	static_assert( Capacity >= 1024, "Minimum capacity is 1KB" );
-	static_assert( Capacity <= 256 * 1024 * 1024, "Maximum capacity is 256MB" );
+	static_assert( Capacity >= 1024UL, "Minimum capacity is 1KB" );
+	static_assert( Capacity <= 256UL * 1024UL * 1024UL, "Maximum capacity is 256MB" );
 
 	// stack allocation safety limits
-	static_assert( Allocator != PoolAllocator::Stack || Capacity <= 256 * 1024,
+	static_assert( Allocator != PoolAllocator::Stack || Capacity <= 256UL * 1024UL,
 		"Stack allocation limited to 256KB for portability" );
 
 private:
@@ -67,7 +67,8 @@ private:
 	alignas( 64 ) std::atomic< std::size_t > _readOffset;
 
 	// conditional storage based on allocator type
-	using HeapStorage = std::unique_ptr< uint8_t[] >;
+	// NOLINT NOTE: array unique_ptr is the correct idiom for heap-allocated runtime-sized buffers; std::array requires stack allocation
+	using HeapStorage = std::unique_ptr< uint8_t[] >;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 	using StackStorage = std::array< uint8_t, Capacity >;
 
 	std::conditional_t< Allocator == PoolAllocator::Heap, HeapStorage, StackStorage > _pool;
@@ -248,7 +249,7 @@ uint8_t* MemoryPool< Capacity, Allocator >::allocate( std::size_t size ) noexcep
 
 	while ( wrapRetries < MAX_WRAP_RETRIES )
 	{
-		std::size_t write = _writeOffset.load( std::memory_order_relaxed );
+		std::size_t write = _writeOffset.load( std::memory_order_acquire );
 		std::size_t read = _readOffset.load( std::memory_order_acquire );
 
 		// check if we have enough total space
@@ -266,7 +267,7 @@ uint8_t* MemoryPool< Capacity, Allocator >::allocate( std::size_t size ) noexcep
 			// need to wrap, compare-and-swap failure means another thread already wrapped,
 			// which is fine, just reload and retry without burning an alloc attempt
 			std::size_t nextBoundary = ( ( write / Capacity ) + 1 ) * Capacity;
-			_writeOffset.compare_exchange_weak( write, nextBoundary, std::memory_order_relaxed, std::memory_order_relaxed );
+			_writeOffset.compare_exchange_weak( write, nextBoundary, std::memory_order_release, std::memory_order_relaxed );
 			++wrapRetries;
 			continue;
 		}
@@ -278,10 +279,28 @@ uint8_t* MemoryPool< Capacity, Allocator >::allocate( std::size_t size ) noexcep
 			{
 				return base() + writePos;
 			}
+
+			// write is now updated to the current _writeOffset value, and now writePos
+			// needs to be recomputed so we don't return a stale/claimed address
+			writePos = write & ( Capacity - 1 );
+
+			// if the updated write position requires a wrap, break to the
+			// outer loop rather than retrying with an unusable writePos
+			if ( size > ( Capacity - writePos ) )
+			{
+				break;
+			}
+
+			// re-check pool fullness with the updated read/write positions
+			read = _readOffset.load( std::memory_order_acquire );
+			if ( size > ( Capacity - ( write - read ) ) )
+			{
+				return nullptr;
+			}
 		}
 
-		// too much contention - treat as full
-		return nullptr;
+		// counts outer iterations regardless of why inner exited
+		++wrapRetries;
 	}
 
 	// wrap contention exhausted - treat as full
@@ -326,7 +345,8 @@ auto MemoryPool< Capacity, Allocator >::initializePool() noexcept
 {
 	if constexpr ( Allocator == PoolAllocator::Heap )
 	{
-		return std::make_unique< uint8_t[] >( Capacity );
+		// NOLINT NOTE: see HeapStorage declaration above
+		return std::make_unique< uint8_t[] >( Capacity );  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 	}
 	else
 	{

@@ -39,7 +39,7 @@ bool Scanner::scan( const std::uint8_t* data, std::size_t size )
 	// start searching from after the last found record
 	for ( std::size_t i = _offset; ( i + sizeof( std::uint64_t ) ) <= size; ++i )
 	{
-		std::uint64_t magic;
+		std::uint64_t magic = 0;
 		std::memcpy( &magic, data + i, sizeof( magic ) );
 
 		if ( magic == FLARE_MAGIC )
@@ -64,7 +64,7 @@ bool Scanner::scan( const std::uint8_t* data, std::size_t size )
 				// make sure we can read the END marker
 				if ( ( endMarkerOffset + sizeof( std::uint16_t ) ) <= size )
 				{
-					std::uint16_t endMarkerType;
+					std::uint16_t endMarkerType = 0;
 					std::memcpy( &endMarkerType, data + endMarkerOffset, sizeof( endMarkerType ) );
 
 					// verify it's the RecordEnd marker

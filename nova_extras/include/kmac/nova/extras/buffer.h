@@ -88,11 +88,11 @@ public:
 	/**
 	 * @brief Append single character to buffer.
 	 *
-	 * @param c character to append
+	 * @param chr character to append
 	 * @return true if character fit, false if rejected
 	 */
 	[[nodiscard]]
-	bool appendChar( char c ) noexcept;
+	bool appendChar( char chr ) noexcept;
 
 	/**
 	 * @brief Append a string literal to buffer.
@@ -101,11 +101,11 @@ public:
 	 * @return true if string fit, false if rejected
 	 */
 	template< std::size_t N >
-	bool appendLiteral( const char ( &lit )[ N ] ) noexcept;
+	bool appendLiteral( const char ( &lit )[ N ] ) noexcept;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 };
 
 template< std::size_t N >
-bool Buffer::appendLiteral( const char ( &lit )[ N ] ) noexcept
+bool Buffer::appendLiteral( const char ( &lit )[ N ] ) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 {
 	static_assert( N > 0 );
 	return append( lit, N - 1 );

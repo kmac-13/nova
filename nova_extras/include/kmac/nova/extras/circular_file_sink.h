@@ -4,6 +4,7 @@
 
 #include "kmac/nova/sink.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <string>
@@ -109,24 +110,24 @@ class Formatter;
 class CircularFileSink final : public kmac::nova::Sink
 {
 	// write buffering for improved performance
-	static constexpr std::size_t WRITE_BUFFER_SIZE = 256 * 1024;  // 256 KB buffer
+	static constexpr std::size_t WRITE_BUFFER_SIZE = 256UL * 1024UL;  // 256 KB buffer
 
 private:
 	std::string _filename;
-	std::size_t _maxFileSize;
-	std::size_t _currentSize;    ///< Current position in file (0 to maxFileSize-1)
-	std::size_t _totalWritten;   ///< Total bytes written (may exceed maxFileSize)
-	bool _hasWrapped;            ///< True if we've wrapped around at least once
+	std::size_t _maxFileSize = 0;
+	std::size_t _currentSize = 0;   ///< Current position in file (0 to maxFileSize-1)
+	std::size_t _totalWritten = 0;  ///< Total bytes written (may exceed maxFileSize)
+	bool _hasWrapped = false;       ///< True if we've wrapped around at least once
 
-	FILE* _file;
+	FILE* _file = nullptr;
 
-	Formatter* _formatter;
+	Formatter* _formatter = nullptr;
 
-	char _writeBuffer[ WRITE_BUFFER_SIZE ];
-	std::size_t _bufferOffset;
+	std::array< char, WRITE_BUFFER_SIZE > _writeBuffer{};
+	std::size_t _bufferOffset = 0;
 
 	using ProcessFunc = void ( CircularFileSink::* )( const kmac::nova::Record& );
-	ProcessFunc _process;
+	ProcessFunc _process = nullptr;
 
 public:
 	/**
@@ -236,6 +237,17 @@ private:
 	 * @param size size of data in bytes
 	 */
 	void write( const char* data, std::size_t size ) noexcept;
+
+	/**
+	 * @brief Write data larger than the write buffer directly to the file.
+	 *
+	 * Handles wrap-around when the data would exceed the maximum file size,
+	 * splitting the write across the wrap boundary as needed.
+	 *
+	 * @param data pointer to data to write
+	 * @param size number of bytes to write
+	 */
+	void writeLarge( const char* data, std::size_t size ) noexcept;
 };
 
 } // namespace kmac::nova::extras

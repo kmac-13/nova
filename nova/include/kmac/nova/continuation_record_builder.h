@@ -6,6 +6,7 @@
 #include "logger.h"
 #include "logger_traits.h"
 
+#include <array>
 #include <cassert>
 #include <charconv>
 #include <cstddef>
@@ -173,25 +174,25 @@ private:
 	static_assert( BufferSize >= 16, "Buffer size must be at least 16 bytes" );
 	static_assert( BufferSize <= 65536, "Buffer size must not exceed 64KB (stack safety)" );
 
-	char _buffer[ BufferSize ];  ///< stack-allocated message buffer
+	std::array< char, BufferSize > _buffer = { };  ///< stack-allocated message buffer
 	std::size_t _offset = 0;     ///< current write position
 	bool _busy = false;          ///< non-atomic, thread-local reentrancy guard, not used for synchronization
 	bool _committed = false;     ///< true if already committed
 
-	const char* _file;           ///< source file (e.g. __FILE__)
-	const char* _function;       ///< function name (e.g. __FUNCTION__)
-	std::uint32_t _line;         ///< line number (e.g. __LINE__)
-	std::uint64_t _timestamp;    ///< captured timestamp (shared by all continuations)
+	const char* _file = nullptr;       ///< source file (e.g. __FILE__)
+	const char* _function = nullptr;   ///< function name (e.g. __FUNCTION__)
+	std::uint32_t _line = 0;           ///< line number (e.g. __LINE__)
+	std::uint64_t _timestamp = 0;      ///< captured timestamp (shared by all continuations)
 
 	bool _isContinuation = false;       ///< true if currently building a continuation
 	std::size_t _continuationCount = 0; ///< number of continuations emitted
 
 	// tag and logging details
-	const char* _tagName;
-	std::uint64_t _tagId;
+	const char* _tagName = nullptr;
+	std::uint64_t _tagId = 0;
 
 	using LogFunc = void (*)( const Record& ) noexcept;
-	LogFunc _logFunc;
+	LogFunc _logFunc = nullptr;
 
 public:
 	/**
@@ -205,19 +206,19 @@ public:
 	 * Defaulted (trivial) rather than user-provided for two reasons:
 	 *
 	 * 1. MSVC tls_atexit crash (Windows):
-	 * A user-provided destructor — even with an empty body — causes MSVC to
+	 * A user-provided destructor - even with an empty body - causes MSVC to
 	 * heap-allocate a tls_atexit registration record for every thread that
 	 * constructs this thread_local.  That record is freed via atexit during
 	 * CRT shutdown, which races with other library atexit handlers and causes
 	 * RtlFreeHeap to receive an invalid address at process exit.  A defaulted
 	 * destructor is trivial (all members are trivially destructible), so MSVC
-	 * never registers tls_atexit for it — no heap allocation, no shutdown race.
+	 * never registers tls_atexit for it - no heap allocation, no shutdown race.
 	 *
 	 * 2. FLS/sink rebind race (Windows):
 	 * Even if the crash were absent, calling commit() here would be hazardous.
 	 * On thread exit the FLS callback fires this destructor asynchronously,
 	 * which could race with a ScopedConfigurator on another thread rebinding
-	 * the same tag's sink — causing phantom records to land in the new sink
+	 * the same tag's sink - causing phantom records to land in the new sink
 	 * and inflating delivery counts (which affects unit test results).
 	 *
 	 * Commit safety: TlsContBuilderWrapper::~TlsContBuilderWrapper() is the
@@ -314,9 +315,9 @@ private:
 	/**
 	 * @brief Append single character to buffer.
 	 *
-	 * @param c character to append
+	 * @param chr character to append
 	 */
-	void append( char c ) noexcept;
+	void append( char chr ) noexcept;
 
 	/**
 	 * @brief Append C-string to buffer.
@@ -336,9 +337,12 @@ private:
 
 	 * @tparam N array size including null terminator
 	 * @param lit string literal to append
+	 *
+	 * @note marked as NOLINT since this is a string literal reference that can't
+	 * be updated to an array declaration; std::array cannot bind to string literals
 	 */
 	template< std::size_t N >
-	void append( const char ( &lit )[ N ] ) noexcept;
+	void append( const char ( &lit )[ N ] ) noexcept;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 
 	/**
 	 * @brief Append string to buffer.
@@ -428,7 +432,11 @@ void ContinuationRecordBuilder< BufferSize >::setContext( const char* file, cons
 	assert( ! _busy && "Nested logging detected! Use NOVA_LOG_STACK" );
 
 	// silently fail in release builds
-	if ( _busy ) return;  // drop nested log, prevent corruption
+	if ( _busy )
+	{
+		// drop nested log, prevent corruption
+		return;
+	}
 
 	_busy = true;
 	_offset = 0;
@@ -467,7 +475,10 @@ template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::commit() noexcept
 {
 	// don't attempt to commit if not busy or already committed
-	if ( ! _busy || _committed ) return;
+	if ( ! _busy || _committed )
+	{
+		return;
+	}
 
 	commitCurrent();
 
@@ -487,7 +498,7 @@ void ContinuationRecordBuilder< BufferSize >::commitCurrent() noexcept
 		_function,
 		_line,
 		_timestamp, // same timestamp for all continuations
-		_buffer,
+		_buffer.data(),
 		_offset
 	};
 
@@ -502,7 +513,7 @@ void ContinuationRecordBuilder< BufferSize >::startContinuation() noexcept
 	++_continuationCount;
 
 	// add continuation prefix
-	std::memcpy( _buffer, CONTINUATION_PREFIX, CONTINUATION_PREFIX_SIZE );
+	std::memcpy( _buffer.data(), CONTINUATION_PREFIX, CONTINUATION_PREFIX_SIZE );
 	_offset = CONTINUATION_PREFIX_SIZE;
 }
 
@@ -523,10 +534,10 @@ void ContinuationRecordBuilder< BufferSize >::ensureSpace( std::size_t needed ) 
 }
 
 template< std::size_t BufferSize >
-void ContinuationRecordBuilder< BufferSize >::append( char c ) noexcept
+void ContinuationRecordBuilder< BufferSize >::append( char chr ) noexcept
 {
 	ensureSpace( 1 );
-	_buffer[ _offset++ ] = c;
+	_buffer[ _offset++ ] = chr;
 }
 
 template< std::size_t BufferSize >
@@ -538,7 +549,7 @@ void ContinuationRecordBuilder< BufferSize >::append( const char* str ) noexcept
 
 template< std::size_t BufferSize >
 template< std::size_t N >
-void ContinuationRecordBuilder< BufferSize >::append( const char ( &lit )[ N ] ) noexcept
+void ContinuationRecordBuilder< BufferSize >::append( const char ( &lit )[ N ] ) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 {
 	// N includes the null terminator; pass N-1 as the actual string length
 	static_assert( N > 0 );
@@ -552,7 +563,10 @@ template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( const std::string_view& str ) noexcept
 {
 	// return early if the string is empty
-	if ( str.empty() ) return;
+	if ( str.empty() )
+	{
+		return;
+	}
 
 	std::size_t pos = 0;
 
@@ -567,7 +581,7 @@ void ContinuationRecordBuilder< BufferSize >::append( const std::string_view& st
 		}
 
 		const std::size_t toCopy = std::min( str.size() - pos, available );
-		std::memcpy( _buffer + _offset, str.data() + pos, toCopy );
+		std::memcpy( _buffer.data() + _offset, str.data() + pos, toCopy );
 		_offset += toCopy;
 		pos += toCopy;
 	}
@@ -580,14 +594,14 @@ void ContinuationRecordBuilder< BufferSize >::append( int value ) noexcept
 	ensureSpace( 11 );
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -727,10 +741,11 @@ void ContinuationRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 	// hex pointer: "0x" + 16 hex digits = 18 chars max
 	ensureSpace( 18 );
 
+	// NOLINT NOTE: pointer-to-integer for address formatting (std::bit_cast requires C++20)
 	auto [ p, ec ] = std::to_chars(
 		_buffer + _offset,
 		_buffer + BufferSize - 1,
-		reinterpret_cast< std::uintptr_t >( ptr ),
+		reinterpret_cast< std::uintptr_t >( ptr ),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 		16
 	);
 

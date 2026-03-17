@@ -47,14 +47,14 @@ bool Buffer::append( const char* data, std::size_t length ) noexcept
 	return true;
 }
 
-bool Buffer::appendChar( char c ) noexcept
+bool Buffer::appendChar( char chr ) noexcept
 {
 	if ( _size >= _capacity )
 	{
 		return false;
 	}
 
-	_buffer[ _size ] = c;
+	_buffer[ _size ] = chr;
 	++_size;
 	return true;
 }

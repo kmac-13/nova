@@ -25,8 +25,9 @@ private:
 public:
 	TempDir()
 	{
-		_path = std::filesystem::temp_directory_path() / "circular_sink_test";
-		std::filesystem::remove_all( _path );
+		// use a counter to avoid reusing the same file (seems to cause issues with some windows builds)
+		static std::atomic< int > counter{ 0 };
+		_path = std::filesystem::temp_directory_path() / ( "circular_sink_test_" + std::to_string( ++counter ) );
 		std::filesystem::create_directories( _path );
 	}
 
@@ -266,7 +267,7 @@ TEST( CircularFileSink, MultipleWraps )
 
 	EXPECT_TRUE( sink.hasWrapped() );
 	EXPECT_EQ( sink.totalWritten(), 50 );
-	
+
 	// file size on disk should be exactly maxSize (file doesn't shrink after wrap)
 	const std::size_t fileSize = getFileSize( path );
 	EXPECT_EQ( fileSize, maxSize );

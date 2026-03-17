@@ -379,7 +379,7 @@ TEST( MemoryPoolAsyncSinkTest, ConcurrentProducers )
 	// launch multiple producer threads
 	for ( int t = 0; t < NUM_THREADS; ++t )
 	{
-		threads.emplace_back( [ &sink, t ]() {
+		threads.emplace_back( [ &sink, t, MSGS_PER_THREAD ]() {
 			for ( int i = 0; i < MSGS_PER_THREAD; ++i )
 			{
 				kmac::nova::Record record{};

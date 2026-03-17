@@ -77,12 +77,18 @@ struct kmac::nova::logger_traits< void >
 		return 0;
 	}
 };
+// specialize
 template<>
 constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits< void >::tagId > = "<void>";
 
 //
 // Customization macros
 //
+
+// NOTE: These macro cannot be replaced with a constexpr template function -
+// one requires template specialization, inline variable specialization, and
+// a static_assert at the call site, none of which a function can provide.
+// NOLINT is used to suppress the cppcoreguidelines-macro-usage diagnostic accordingly.
 
 /**
  * @brief Full logger_traits specialization macro.
@@ -101,7 +107,7 @@ constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits
  * Each invocation registers the tag with the tagIdOwner guard (see details.h).
  * If two tags in the same binary hash to the same tagId, the compiler produces
  * a redefinition error.  For cross-binary collision detection across independently
- * compiled shared libraries, provide a validation translation unit — see the
+ * compiled shared libraries, provide a validation translation unit - see the
  * documentation on details::tagIdOwner for the recommended pattern.
  *
  * Usage:
@@ -109,7 +115,7 @@ constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits
  *   NOVA_LOGGER_TRAITS(OtherTag, OTHER, true, myCustomClock)
  *   NOVA_LOGGER_TRAITS(DisabledTag, DIS, false, TimestampHelper::steadyNanosecs)
  */
-#define NOVA_LOGGER_TRAITS( TagType, Name, Enabled, TimestampExpr ) \
+#define NOVA_LOGGER_TRAITS( TagType, Name, Enabled, TimestampExpr ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	template<> \
 	struct kmac::nova::logger_traits< TagType > \
 	{ \
@@ -137,7 +143,7 @@ constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits
  * Usage:
  *   NOVA_LOGGER_TRAITS_SIMPLE(MyTag, My)
  */
-#define NOVA_LOGGER_TRAITS_SIMPLE( TagType, Name ) \
+#define NOVA_LOGGER_TRAITS_SIMPLE( TagType, Name ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_LOGGER_TRAITS( TagType, Name, true, ::kmac::nova::TimestampHelper::systemNanosecs )
 
 /**
@@ -151,7 +157,7 @@ constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits
  * Usage:
  *   NOVA_LOGGER_TRAITS_DISABLED(DebugTag, Debug)
  */
-#define NOVA_LOGGER_TRAITS_DISABLED( TagType, Name ) \
+#define NOVA_LOGGER_TRAITS_DISABLED( TagType, Name ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_LOGGER_TRAITS( TagType, Name, false, ::kmac::nova::TimestampHelper::steadyNanosecs )
 
 #endif // KMAC_NOVA_LOGGER_TRAITS_H

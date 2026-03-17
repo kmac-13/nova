@@ -11,17 +11,17 @@
 /**
  * @file performance_metrics.h
  * @brief Compile-time performance guarantees and verification.
- * 
+ *
  * This file contains static assertions that verify Nova's performance
  * claims and ensure the library maintains its zero-cost abstraction
  * properties.
- * 
+ *
  * These assertions:
  * - verify size and layout of core types
  * - ensure trivial destructors for hot-path types
  * - check alignment for optimal performance
  * - prevent unintended bloat
- * 
+ *
  * If any assertion fails, it indicates a regression in Nova's
  * performance characteristics.
  */
@@ -41,19 +41,19 @@ struct LoggerMetrics
 		sizeof( Logger< Tag > ) == sizeof( std::atomic< Sink* > ),
 		"Logger size regression: should only contain atomic sink pointer"
 	);
-	
+
 	// Logger should be trivially destructible (no cleanup needed)
 	static_assert(
 		std::is_trivially_destructible_v< Logger< Tag > >,
 		"Logger should be trivially destructible for zero-cost cleanup"
 	);
-	
+
 	// Logger should have pointer alignment
 	static_assert(
 		alignof( Logger< Tag > ) == alignof( void* ),
 		"Logger should have pointer alignment for optimal access"
 	);
-	
+
 	// Logger should be standard-layout for predictable memory layout
 	static_assert(
 		std::is_standard_layout_v< Logger< Tag > >,
@@ -72,19 +72,19 @@ struct RecordMetrics
 		sizeof( Record ) <= 64,
 		"Record size regression: should fit in cache line (64 bytes)"
 	);
-	
+
 	// Record should be trivially copyable (POD-like)
 	static_assert(
 		std::is_trivially_copyable_v< Record >,
 		"Record should be trivially copyable for efficient passing"
 	);
-	
+
 	// Record should be standard layout
 	static_assert(
 		std::is_standard_layout_v< Record >,
 		"Record should be standard layout for predictable memory layout"
 	);
-	
+
 	// Record should have natural alignment
 	static_assert(
 		alignof( Record ) <= 16,
@@ -104,13 +104,13 @@ struct SinkMetrics
 		sizeof( Sink ) == sizeof( void* ),
 		"Sink base class should only contain vtable pointer"
 	);
-	
+
 	// Sink should be polymorphic (has virtual functions)
 	static_assert(
 		std::is_polymorphic_v< Sink >,
 		"Sink should be polymorphic (has virtual functions)"
 	);
-	
+
 	// Sink should be abstract (cannot be instantiated)
 	static_assert(
 		std::is_abstract_v< Sink >,
@@ -124,10 +124,10 @@ struct SinkMetrics
 
 /**
  * @brief Instantiate this to verify all performance metrics.
- * 
+ *
  * Usage:
  *   template struct VerifyPerformance<MyTag>;
- * 
+ *
  * Or in a test file:
  *   static_assert(VerifyPerformance<MyTag>::value);
  */
@@ -138,7 +138,7 @@ struct VerifyPerformance
 	using logger_check = LoggerMetrics< Tag >;
 	using record_check = RecordMetrics;
 	using sink_check = SinkMetrics;
-	
+
 	static constexpr bool value = true;
 };
 
@@ -148,7 +148,7 @@ struct VerifyPerformance
 
 /**
  * @brief Generate compile-time performance report.
- * 
+ *
  * This can be used with static_assert messages to display
  * size information during compilation.
  */
@@ -158,11 +158,11 @@ struct PerformanceReport
 	static constexpr std::size_t logger_size = sizeof( Logger< Tag > );
 	static constexpr std::size_t record_size = sizeof( Record );
 	static constexpr std::size_t sink_size = sizeof( Sink );
-	
+
 	static constexpr std::size_t logger_alignment = alignof( Logger< Tag > );
 	static constexpr std::size_t record_alignment = alignof( Record );
 	static constexpr std::size_t sink_alignment = alignof( Sink );
-	
+
 	// Provide compile-time report
 	static constexpr bool report()
 	{
@@ -179,11 +179,11 @@ struct PerformanceReport
 
 /**
  * @brief Verify performance metrics for a tag.
- * 
+ *
  * Usage in test files:
  *   NOVA_VERIFY_PERFORMANCE(MyTag);
  */
-#define NOVA_VERIFY_PERFORMANCE( Tag ) \
+#define NOVA_VERIFY_PERFORMANCE( Tag ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	static_assert( \
 		::kmac::nova::performance::VerifyPerformance< Tag >::value, \
 		"Nova performance metrics verification for " #Tag \
@@ -191,14 +191,14 @@ struct PerformanceReport
 
 /**
  * @brief Display performance report for a tag.
- * 
+ *
  * Usage:
  *   NOVA_PERFORMANCE_REPORT(MyTag);
- * 
+ *
  * This will cause a static_assert that shows size information
  * in compiler output.
  */
-#define NOVA_PERFORMANCE_REPORT( Tag ) \
+#define NOVA_PERFORMANCE_REPORT( Tag ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	static_assert( \
 		::kmac::nova::performance::PerformanceReport< Tag >::logger_size >= 0, \
 		"Logger<" #Tag "> size: " /* size shown in error message */ \

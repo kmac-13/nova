@@ -23,7 +23,7 @@ constexpr std::uint64_t fnv1a( const char* str ) noexcept;
  * @return 64-bit hash
  */
 template< std::size_t N >
-constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;
+constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 
 /**
  * @brief Primary template used to guard against duplicate tag IDs.
@@ -80,7 +80,7 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;
  * } // namespace
  * @endcode
  *
- * The function is never called — the compiler validates case labels regardless.
+ * The function is never called - the compiler validates case labels regardless.
  * Placing it in an anonymous namespace suppresses unused-function warnings without
  * needing compiler-specific attributes.
  *
@@ -120,6 +120,8 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;
  * fully-qualified tag type names in NOVA_LOGGER_TRAITS invocations to maximize
  * hash entropy and produce clear diagnostic messages if a collision occurs.
  */
+
+// helper requiring specialization to detect/prevent collisions
 template< std::uint64_t Id >
 inline constexpr const char* tagIdOwner = nullptr;
 
@@ -128,8 +130,8 @@ inline constexpr const char* tagIdOwner = nullptr;
 //
 
 // FNV-1a constants
-constexpr std::uint64_t FNV_OFFSET = 14695981039346656037ull;
-constexpr std::uint64_t FNV_PRIME = 1099511628211ull;
+constexpr std::uint64_t FNV_OFFSET = 14695981039346656037ULL;
+constexpr std::uint64_t FNV_PRIME = 1099511628211ULL;
 constexpr std::uint64_t FNV_FINAL = 0xd6e8feb86659fd93ULL;
 
 // string hash
@@ -137,7 +139,7 @@ constexpr std::uint64_t fnv1a( const char* str ) noexcept
 {
 	std::uint64_t hash = FNV_OFFSET;
 
-	while ( *str )
+	while ( *str != '\0' )
 	{
 		hash ^= static_cast< unsigned char >( *str );
 		hash *= FNV_PRIME;
@@ -145,16 +147,16 @@ constexpr std::uint64_t fnv1a( const char* str ) noexcept
 	}
 
 	// final avalanche mix (improves distribution for short strings)
-	hash ^= hash >> 32;
+	hash ^= hash >> 32U;
 	hash *= FNV_FINAL;
-	hash ^= hash >> 32;
+	hash ^= hash >> 32U;
 
 	return hash;
 }
 
 // string literal hash
 template< std::size_t N >
-constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept
+constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 {
 	std::uint64_t hash = FNV_OFFSET;
 
@@ -165,9 +167,9 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept
 	}
 
 	// final avalanche mix (improves distribution for short strings)
-	hash ^= hash >> 32;
+	hash ^= hash >> 32U;
 	hash *= FNV_FINAL;
-	hash ^= hash >> 32;
+	hash ^= hash >> 32U;
 
 	return hash;
 }

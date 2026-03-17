@@ -210,7 +210,7 @@ private:
 	 * @param ubf unbind function to check
 	 * @return true if registered, false otherwise
 	 */
-	inline bool isBound( UnbindFn ubf ) const noexcept;
+	inline bool isBound( UnbindFn unbindFn ) const noexcept;
 
 	/**
 	 * @brief Register unbind function.
@@ -220,14 +220,14 @@ private:
 	 * @note Ignores if already registered (duplicate detection)
 	 * @note Ignores if at capacity (asserts in debug, silent in release)
 	 */
-	inline void add( UnbindFn ubf ) noexcept;
+	inline void add( UnbindFn unbindFn ) noexcept;
 
 	/**
 	 * @brief Unregister unbind function.
 	 *
 	 * @param ubf unbind function to unregister
 	 */
-	inline void remove( UnbindFn ubf ) noexcept;
+	inline void remove( UnbindFn unbindFn ) noexcept;
 };
 
 template< size_t MaxBindings >
@@ -341,10 +341,24 @@ bool ScopedConfigurator< MaxBindings >::hasOverflowed() const noexcept
 #endif
 
 template< size_t MaxBindings >
-void ScopedConfigurator< MaxBindings >::add( UnbindFn fn ) noexcept
+bool ScopedConfigurator< MaxBindings >::isBound( UnbindFn unbindFn ) const noexcept
+{
+	for ( size_t i = 0; i < _count; ++i )
+	{
+		if ( _boundList[ i ] == unbindFn )
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+template< size_t MaxBindings >
+void ScopedConfigurator< MaxBindings >::add( UnbindFn unbindFn ) noexcept
 {
 	// don't add if already bound (duplicate detection)
-	if ( isBound( fn ) )
+	if ( isBound( unbindFn ) )
 	{
 		return;
 	}
@@ -353,7 +367,8 @@ void ScopedConfigurator< MaxBindings >::add( UnbindFn fn ) noexcept
 	if ( _count >= MaxBindings )
 	{
 		// in debug, assert to catch programming error
-		NOVA_ASSERT( false && "ScopedConfigurator capacity exceeded - increase MaxBindings" );
+		// NOLINT NOTE: runtime guard, not compile-time; overflow is a runtime condition
+		NOVA_ASSERT( false && "ScopedConfigurator capacity exceeded - increase MaxBindings" );  // NOLINT(cert-dcl03-c,misc-static-assert)
 
 #ifndef NDEBUG
 		_overflowed = true;
@@ -364,16 +379,16 @@ void ScopedConfigurator< MaxBindings >::add( UnbindFn fn ) noexcept
 	}
 
 	// add to list
-	_boundList[ _count++ ] = fn;
+	_boundList[ _count++ ] = unbindFn;
 }
 
 template< size_t MaxBindings >
-void ScopedConfigurator< MaxBindings >::remove( UnbindFn fn ) noexcept
+void ScopedConfigurator< MaxBindings >::remove( UnbindFn unbindFn ) noexcept
 {
 	// find and remove the unbind function
 	for ( size_t i = 0; i < _count; ++i )
 	{
-		if ( _boundList[ i ] == fn )
+		if ( _boundList[ i ] == unbindFn )
 		{
 			// shift remaining elements left
 			for ( size_t j = i + 1; j < _count; ++j )
@@ -385,20 +400,6 @@ void ScopedConfigurator< MaxBindings >::remove( UnbindFn fn ) noexcept
 			return;
 		}
 	}
-}
-
-template< size_t MaxBindings >
-bool ScopedConfigurator< MaxBindings >::isBound( UnbindFn fn ) const noexcept
-{
-	for ( size_t i = 0; i < _count; ++i )
-	{
-		if ( _boundList[ i ] == fn )
-		{
-			return true;
-		}
-	}
-
-	return false;
 }
 
 } // namespace kmac::nova

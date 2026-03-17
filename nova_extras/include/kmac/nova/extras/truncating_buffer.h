@@ -47,10 +47,10 @@ namespace kmac::nova::extras
 class TruncatingBuffer
 {
 private:
-	char* _buffer;           ///< external buffer (not owned)
-	std::size_t _capacity;   ///< total buffer capacity in bytes
-	std::size_t _size;       ///< current content size in bytes
-	bool _truncated;         ///< true if any append operation failed
+	char* _buffer = nullptr;    ///< external buffer (not owned)
+	std::size_t _capacity = 0;  ///< total buffer capacity in bytes
+	std::size_t _size = 0;      ///< current content size in bytes
+	bool _truncated = false;    ///< true if any append operation failed
 
 public:
 	/**
@@ -108,7 +108,7 @@ public:
 	 * @return true if character fit, false if truncated
 	 */
 	[[nodiscard]]
-	bool appendChar( char c ) noexcept;
+	bool appendChar( char chr ) noexcept;
 };
 
 } // namespace kmac::nova::extras

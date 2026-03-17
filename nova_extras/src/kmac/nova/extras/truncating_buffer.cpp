@@ -8,8 +8,6 @@ namespace kmac::nova::extras
 TruncatingBuffer::TruncatingBuffer( char* buffer, std::size_t capacity ) noexcept
 	: _buffer( buffer )
 	, _capacity( capacity )
-	, _size( 0 )
-	, _truncated( false )
 {
 }
 
@@ -52,7 +50,7 @@ bool TruncatingBuffer::append( const char* data, std::size_t length ) noexcept
 	return true;
 }
 
-bool TruncatingBuffer::appendChar( char c ) noexcept
+bool TruncatingBuffer::appendChar( char chr ) noexcept
 {
 	if ( _size >= _capacity )
 	{
@@ -60,7 +58,7 @@ bool TruncatingBuffer::appendChar( char c ) noexcept
 		return false;
 	}
 
-	_buffer[ _size ] = c;
+	_buffer[ _size ] = chr;
 	++_size;
 	return true;
 }

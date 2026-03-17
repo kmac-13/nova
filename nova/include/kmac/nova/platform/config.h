@@ -2,20 +2,25 @@
 #ifndef KMAC_NOVA_PLATFORM_CONFIG_H
 #define KMAC_NOVA_PLATFORM_CONFIG_H
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
+// config.h is a preprocessor-level platform configuration header.
+// All macros here operate before the C++ compiler and cannot be replaced
+// with constexpr constructs.  See clang-tidy.yml for the documented rationale.
+
 /**
  * @file config.h
  * @brief Platform configuration and feature detection for Nova logging framework
- * 
+ *
  * This header provides automatic detection of platform capabilities and allows
  * manual override via preprocessor defines for bare-metal and RTOS environments.
- * 
+ *
  * C++ Version Requirements:
  * - **C++17 or later**: required (enforced with #error)
- * 
+ *
  * Nova uses C++17 features including if constexpr, std::string_view, and
  * std::to_chars for zero-cost abstractions and optimal performance, and
  * __has_include for automatic configuration.
- * 
+ *
  * Feature Flags:
  * - NOVA_NO_STD        : disable all standard library usage
  * - NOVA_NO_ATOMIC     : disable std::atomic (provide custom impl)
@@ -25,36 +30,36 @@
  * - NOVA_BARE_METAL    : alias for NO_STD + NO_ATOMIC + NO_CHRONO + NO_ARRAY
  * - NOVA_RTOS          : enable RTOS-specific features
  * - FLARE_NO_STDIO     : use raw file descriptors instead of FILE*
- * 
+ *
  * Automatic Detection (using __has_include):
  * Nova will automatically detect standard library availability using __has_include.
  * If your compiler supports this feature, you typically don't need to manually
  * define NOVA_NO_* flags - they will be set automatically if headers are missing.
- * 
+ *
  * Diagnostic Mode:
  * Define NOVA_DIAGNOSTICS to see what Nova detected at compile time:
  *   #define NOVA_DIAGNOSTICS
  *   #include <kmac/nova/logger.h>
- * 
+ *
  * This will print configuration messages during compilation showing:
  * - which features are enabled/disabled
  * - which platform was detected
  * - whether __has_include is available
- * 
+ *
  * Usage Examples:
- * 
+ *
  *   // Example 1: full automatic detection (recommended)
  *   #include <kmac/nova/logger.h>
  *   // Nova auto-detects everything
- * 
+ *
  *   // Example 2: bare-metal mode (explicit)
  *   #define NOVA_BARE_METAL
  *   #include <kmac/nova/logger.h>
- * 
+ *
  *   // Example 3: RTOS with partial stdlib (fine-grained control)
  *   #define NOVA_NO_CHRONO  // no std::chrono, but have std::atomic
  *   #include <kmac/nova/logger.h>
- * 
+ *
  *   // Example 4: debugging configuration
  *   #define NOVA_DIAGNOSTICS
  *   #include <kmac/nova/logger.h>
@@ -138,7 +143,11 @@
 // C++ VERSION DETECTION
 // ============================================================================
 
-#if __cplusplus < 201703L
+#if defined( _MSVC_LANG )
+	#if _MSVC_LANG < 201703L
+		#error "Nova requires C++17 or later. Use /std:c++17 or newer."
+	#endif
+#elif __cplusplus < 201703L
 	#error "Nova requires C++17 or later. Use -std=c++17 or newer."
 #endif
 
@@ -333,7 +342,7 @@
 // ============================================================================
 
 #ifndef NOVA_ASSERT
-	#if defined(NOVA_BARE_METAL)
+	#if defined( NOVA_BARE_METAL )
 		// bare-metal: user must provide their own assert
 		// example: #define NOVA_ASSERT( x ) if ( ! ( x ) ) { bsp_halt(); }
 		#ifndef NOVA_ASSERT
@@ -366,5 +375,7 @@
 
 // mark platform-specific code
 #define NOVA_PLATFORM_SPECIFIC
+
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
 #endif // KMAC_NOVA_PLATFORM_CONFIG_H
