@@ -29,12 +29,12 @@ namespace kmac::nova::extras
  *   NOVA_LOG_STREAM(ErrorTag) << "Error: " << code;
  *
  * Usage with convenience macros (TRUNC builder):
- *   NOVA_LOG_T() << "Trace message";
- *   NOVA_LOG_D() << "Debug message";
- *   NOVA_LOG_I() << "Info message";
- *   NOVA_LOG_W() << "Warning message";
- *   NOVA_LOG_E() << "Error message";
- *   NOVA_LOG_F() << "Fatal message";
+ *   NOVA_LOG_TRACE() << "Trace message";
+ *   NOVA_LOG_DEBUG() << "Debug message";
+ *   NOVA_LOG_INFO() << "Info message";
+ *   NOVA_LOG_WARN() << "Warning message";
+ *   NOVA_LOG_ERROR() << "Error message";
+ *   NOVA_LOG_FATAL() << "Fatal message";
  *
  * Note: Convenience macros use TRUNC builder for performance.
  * For longer messages, use explicit NOVA_LOG_CONT or NOVA_LOG_STREAM.
@@ -91,22 +91,27 @@ NOVA_LOGGER_TRAITS( ::kmac::nova::extras::FatalTag, FATAL, true, ::kmac::nova::T
  */
 
 /// Trace level logging
-#define NOVA_LOG_T() NOVA_LOG_TRUNC( kmac::nova::extras::TraceTag )
+#define NOVA_LOG_TRACE() /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_TRUNC( kmac::nova::extras::TraceTag )
 
 /// Debug level logging
-#define NOVA_LOG_D() NOVA_LOG_TRUNC( kmac::nova::extras::DebugTag )
+#define NOVA_LOG_DEBUG() /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_TRUNC( kmac::nova::extras::DebugTag )
 
 /// Info level logging
-#define NOVA_LOG_I() NOVA_LOG_TRUNC( kmac::nova::extras::InfoTag )
+#define NOVA_LOG_INFO() /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_TRUNC( kmac::nova::extras::InfoTag )
 
 /// Warning level logging
-#define NOVA_LOG_W() NOVA_LOG_TRUNC( kmac::nova::extras::WarningTag )
+#define NOVA_LOG_WARN() /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_TRUNC( kmac::nova::extras::WarningTag )
 
 /// Error level logging
-#define NOVA_LOG_E() NOVA_LOG_TRUNC( kmac::nova::extras::ErrorTag )
+#define NOVA_LOG_ERROR() /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_TRUNC( kmac::nova::extras::ErrorTag )
 
 /// Fatal level logging
-#define NOVA_LOG_F() NOVA_LOG_TRUNC( kmac::nova::extras::FatalTag )
-
+#define NOVA_LOG_FATAL() /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_TRUNC( kmac::nova::extras::FatalTag )
 
 #endif // KMAC_NOVA_EXTRAS_SEVERITIES_H

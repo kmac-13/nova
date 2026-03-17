@@ -24,7 +24,10 @@ CircularFileSink::CircularFileSink( const std::string& filename, std::size_t max
 	}
 
 	// set full buffering with large buffer for better performance
-	std::setvbuf( _file, nullptr, _IOFBF, 128 * 1024 );
+	if ( std::setvbuf( _file, nullptr, _IOFBF, 128UL * 1024UL ) != 0 )
+	{
+		// buffer hint rejected,q file remains open with default buffering
+	}
 }
 
 CircularFileSink::~CircularFileSink() noexcept
@@ -33,7 +36,11 @@ CircularFileSink::~CircularFileSink() noexcept
 
 	if ( _file != nullptr )
 	{
-		std::fclose( _file );
+		if ( std::fclose( _file ) != 0 )
+		{
+			// flush failed, buffered data may have been lost;
+			// nothing actionable in destructor
+		}
 		_file = nullptr;
 	}
 }
@@ -42,7 +49,7 @@ void CircularFileSink::process( const kmac::nova::Record& record ) noexcept
 {
 	constexpr std::size_t BUFFER_HALF_SIZE = WRITE_BUFFER_SIZE / 2;
 
-	if ( ! _file ) /*[[unlikely]]*/
+	if ( _file == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
@@ -83,7 +90,10 @@ void CircularFileSink::flush() noexcept
 		// if we're at max size, wrap before writing
 		if ( _currentSize >= _maxFileSize )
 		{
-			std::fflush( _file );
+			if ( std::fflush( _file ) == 0 )
+			{
+				// flush failed, OS buffer may not have been committed to disk
+			}
 			wrap();
 		}
 
@@ -92,7 +102,11 @@ void CircularFileSink::flush() noexcept
 
 		// write as much as fits
 		const std::size_t toWrite = ( remaining <= spaceLeft ) ? remaining : spaceLeft;
-		std::fwrite( _writeBuffer.data() + offset, 1, toWrite, _file );
+		const std::size_t written = std::fwrite( _writeBuffer.data() + offset, 1, toWrite, _file );
+		if ( written != toWrite )
+		{
+			// partial or failed write, data lost, nothing actionable in noexcept context
+		}
 
 		_currentSize += toWrite;
 		_totalWritten += toWrite;
@@ -100,7 +114,10 @@ void CircularFileSink::flush() noexcept
 		offset += toWrite;
 	}
 
-	std::fflush( _file );
+	if ( std::fflush( _file ) == 0 )
+	{
+		// flush failed, OS buffer may not have been committed to disk
+	}
 	_bufferOffset = 0;
 }
 
@@ -173,7 +190,10 @@ void CircularFileSink::wrap() noexcept
 	}
 
 	// seek to beginning of file
-	std::fseek( _file, 0, SEEK_SET );
+	if ( std::fseek( _file, 0, SEEK_SET ) != 0 )
+	{
+		// seek failed, circular wrap position lost, subsequent writes may be incorrect
+	}
 
 	// reset position
 	_currentSize = 0;

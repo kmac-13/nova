@@ -8,8 +8,6 @@ namespace kmac::nova::extras
 TruncatingBuffer::TruncatingBuffer( char* buffer, std::size_t capacity ) noexcept
 	: _buffer( buffer )
 	, _capacity( capacity )
-	, _size( 0 )
-	, _truncated( false )
 {
 }
 

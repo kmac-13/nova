@@ -2,6 +2,9 @@
 #ifndef KMAC_NOVA_EXTRAS_MPSC_QUEUE_H
 #define KMAC_NOVA_EXTRAS_MPSC_QUEUE_H
 
+#include "kmac/nova/immovable.h"
+
+#include <array>
 #include <atomic>
 #include <cstddef>
 
@@ -22,7 +25,7 @@ namespace kmac::nova::extras
  * more sophisticated lock-free queue algorithms (e.g., from Boost.Lockfree).
  */
 template< typename T, std::size_t Capacity >
-class MPSCQueue
+class MPSCQueue : private ::kmac::nova::Immovable
 {
 private:
 	struct Slot
@@ -34,20 +37,14 @@ private:
 	// cache line padding to avoid false sharing
 	static constexpr std::size_t CACHE_LINE_SIZE = 64;
 
-	alignas( CACHE_LINE_SIZE ) std::atomic< std::size_t > _head;
-	alignas( CACHE_LINE_SIZE ) std::atomic< std::size_t > _tail;
+	alignas( CACHE_LINE_SIZE ) std::atomic< std::size_t > _head{ 0 };
+	alignas( CACHE_LINE_SIZE ) std::atomic< std::size_t > _tail{ 0 };
 
-	Slot _slots[Capacity];
+	std::array< Slot, Capacity > _slots{};
 
 public:
 	MPSCQueue() noexcept;
 	~MPSCQueue() noexcept = default;
-
-	// non-copyable, non-movable
-	MPSCQueue( const MPSCQueue& ) = delete;
-	MPSCQueue& operator=( const MPSCQueue& ) = delete;
-	MPSCQueue( MPSCQueue&& ) = delete;
-	MPSCQueue& operator=( MPSCQueue&& ) = delete;
 
 	/**
 	 * @brief Get approximate size of queue.
@@ -101,8 +98,6 @@ public:
 
 template< typename T, std::size_t Capacity >
 MPSCQueue< T, Capacity >::MPSCQueue() noexcept
-	: _head( 0 )
-	, _tail( 0 )
 {
 	// initialize sequence numbers
 	for ( std::size_t i = 0; i < Capacity; ++i )
