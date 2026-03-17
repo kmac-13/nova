@@ -213,64 +213,69 @@ void CircularFileSink::write( const char* data, std::size_t size ) noexcept
 		// copy to buffer
 		std::memcpy( _writeBuffer.data() + _bufferOffset, data, size );
 		_bufferOffset += size;
+
+		return;
+	}
+
+	// data larger than remaining buffer space
+	// flush buffer first, then handle large data
+	flush();
+
+	if ( size >= WRITE_BUFFER_SIZE )
+	{
+		writeLarge( data, size );
 	}
 	else
 	{
-		// data larger than remaining buffer space
-		// flush buffer first, then handle large data
-		flush();
+		// data fits in buffer now that it's empty
+		std::memcpy( _writeBuffer.data(), data, size );
+		_bufferOffset = size;
+	}
+}
 
-		if ( size >= WRITE_BUFFER_SIZE )
+void CircularFileSink::writeLarge( const char* data, std::size_t size ) noexcept
+{
+	// data larger than entire buffer - write directly
+	// this bypasses buffering for very large writes
+
+	// check if we need to wrap
+	if ( _currentSize + size > _maxFileSize )
+	{
+		const std::size_t beforeWrap = _maxFileSize - _currentSize;
+
+		if ( beforeWrap > 0 )
 		{
-			// data larger than entire buffer - write directly
-			// this bypasses buffering for very large writes
-
-			// check if we need to wrap
-			if ( _currentSize + size > _maxFileSize )
+			const std::size_t writtenBefore = std::fwrite( data, 1, beforeWrap, _file );
+			if ( writtenBefore != beforeWrap )
 			{
-				const std::size_t beforeWrap = _maxFileSize - _currentSize;
-
-				if ( beforeWrap > 0 )
-				{
-					const std::size_t writtenBefore = std::fwrite( data, 1, beforeWrap, _file );
-					if ( writtenBefore != beforeWrap )
-					{
-						// partial write before wrap, data lost, nothing actionable in noexcept context
-					}
-					_totalWritten += beforeWrap;
-				}
-
-				wrap();
-
-				const std::size_t afterWrap = size - beforeWrap;
-				if ( afterWrap > 0 )
-				{
-					const std::size_t writtenAfter = std::fwrite( data + beforeWrap, 1, afterWrap, _file );
-					if ( writtenAfter != afterWrap )
-					{
-						// partial write after wrap, data lost, nothing actionable in noexcept context
-					}
-					_currentSize = afterWrap;
-					_totalWritten += afterWrap;
-				}
+				// partial write before wrap, data lost, nothing actionable in noexcept context
 			}
-			else
-			{
-				const std::size_t written = std::fwrite( data, 1, size, _file );
-				if ( written != size )
-				{
-					// partial write, data lost, nothing actionable in noexcept context
-				}
-				_currentSize += size;
-				_totalWritten += size;
-			}
+			_totalWritten += beforeWrap;
 		}
-		else
+
+		wrap();
+
+		const std::size_t afterWrap = size - beforeWrap;
+		if ( afterWrap > 0 )
 		{
-			// data fits in buffer now that it's empty
-			std::memcpy( _writeBuffer.data(), data, size );
-			_bufferOffset = size;
+			const std::size_t writtenAfter = std::fwrite( data + beforeWrap, 1, afterWrap, _file );
+			if ( writtenAfter != afterWrap )
+			{
+				// partial write after wrap, data lost, nothing actionable in noexcept context
+			}
+			_currentSize = afterWrap;
+			_totalWritten += afterWrap;
 		}
+	}
+	else
+	{
+		const std::size_t written = std::fwrite( data, 1, size, _file );
+		if ( written != size )
+		{
+			// partial write, data lost, nothing actionable in noexcept context
+		}
+		_currentSize += size;
+		_totalWritten += size;
 	}
 }
 

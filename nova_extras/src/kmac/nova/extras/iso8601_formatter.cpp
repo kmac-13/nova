@@ -425,10 +425,15 @@ bool ISO8601Formatter::formatSlow( const kmac::nova::Record& record, Buffer& buf
 
 void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 {
+	// NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+	// DIGITS_2/DIGITS_3 are 2D C-style arrays of string literals; each element
+	// decays to const char* on access.  Converting to std::array would require
+	// replacing all string literal initialisers with explicit char lists.
+
 	const std::uint64_t seconds = timestamp / 1'000'000'000ULL;
 	const std::uint64_t millis = ( timestamp / 1'000'000ULL ) % 1000ULL;
 
-	std::time_t timeVal = static_cast< std::time_t >( seconds );
+	const std::time_t timeVal = static_cast< std::time_t >( seconds );
 	std::tm time {};
 
 #if defined( _WIN32 )
@@ -449,26 +454,26 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 
 	*out++ = '-';
 
-	std::memcpy( out, std::data( DIGITS_2[ time.tm_mon + 1 ] ), 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_mon + 1 ], 2 );
 	out += 2;
 	*out++ = '-';
-	std::memcpy( out, std::data( DIGITS_2[ time.tm_mday ] ), 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_mday ], 2 );
 	out += 2;
 
 	// separator between date and time
 	*out++ = 'T';
 
 	// hour:month:sec.milliseconds
-	std::memcpy( out, std::data( DIGITS_2[ time.tm_hour ] ), 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_hour ], 2 );
 	out += 2;
 	*out++ = ':';
-	std::memcpy( out, std::data( DIGITS_2[ time.tm_min ] ), 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_min ], 2 );
 	out += 2;
 	*out++ = ':';
-	std::memcpy( out, std::data( DIGITS_2[ time.tm_sec ] ), 2 );
+	std::memcpy( out, DIGITS_2[ time.tm_sec ], 2 );
 	out += 2;
 	*out++ = '.';
-	std::memcpy( out, std::data( DIGITS_3[ millis ] ), 3 );
+	std::memcpy( out, DIGITS_3[ millis ], 3 );
 	out += 3;
 
 	// end of formatted datetime
@@ -476,6 +481,8 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 	*out++ = ' ';
 
 	_timestampLen = static_cast< std::size_t >( out - _timestampBuf.data() );
+
+	// NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
 }
 
 } // namespace kmac::nova::extras

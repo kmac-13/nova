@@ -237,6 +237,17 @@ private:
 	 * @param size size of data in bytes
 	 */
 	void write( const char* data, std::size_t size ) noexcept;
+
+	/**
+	 * @brief Write data larger than the write buffer directly to the file.
+	 *
+	 * Handles wrap-around when the data would exceed the maximum file size,
+	 * splitting the write across the wrap boundary as needed.
+	 *
+	 * @param data pointer to data to write
+	 * @param size number of bytes to write
+	 */
+	void writeLarge( const char* data, std::size_t size ) noexcept;
 };
 
 } // namespace kmac::nova::extras

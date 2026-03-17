@@ -183,8 +183,12 @@ void FormattingFileSink< BufferSize >::process( const kmac::nova::Record& record
 	}
 	else
 	{
-		// no formatter - write raw message bytes immediately
-		fwrite( record.message, 1, record.messageSize, _file );
+		// no formatter, write raw message bytes immediately
+		const std::size_t written = fwrite( record.message, 1, record.messageSize, _file );
+		if ( written != record.messageSize )
+		{
+			// partial or failed write (data lost), nothing actionable in noexcept context
+		}
 		// NOTE: does NOT call fflush() - caller must do that explicitly
 	}
 }

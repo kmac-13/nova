@@ -249,7 +249,7 @@ void TlvWriteHelper::writeProcessInfoTlv() noexcept
 	// thread ID
 #ifdef __linux__
 	// TODO: MISRA deviation
-	std::uint32_t tid = std::uint32_t( syscall( SYS_gettid ) ) ; // NO LINT(cppcoreguidelines-pro-type-vararg,hicpp-vararg)
+	std::uint32_t tid = std::uint32_t( syscall( SYS_gettid ) ) ; // NOLINT(cppcoreguidelines-pro-type-vararg,hicpp-vararg)
 	writeTlv( kmac::flare::TlvType::ThreadId, &tid, sizeof( tid ) );
 #endif
 }
