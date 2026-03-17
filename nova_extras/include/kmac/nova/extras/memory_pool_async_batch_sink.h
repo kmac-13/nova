@@ -408,7 +408,7 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 	}
 
 	// create Record pointing to formatted buffer
-	kmac::nova::Record formattedRecord;
+	kmac::nova::Record formattedRecord{};
 	formattedRecord.tag = nullptr;
 	formattedRecord.tagId = 0;
 	formattedRecord.file = nullptr;

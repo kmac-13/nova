@@ -232,7 +232,11 @@ void CircularFileSink::write( const char* data, std::size_t size ) noexcept
 
 				if ( beforeWrap > 0 )
 				{
-					std::fwrite( data, 1, beforeWrap, _file );
+					const std::size_t writtenBefore = std::fwrite( data, 1, beforeWrap, _file );
+					if ( writtenBefore != beforeWrap )
+					{
+						// partial write before wrap, data lost, nothing actionable in noexcept context
+					}
 					_totalWritten += beforeWrap;
 				}
 
@@ -241,14 +245,22 @@ void CircularFileSink::write( const char* data, std::size_t size ) noexcept
 				const std::size_t afterWrap = size - beforeWrap;
 				if ( afterWrap > 0 )
 				{
-					std::fwrite( data + beforeWrap, 1, afterWrap, _file );
+					const std::size_t writtenAfter = std::fwrite( data + beforeWrap, 1, afterWrap, _file );
+					if ( writtenAfter != afterWrap )
+					{
+						// partial write after wrap, data lost, nothing actionable in noexcept context
+					}
 					_currentSize = afterWrap;
 					_totalWritten += afterWrap;
 				}
 			}
 			else
 			{
-				std::fwrite( data, 1, size, _file );
+				const std::size_t written = std::fwrite( data, 1, size, _file );
+				if ( written != size )
+				{
+					// partial write, data lost, nothing actionable in noexcept context
+				}
 				_currentSize += size;
 				_totalWritten += size;
 			}

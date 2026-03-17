@@ -140,7 +140,7 @@ public:
 	 * Signals shutdown and waits for all queued records to be processed.
 	 * Remaining entries in the pool are processed before thread exits.
 	 */
-	~MemoryPoolAsyncSink() noexcept;
+	~MemoryPoolAsyncSink() noexcept override;
 
 	/**
 	 * @brief Process a record by copying it and its message into the pool.
@@ -348,7 +348,7 @@ template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexTy
 void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::processLoop() noexcept
 {
 	constexpr std::size_t BATCH_SIZE = 64;
-	EntryIndex< IndexType > indexBatch[ BATCH_SIZE ];
+	std::array< EntryIndex< IndexType >, BATCH_SIZE > indexBatch{};
 
 	while ( true )
 	{
@@ -356,7 +356,7 @@ void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 		bool shutdown = _shutdown.load( std::memory_order_acquire );
 
 		// dequeue batch of indices (lock-free pop)
-		std::size_t batchSize = _indexQueue.popBatch( indexBatch, BATCH_SIZE );
+		std::size_t batchSize = _indexQueue.popBatch( indexBatch.data(), BATCH_SIZE );
 
 		// process each entry in batch
 		for ( std::size_t i = 0; i < batchSize; ++i )
