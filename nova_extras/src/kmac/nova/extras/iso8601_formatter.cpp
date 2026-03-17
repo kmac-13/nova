@@ -152,7 +152,7 @@ void ISO8601Formatter::begin( const kmac::nova::Record& record ) noexcept
 	{
 		tmp.data()[ idx++ ] = char( '0' + ( line % 10 ) );
 		line /= 10;
-	} while ( line != 0u && idx < 15 );
+	} while ( line != 0U && idx < 15 );
 
 	while ( idx-- != 0 )
 	{
@@ -296,7 +296,7 @@ bool ISO8601Formatter::tryFormatFast( const kmac::nova::Record& record, Buffer& 
 	return true;
 }
 
-bool ISO8601Formatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer ) noexcept
+bool ISO8601Formatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer ) noexcept  // NOLINT(readability-function-cognitive-complexity)
 {
 	// SLOW PATH: state machine for incremental formatting
 	//
@@ -428,19 +428,19 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 	const std::uint64_t seconds = timestamp / 1'000'000'000ULL;
 	const std::uint64_t millis = ( timestamp / 1'000'000ULL ) % 1000ULL;
 
-	std::time_t tt = static_cast< std::time_t >( seconds );
-	std::tm tm {};
+	std::time_t timeVal = static_cast< std::time_t >( seconds );
+	std::tm time {};
 
 #if defined( _WIN32 )
-	gmtime_s( &tm, &tt );
+	gmtime_s( &time, &timeVal );
 #else
-	gmtime_r( &tt, &tm );
+	gmtime_r( &timeVal, &time );
 #endif
 
 	char* out = _timestampBuf.data();
 
 	// year-month-day
-	const int year = 1900 + tm.tm_year;
+	const int year = 1900 + time.tm_year;
 	out[ 0 ] = char( '0' + ( year / 1000 ) );
 	out[ 1 ] = char( '0' + ( ( year / 100 ) % 10 ) );
 	out[ 2 ] = char( '0' + ( ( year / 10 ) % 10 ) );
@@ -449,26 +449,26 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 
 	*out++ = '-';
 
-	std::memcpy( out, DIGITS_2[ tm.tm_mon + 1 ], 2 );
+	std::memcpy( out, std::data( DIGITS_2[ time.tm_mon + 1 ] ), 2 );
 	out += 2;
 	*out++ = '-';
-	std::memcpy( out, DIGITS_2[ tm.tm_mday ], 2 );
+	std::memcpy( out, std::data( DIGITS_2[ time.tm_mday ] ), 2 );
 	out += 2;
 
 	// separator between date and time
 	*out++ = 'T';
 
 	// hour:month:sec.milliseconds
-	std::memcpy( out, DIGITS_2[ tm.tm_hour ], 2 );
+	std::memcpy( out, std::data( DIGITS_2[ time.tm_hour ] ), 2 );
 	out += 2;
 	*out++ = ':';
-	std::memcpy( out, DIGITS_2[ tm.tm_min ], 2 );
+	std::memcpy( out, std::data( DIGITS_2[ time.tm_min ] ), 2 );
 	out += 2;
 	*out++ = ':';
-	std::memcpy( out, DIGITS_2[ tm.tm_sec ], 2 );
+	std::memcpy( out, std::data( DIGITS_2[ time.tm_sec ] ), 2 );
 	out += 2;
 	*out++ = '.';
-	std::memcpy( out, DIGITS_3[ millis ], 3 );
+	std::memcpy( out, std::data( DIGITS_3[ millis ] ), 3 );
 	out += 3;
 
 	// end of formatted datetime
