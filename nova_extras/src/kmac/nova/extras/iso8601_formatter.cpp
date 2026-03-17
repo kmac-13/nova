@@ -425,10 +425,11 @@ bool ISO8601Formatter::formatSlow( const kmac::nova::Record& record, Buffer& buf
 
 void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 {
-	// NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+	// NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay,cppcoreguidelines-pro-bounds-constant-array-index)
 	// DIGITS_2/DIGITS_3 are 2D C-style arrays of string literals; each element
-	// decays to const char* on access.  Converting to std::array would require
-	// replacing all string literal initialisers with explicit char lists.
+	// decays to const char* on access and is indexed with a runtime value.
+	// Converting to std::array would require replacing all string literal
+	// initialisers with explicit char lists.
 
 	const std::uint64_t seconds = timestamp / 1'000'000'000ULL;
 	const std::uint64_t millis = ( timestamp / 1'000'000ULL ) % 1000ULL;
@@ -482,7 +483,7 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 
 	_timestampLen = static_cast< std::size_t >( out - _timestampBuf.data() );
 
-	// NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+	// NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay,cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 } // namespace kmac::nova::extras
