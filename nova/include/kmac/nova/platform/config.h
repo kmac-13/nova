@@ -26,8 +26,9 @@
  * - NOVA_NO_ATOMIC     : disable std::atomic (provide custom impl)
  * - NOVA_NO_CHRONO     : disable std::chrono (provide custom timestamp)
  * - NOVA_NO_ARRAY      : disable std::array (use C arrays)
+ * - NOVA_NO_TLS        : disable thread_local storage (stack-based builders only)
  * - NOVA_NO_EXCEPTIONS : already supported (Nova doesn't use exceptions)
- * - NOVA_BARE_METAL    : alias for NO_STD + NO_ATOMIC + NO_CHRONO + NO_ARRAY
+ * - NOVA_BARE_METAL    : alias for NO_STD + NO_ATOMIC + NO_CHRONO + NO_ARRAY + NO_TLS
  * - NOVA_RTOS          : enable RTOS-specific features
  * - FLARE_NO_STDIO     : use raw file descriptors instead of FILE*
  *
@@ -39,7 +40,7 @@
  * Diagnostic Mode:
  * Define NOVA_DIAGNOSTICS to see what Nova detected at compile time:
  *   #define NOVA_DIAGNOSTICS
- *   #include <kmac/nova/logger.h>
+ *   #include <kmac/nova/nova.h>
  *
  * This will print configuration messages during compilation showing:
  * - which features are enabled/disabled
@@ -49,20 +50,25 @@
  * Usage Examples:
  *
  *   // Example 1: full automatic detection (recommended)
- *   #include <kmac/nova/logger.h>
+ *   #include <kmac/nova/nova.h>
  *   // Nova auto-detects everything
  *
  *   // Example 2: bare-metal mode (explicit)
  *   #define NOVA_BARE_METAL
- *   #include <kmac/nova/logger.h>
+ *   #include <kmac/nova/nova.h>
  *
  *   // Example 3: RTOS with partial stdlib (fine-grained control)
  *   #define NOVA_NO_CHRONO  // no std::chrono, but have std::atomic
- *   #include <kmac/nova/logger.h>
+ *   #include <kmac/nova/nova.h>
+ *
+ *   // Example 4: hosted platform (e.g. Android/Bionic), disable TLS only
+ *   // full stdlib available, but prefer stack-based builders (e.g. JNI-attached threads)
+ *   #define NOVA_NO_TLS
+ *   #include <kmac/nova/nova.h>
  *
  *   // Example 4: debugging configuration
  *   #define NOVA_DIAGNOSTICS
- *   #include <kmac/nova/logger.h>
+ *   #include <kmac/nova/nova.h>
  *   // prints detected configuration during compilation
  */
 
@@ -85,6 +91,15 @@
 
 	#ifndef NOVA_NO_ARRAY
 		#define NOVA_NO_ARRAY
+	#endif
+
+	// TLS has a separate runtime dependency from the stdlib headers above.
+	// On bare-metal toolchains (e.g. arm-none-eabi with newlib-nano), thread_local
+	// compiles but links against __tls_get_addr or __emutls_get_address, which
+	// bare-metal startup code does not provide.  Disable unconditionally here;
+	// hosted targets that want stack-based builders can set NOVA_NO_TLS independently.
+	#ifndef NOVA_NO_TLS
+		#define NOVA_NO_TLS
 	#endif
 #endif
 
@@ -250,6 +265,17 @@
 	#define NOVA_HAS_THREADING 0
 #endif
 
+// thread_local storage available?
+// TLS is a runtime dependency separate from stdlib header availability.
+// Disabled by NOVA_BARE_METAL or NOVA_NO_TLS; can also be set independently
+// on hosted platforms where stack-based builders are preferred (e.g. Android
+// library code that should not inject per-thread state into the host process).
+#if ! defined( NOVA_NO_TLS )
+	#define NOVA_HAS_TLS 1
+#else
+	#define NOVA_HAS_TLS 0
+#endif
+
 // ============================================================================
 // DIAGNOSTIC MODE
 // ============================================================================
@@ -282,6 +308,12 @@
 		#pragma message( "  std::array: available" )
 	#else
 		#pragma message( "  std::array: NOT available (using C array wrapper)" )
+	#endif
+
+	#if NOVA_HAS_TLS
+		#pragma message( "  thread_local: available (TLS-based builders enabled)" )
+	#else
+		#pragma message( "  thread_local: NOT available (stack-based builders only)" )
 	#endif
 
 	#ifdef NOVA_PLATFORM_ARM_BAREMETAL

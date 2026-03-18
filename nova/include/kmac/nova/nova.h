@@ -108,10 +108,16 @@ constexpr const char* fileName( const char* path );
  *
  * @see NOVA_LOG_TRUNC for default buffer size
  */
+#if NOVA_HAS_TLS
 #define NOVA_LOG_TRUNC_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::TlsTruncBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
+#else
+// NOVA_NO_TLS: fall through to stack-based builder transparently
+#define NOVA_LOG_TRUNC_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_TRUNC_BUF_STACK( TagType, BufferSize )
+#endif
 
 
 /**
@@ -254,10 +260,16 @@ constexpr const char* fileName( const char* path );
  *
  * @see NOVA_LOG_CONT for default buffer size
  */
+#if NOVA_HAS_TLS
 #define NOVA_LOG_CONT_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::TlsContBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
+#else
+// NOVA_NO_TLS: fall through to stack-based builder transparently
+#define NOVA_LOG_CONT_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
+	NOVA_LOG_CONT_BUF_STACK( TagType, BufferSize )
+#endif
 
 /**
  * @brief Stack-based continuation logger with default buffer size (1024 bytes).
