@@ -18,13 +18,13 @@
 /**
  * @file chrono.h
  * @brief Timestamp abstraction for bare-metal and RTOS environments
- * 
+ *
  * Provides timestamp sources with multiple backend implementations:
  * 1. std::chrono (default, portable)
  * 2. hardware timers (bare-metal)
  * 3. RTOS tick counters
  * 4. custom user-provided timestamp sources
- * 
+ *
  * For safety-critical systems:
  * - use monotonic clocks only (never wall clock for intervals)
  * - document timestamp resolution in safety case
@@ -38,10 +38,10 @@ namespace kmac::nova::platform {
 
 /**
  * @brief Get steady (monotonic) clock timestamp in nanoseconds
- * 
+ *
  * Uses std::chrono::steady_clock which is guaranteed to be monotonic.
  * Will not jump backwards due to NTP adjustments or daylight saving time.
- * 
+ *
  * @return nanoseconds since arbitrary epoch (not wall clock time)
  */
 inline std::uint64_t steadyNanosecs() noexcept
@@ -55,11 +55,11 @@ inline std::uint64_t steadyNanosecs() noexcept
 
 /**
  * @brief Get system (wall) clock timestamp in nanoseconds
- * 
+ *
  * WARNING: Not suitable for measuring intervals!
  * Can jump backwards due to NTP, timezone changes, etc.
  * Only use for human-readable timestamps.
- * 
+ *
  * @return nanoseconds since Unix epoch (1970-01-01)
  */
 inline std::uint64_t systemNanosecs() noexcept
@@ -73,10 +73,10 @@ inline std::uint64_t systemNanosecs() noexcept
 
 /**
  * @brief Get high-resolution timestamp in nanoseconds
- * 
+ *
  * Uses highest available clock precision. May be steady or system clock
  * depending on platform. Prefer steadyNanosecs() for interval measurement.
- * 
+ *
  * @return nanoseconds since arbitrary epoch
  */
 inline std::uint64_t highResNanosecs() noexcept
@@ -96,33 +96,33 @@ inline std::uint64_t highResNanosecs() noexcept
 
 /**
  * USER MUST IMPLEMENT: Timestamp source for bare-metal systems
- * 
+ *
  * You must provide implementations of these functions before using Nova.
  * The functions should be noexcept and thread/interrupt-safe if applicable.
- * 
+ *
  * Example implementations below for common platforms.
  */
 
 /**
  * @brief Get steady (monotonic) timestamp in nanoseconds
- * 
+ *
  * MUST BE IMPLEMENTED by user for bare-metal systems.
  * Should use a monotonic timer that doesn't wrap frequently.
- * 
+ *
  * Implementation requirements:
  * - monotonic (never goes backwards)
  * - thread-safe (if multi-threaded)
  * - interrupt-safe (if logging from ISRs)
  * - known overflow behavior
- * 
+ *
  * Example (ARM Cortex-M with SysTick):
  *   extern volatile uint64_t g_systick_count_ns;
  *   return g_systick_count_ns;
- * 
+ *
  * Example (with DWT cycle counter):
  *   uint32_t cycles = DWT->CYCCNT;
  *   return (uint64_t)cycles * ( 1000000000ULL / SystemCoreClock );
- * 
+ *
  * Example (with hardware timer):
  *   return HAL_GetTick() * 1000000ULL;  // milliseconds to nanoseconds
  */
@@ -130,10 +130,10 @@ NOVA_USER_IMPL std::uint64_t steadyNanosecs() noexcept;
 
 /**
  * @brief Get system (wall) timestamp in nanoseconds
- * 
+ *
  * OPTIONAL: Can be same as steadyNanosecs() for bare-metal.
  * Only needed if you want actual wall-clock time in logs.
- * 
+ *
  * Example (RTC):
  *   time_t rtc_time = RTC_GetTime();
  *   return (uint64_t)rtc_time * 1000000000ULL;
@@ -145,7 +145,7 @@ inline std::uint64_t systemNanosecs() noexcept
 
 /**
  * @brief Get high-resolution timestamp in nanoseconds
- * 
+ *
  * OPTIONAL: Can be same as steadyNanosecs() for bare-metal.
  * Use highest resolution timer available on your platform.
  */
@@ -164,12 +164,12 @@ inline std::uint64_t highResNanosecs() noexcept
 
 /**
  * Example: ARM Cortex-M with DWT Cycle Counter
- * 
+ *
  * Enable DWT cycle counter in startup code:
  *   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
  *   DWT->CYCCNT = 0;
  *   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
- * 
+ *
  * Note: 32-bit counter wraps frequently! Consider extending to 64-bit
  * with overflow interrupt or using SysTick instead.
  */
@@ -189,7 +189,7 @@ inline std::uint64_t steadyNanosecs() noexcept
 
 /**
  * Example: FreeRTOS tick counter
- * 
+ *
  * Note: Limited resolution (typically 1ms). Consider using hardware
  * timer for higher precision if needed.
  */
@@ -247,26 +247,38 @@ inline std::uint64_t steadyNanosecs() noexcept
 
 /**
  * @brief Frame counter timestamp (for game engines / real-time systems)
- * 
+ *
  * Instead of time, use frame number as timestamp. Useful for deterministic
  * replay and debugging in games or simulation systems.
- * 
+ *
+ * Opt-in only: define NOVA_ENABLE_FRAME_COUNTER before including Nova headers to
+ * enable this function.  Not compiled by default because the extern declaration
+ * of g_frameCounter causes link errors on bare-metal toolchains that resolve
+ * all extern symbols regardless of whether the function is called.
+ *
  * Usage:
- *   extern uint64_t g_frame_counter;
- *   NOVA_LOGGER_TRAITS( GameTag, GAME, true, []() { return g_frame_counter; } );
+ *   #define NOVA_ENABLE_FRAME_COUNTER
+ *   #include <kmac/nova/logger.h>
+ *
+ *   // g_frameCounter must be in the kmac::nova::platform namespace,
+ *   // because the extern declaration inside frameCounter() is namespace-scoped
+ *   namespace kmac::nova::platform { std::uint64_t g_frameCounter = 0; }
+ *   NOVA_LOGGER_TRAITS( GameTag, GAME, true, ::kmac::nova::platform::frameCounter );
  */
+#ifdef NOVA_ENABLE_FRAME_COUNTER
 inline std::uint64_t frameCounter() noexcept
 {
 	// user must provide global frame counter
-	extern std::uint64_t g_frame_counter;
-	return g_frame_counter;
+	extern std::uint64_t g_frameCounter;
+	return g_frameCounter;
 }
+#endif // NOVA_ENABLE_FRAME_COUNTER
 
 /**
  * @brief Zero timestamp (disable timestamps completely)
- * 
+ *
  * For systems where timing is not relevant or to save log space.
- * 
+ *
  * Usage:
  *   NOVA_LOGGER_TRAITS( Tag, NAME, true, []() { return 0ULL; } );
  */
