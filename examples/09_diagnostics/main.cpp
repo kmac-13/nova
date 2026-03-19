@@ -16,7 +16,7 @@
 // ============================================================================
 
 // enable diagnostics to see what Nova detected
-#define NOVA_DIAGNOSTICS
+#define NOVA_ENABLE_DIAGNOSTICS
 
 // just include Nova - it will auto-detect everything
 #include <kmac/nova/nova.h>
@@ -160,7 +160,7 @@ int main()
 /*
  * Diagnostic Messages During Compilation:
  * 
- * When you compile this with NOVA_DIAGNOSTICS defined, you'll see compile-time
+ * When you compile this with NOVA_ENABLE_DIAGNOSTICS defined, you'll see compile-time
  * messages like:
  * 
  *   note: #pragma message: Nova Platform Configuration:
@@ -175,17 +175,17 @@ int main()
  * Common Use Cases:
  * 
  * 1. Porting to new platform:
- *    - enable NOVA_DIAGNOSTICS
+ *    - enable NOVA_ENABLE_DIAGNOSTICS
  *    - check what was auto-detected
  *    - manually define NOVA_NO_* flags if needed
  * 
  * 2. Troubleshooting compilation errors:
- *    - enable NOVA_DIAGNOSTICS
+ *    - enable NOVA_ENABLE_DIAGNOSTICS
  *    - verify expected features are detected
  *    - add missing defines if auto-detection failed
  * 
  * 3. CI/CD verification:
- *    - build with NOVA_DIAGNOSTICS
+ *    - build with NOVA_ENABLE_DIAGNOSTICS
  *    - parse compiler output
  *    - verify configuration matches expectations
  * 

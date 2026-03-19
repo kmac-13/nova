@@ -610,14 +610,14 @@ void TruncatingRecordBuilder< BufferSize >::append( long long value ) noexcept
 	}
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 

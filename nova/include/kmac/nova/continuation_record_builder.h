@@ -612,14 +612,14 @@ void ContinuationRecordBuilder< BufferSize >::append( unsigned int value ) noexc
 	ensureSpace( 10 );
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -630,14 +630,14 @@ void ContinuationRecordBuilder< BufferSize >::append( long value ) noexcept
 	ensureSpace( 20 );
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -648,14 +648,14 @@ void ContinuationRecordBuilder< BufferSize >::append( long long value ) noexcept
 	ensureSpace( 20 );
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -665,14 +665,14 @@ void ContinuationRecordBuilder< BufferSize >::append( unsigned long value ) noex
 	ensureSpace( 20 );
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -683,14 +683,14 @@ void ContinuationRecordBuilder< BufferSize >::append( unsigned long long value )
 	ensureSpace( 20 );
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -701,14 +701,14 @@ void ContinuationRecordBuilder< BufferSize >::append( double value ) noexcept
 	ensureSpace( 25 );
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -718,14 +718,14 @@ void ContinuationRecordBuilder< BufferSize >::append( float value ) noexcept
 	ensureSpace( 15 );
 
 	auto [ ptr, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		value
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = ptr - _buffer;
+		_offset = ptr - _buffer.data();
 	}
 }
 
@@ -743,15 +743,15 @@ void ContinuationRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 
 	// NOLINT NOTE: pointer-to-integer for address formatting (std::bit_cast requires C++20)
 	auto [ p, ec ] = std::to_chars(
-		_buffer + _offset,
-		_buffer + BufferSize - 1,
+		_buffer.data() + _offset,
+		_buffer.data() + BufferSize - 1,
 		reinterpret_cast< std::uintptr_t >( ptr ),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 		16
 	);
 
 	if ( ec == std::errc{} )
 	{
-		_offset = p - _buffer;
+		_offset = p - _buffer.data();
 	}
 }
 

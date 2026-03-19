@@ -6,6 +6,7 @@
 #include "immovable.h"
 #include "sink.h"
 #include "truncating_record_builder.h"
+#include "platform/config.h"
 
 #include <cstddef>
 
@@ -15,6 +16,8 @@ namespace kmac::nova
 // ============================================================================
 // TLS-Based Wrappers
 // ============================================================================
+
+#if NOVA_HAS_TLS
 
 /**
  * @brief Thread-local storage for TruncatingRecordBuilder instances.
@@ -209,6 +212,8 @@ struct TlsContBuilderWrapper
 	 */
 	inline ContinuationRecordBuilder< BufferSize >& builder() noexcept;
 };
+
+#endif // NOVA_HAS_TLS
 
 // ============================================================================
 // Stack-Based Wrappers
@@ -418,6 +423,8 @@ public:
 // TLS-Based Wrappers - implementation
 // ============================================================================
 
+#if NOVA_HAS_TLS
+
 // static initialization
 template< std::size_t BufferSize >
 thread_local TruncatingRecordBuilder< BufferSize > TlsTruncBuilderStorage< BufferSize >::builder;
@@ -465,6 +472,8 @@ ContinuationRecordBuilder< BufferSize >& TlsContBuilderWrapper< Tag, BufferSize 
 	auto& builder = TlsContBuilderStorage< BufferSize >::builder;
 	return builder;
 }
+
+#endif // NOVA_HAS_TLS
 
 // ============================================================================
 // Stack-Based Wrappers - implementation
