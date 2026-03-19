@@ -141,7 +141,7 @@ g++ -std=c++11 -DNOVA_NO_CHRONO -Inova/include test.cpp
 Enable diagnostics to see what's happening:
 
 ```cpp
-#define NOVA_DIAGNOSTICS
+#define NOVA_ENABLE_DIAGNOSTICS
 #include <kmac/nova/logger.h>
 ```
 

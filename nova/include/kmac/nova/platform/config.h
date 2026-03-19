@@ -15,61 +15,138 @@
  * manual override via preprocessor defines for bare-metal and RTOS environments.
  *
  * C++ Version Requirements:
- * - **C++17 or later**: required (enforced with #error)
+ * - C++17 or later: required (enforced with #error)
  *
  * Nova uses C++17 features including if constexpr, std::string_view, and
  * std::to_chars for zero-cost abstractions and optimal performance, and
  * __has_include for automatic configuration.
  *
- * Feature Flags:
- * - NOVA_NO_STD        : disable all standard library usage
- * - NOVA_NO_ATOMIC     : disable std::atomic (provide custom impl)
- * - NOVA_NO_CHRONO     : disable std::chrono (provide custom timestamp)
- * - NOVA_NO_ARRAY      : disable std::array (use C arrays)
- * - NOVA_NO_TLS        : disable thread_local storage (stack-based builders only)
- * - NOVA_NO_EXCEPTIONS : already supported (Nova doesn't use exceptions)
- * - NOVA_BARE_METAL    : alias for NO_STD + NO_ATOMIC + NO_CHRONO + NO_ARRAY + NO_TLS
- * - NOVA_RTOS          : enable RTOS-specific features
- * - FLARE_NO_STDIO     : use raw file descriptors instead of FILE*
+ * ============================================================================
+ * Mode Descriptors
+ * ============================================================================
+ * Define before including any Nova header to set the overall operating context.
  *
- * Automatic Detection (using __has_include):
- * Nova will automatically detect standard library availability using __has_include.
- * If your compiler supports this feature, you typically don't need to manually
- * define NOVA_NO_* flags - they will be set automatically if headers are missing.
+ * NOVA_BARE_METAL
+ *   Bare-metal / freestanding target (no OS, no stdlib).  Implies NOVA_NO_STD,
+ *   NOVA_NO_ATOMIC, NOVA_NO_CHRONO, NOVA_NO_ARRAY, and NOVA_NO_TLS.
+ *   Individual flags can still be overridden after this is set.
  *
- * Diagnostic Mode:
- * Define NOVA_DIAGNOSTICS to see what Nova detected at compile time:
- *   #define NOVA_DIAGNOSTICS
- *   #include <kmac/nova/nova.h>
+ * NOVA_RTOS
+ *   RTOS target.  Set automatically when a supported RTOS is detected
+ *   (FreeRTOS, Zephyr, VxWorks, QNX, ThreadX, embOS).  Can also be set
+ *   manually for unsupported RTOS environments.
  *
- * This will print configuration messages during compilation showing:
- * - which features are enabled/disabled
- * - which platform was detected
- * - whether __has_include is available
+ * FLARE_NO_STDIO
+ *   Flare only.  Use raw file descriptors (open/write/close) instead of
+ *   FILE* for async-signal-safe emergency logging.
  *
- * Usage Examples:
+ * ============================================================================
+ * Fine-Grained Disable Flags
+ * ============================================================================
+ * Set individually for partial stdlib environments (e.g. RTOS with some but
+ * not all stdlib headers available).  All are implied by NOVA_BARE_METAL.
+ * Auto-detected via __has_include where possible.
  *
- *   // Example 1: full automatic detection (recommended)
- *   #include <kmac/nova/nova.h>
- *   // Nova auto-detects everything
+ * NOVA_NO_STD      : disable all stdlib usage (implies the flags below)
+ * NOVA_NO_ATOMIC   : disable std::atomic; provide AtomicPtr via platform/atomic.h
+ * NOVA_NO_CHRONO   : disable std::chrono; implement steadyNanosecs() in platform/chrono.h
+ * NOVA_NO_ARRAY    : disable std::array; C-style array wrapper used instead
+ * NOVA_NO_TLS      : disable thread_local; all logging uses stack-based builders.
+ *                    Unlike the flags above, this is NOT implied by NOVA_NO_STD —
+ *                    TLS is a runtime dependency separate from stdlib header
+ *                    availability.  Useful independently on hosted platforms where
+ *                    injecting per-thread state into a host process is undesirable
+ *                    (e.g. Android JNI-attached threads).
  *
- *   // Example 2: bare-metal mode (explicit)
+ * ============================================================================
+ * Opt-In Features
+ * ============================================================================
+ * Never auto-enabled.  Define before including Nova headers to activate.
+ *
+ * NOVA_ENABLE_FRAME_COUNTER
+ *   Enable the platform::frameCounter() timestamp source for game engines and
+ *   simulation systems.  Requires g_frame_counter in the kmac::nova::platform
+ *   namespace.  Disabled by default to avoid link errors on bare-metal
+ *   toolchains that resolve all extern symbols regardless of call sites.
+ *   See platform/chrono.h for usage.
+ *
+ * NOVA_ENABLE_DIAGNOSTICS
+ *   Print compile-time configuration messages showing which features and
+ *   platforms Nova detected.  Useful for verifying bare-metal or RTOS setup.
+ *   See the diagnostics section below.
+ *
+ * ============================================================================
+ * Computed Capability Flags
+ * ============================================================================
+ * Set by this header based on the flags above and platform detection.
+ * Do not define these manually.
+ *
+ * NOVA_HAS_STD_ATOMIC   : 1 if std::atomic is available, 0 otherwise
+ * NOVA_HAS_STD_CHRONO   : 1 if std::chrono is available, 0 otherwise
+ * NOVA_HAS_STD_ARRAY    : 1 if std::array is available, 0 otherwise
+ * NOVA_HAS_TLS          : 1 if thread_local is available, 0 otherwise
+ * NOVA_HAS_THREADING    : 1 if threading primitives are available, 0 otherwise
+ *
+ * Platform markers (set when detected, undefined otherwise):
+ * NOVA_PLATFORM_ARM_BAREMETAL, NOVA_PLATFORM_FREERTOS, NOVA_PLATFORM_ZEPHYR,
+ * NOVA_PLATFORM_VXWORKS, NOVA_PLATFORM_QNX, NOVA_PLATFORM_THREADX,
+ * NOVA_PLATFORM_EMBOS, NOVA_PLATFORM_POSIX, NOVA_PLATFORM_WINDOWS
+ *
+ * ============================================================================
+ * Not Needed — Commonly Expected But Unnecessary
+ * ============================================================================
+ * Nova's architecture makes several flags that other logging libraries expose
+ * unnecessary.  If you are looking for one of these, here is why it does not
+ * exist:
+ *
+ * LOG_LEVEL_*, MIN_LOG_LEVEL, MAX_LOG_LEVEL and similar severity flags:
+ *   Nova uses types, not severity levels.  Compile-time filtering is controlled
+ *   by logger_traits<Tag>::enabled.  Runtime filtering is via sink binding and
+ *   unbinding, or a filtering sink (e.g. FilterSink from Nova Extras, or your
+ *   own Sink implementation).
+ *
+ * ENABLE_ASYNC, DISABLE_THREADING, THREAD_SAFE, ENABLE_BUFFERING,
+ * DISABLE_FLUSH_ON_WRITE, ENABLE_CUSTOM_FORMATTING and similar:
+ *   Threading, buffering, flushing, and formatting are sink-level decisions,
+ *   not library-wide modes.  Choose the appropriate sink(s) from Nova Extras
+ *   or implement your own.
+ *
+ * NO_EXCEPTIONS, DISABLE_EXCEPTIONS and similar:
+ *   Nova never uses exceptions.  Pass -fno-exceptions to the compiler directly;
+ *   no Nova flag is needed.
+ *
+ * HEADER_ONLY:
+ *   Nova core is always header-only.  No flag needed.
+ *
+ * ============================================================================
+ * Automatic Detection
+ * ============================================================================
+ * Nova uses __has_include (C++17) to auto-detect stdlib header availability.
+ * In most cases you do not need to set NOVA_NO_* flags manually — they will
+ * be set automatically if the corresponding headers are absent.
+ *
+ * ============================================================================
+ * Usage Examples
+ * ============================================================================
+ *
+ *   // Example 1: full automatic detection (recommended for hosted targets)
+ *   #include <kmac/nova/logger.h>
+ *
+ *   // Example 2: bare-metal (ARM Cortex-M, no OS)
  *   #define NOVA_BARE_METAL
- *   #include <kmac/nova/nova.h>
+ *   #include <kmac/nova/logger.h>
  *
  *   // Example 3: RTOS with partial stdlib (fine-grained control)
- *   #define NOVA_NO_CHRONO  // no std::chrono, but have std::atomic
- *   #include <kmac/nova/nova.h>
+ *   #define NOVA_NO_CHRONO  // no std::chrono, but std::atomic is available
+ *   #include <kmac/nova/logger.h>
  *
- *   // Example 4: hosted platform (e.g. Android/Bionic), disable TLS only
- *   // full stdlib available, but prefer stack-based builders (e.g. JNI-attached threads)
+ *   // Example 4: hosted platform, disable TLS only (e.g. Android JNI library)
  *   #define NOVA_NO_TLS
- *   #include <kmac/nova/nova.h>
+ *   #include <kmac/nova/logger.h>
  *
- *   // Example 4: debugging configuration
- *   #define NOVA_DIAGNOSTICS
- *   #include <kmac/nova/nova.h>
- *   // prints detected configuration during compilation
+ *   // Example 5: print detected configuration during compilation
+ *   #define NOVA_ENABLE_DIAGNOSTICS
+ *   #include <kmac/nova/logger.h>
  */
 
 // ============================================================================
@@ -280,8 +357,8 @@
 // DIAGNOSTIC MODE
 // ============================================================================
 
-// define NOVA_DIAGNOSTICS before including Nova headers to see configuration
-#ifdef NOVA_DIAGNOSTICS
+// define NOVA_ENABLE_DIAGNOSTICS before including Nova headers to see configuration
+#ifdef NOVA_ENABLE_DIAGNOSTICS
 	#pragma message( "Nova Platform Configuration:" )
 
 	#ifdef NOVA_BARE_METAL
@@ -357,7 +434,7 @@
 	#else
 		#pragma message( "  __has_include: NOT supported (manual configuration required)" )
 	#endif
-#endif // NOVA_DIAGNOSTICS
+#endif // NOVA_ENABLE_DIAGNOSTICS
 
 // ============================================================================
 // COMPILER FEATURE DETECTION

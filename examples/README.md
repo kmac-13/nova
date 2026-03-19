@@ -120,7 +120,7 @@ g++ -std=c++17 -I../../include 09_diagnostics/main.cpp -o diagnostics
 
 ### 09_diagnostics
 **Demonstrates**: platform auto-detection
-- NOVA_DIAGNOSTICS mode
+- NOVA_ENABLE_DIAGNOSTICS mode
 - automatic feature detection
 - runtime configuration checking
 - platform identification
