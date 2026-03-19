@@ -1,0 +1,56 @@
+name: Android NDK Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+# Build-only: Android unit tests require a connected device or emulator.
+# Test execution is covered by the POSIX build matrix (sanitizers, GTest).
+# This workflow verifies that Nova core cross-compiles cleanly against
+# Bionic for all supported ABIs using the NDK bundled with the runner.
+
+jobs:
+  android-build:
+    name: Android / ${{ matrix.abi }} / ${{ matrix.build_type }}
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ arm64-v8a, armeabi-v7a, x86_64 ]
+        build_type: [ Debug, Release ]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # NDK 27 is the default on ubuntu-24.04 runners as of January 2026.
+      # ANDROID_NDK_HOME is set automatically by the runner to the default NDK.
+      - name: Verify NDK
+        run: |
+          echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
+          echo "NDK version:"
+          cat "$ANDROID_NDK_HOME/source.properties" | grep Pkg.Revision
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/android-ndk.cmake \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=android-26 \
+            -DANDROID_STL=c++_static \
+            -DNDK_PATH="$ANDROID_NDK_HOME" \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DNOVA_BUILD_TESTS=OFF \
+            -DNOVA_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel
