@@ -18,10 +18,50 @@ project( Nova VERSION 0.1.0 LANGUAGES CXX )
 include( ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Sanitizers.cmake )
 
 # build options
-option( NOVA_BUILD_EXTRAS "Build Nova Extras library" ON )
-option( NOVA_BUILD_FLARE "Build Flare emergency logging library" ON )
-option( NOVA_BUILD_EXAMPLES "Build example programs" OFF )
-option( NOVA_BUILD_TESTS "Build unit tests" OFF )
+option( NOVA_BUILD_EXTRAS        "Build Nova Extras library"             ON  )
+option( NOVA_BUILD_FLARE         "Build Flare emergency logging library" ON  )
+option( NOVA_BUILD_EXAMPLES      "Build example programs"                OFF )
+option( NOVA_BUILD_TESTS         "Build unit tests"                      OFF )
+option( NOVA_PLATFORM_BARE_METAL "Configure for bare-metal targets"      OFF )
+
+# ============================================================================
+# Bare-Metal Mode
+# ============================================================================
+
+if( NOVA_PLATFORM_BARE_METAL )
+	message( STATUS "Nova: bare-metal mode enabled" )
+
+	# Nova Extras requires std::thread, std::mutex, FILE* - not available
+	# on bare-metal targets.  Disable unconditionally.
+	if( NOVA_BUILD_EXTRAS )
+		message( STATUS "  Nova Extras: disabled (not available in bare-metal mode)" )
+		set( NOVA_BUILD_EXTRAS OFF CACHE BOOL "Build Nova Extras library" FORCE )
+	endif()
+
+	# Flare's FileWriter depends on POSIX file descriptors.  Bare-metal targets
+	# must provide their own IWriter implementation.  Disable the compiled library
+	# so users are not forced to stub out FileWriter; they link against Nova core
+	# and Flare headers directly with their own IWriter.
+	if( NOVA_BUILD_FLARE )
+		message( STATUS "  Flare: disabled (FileWriter requires POSIX; provide IWriter instead)" )
+		set( NOVA_BUILD_FLARE OFF CACHE BOOL "Build Flare library" FORCE )
+	endif()
+
+	# Tests and examples both depend on Nova Extras - disable them too.
+	if( NOVA_BUILD_TESTS )
+		message( STATUS "  Tests: disabled (require Nova Extras)" )
+		set( NOVA_BUILD_TESTS OFF CACHE BOOL "Build unit tests" FORCE )
+	endif()
+
+	if( NOVA_BUILD_EXAMPLES )
+		message( STATUS "  Examples: disabled (require Nova Extras)" )
+		set( NOVA_BUILD_EXAMPLES OFF CACHE BOOL "Build example programs" FORCE )
+	endif()
+
+	# Pass NOVA_BARE_METAL to all targets that link against Nova core so the
+	# platform abstraction layer activates correctly.
+	add_compile_definitions( NOVA_BARE_METAL )
+endif()
 
 # C++17 required
 set( CMAKE_CXX_STANDARD 17 )
@@ -266,6 +306,7 @@ message( STATUS "===========================================" )
 message( STATUS "Version:           ${PROJECT_VERSION}" )
 message( STATUS "C++ Standard:      C++${CMAKE_CXX_STANDARD}" )
 message( STATUS "Build Type:        ${CMAKE_BUILD_TYPE}" )
+message( STATUS "Target Platform:   ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_PROCESSOR}" )
 message( STATUS "" )
 message( STATUS "Components:" )
 message( STATUS "  Nova Core:       ON (header-only)" )
@@ -275,6 +316,9 @@ message( STATUS "" )
 message( STATUS "Optional:" )
 message( STATUS "  Examples:        ${NOVA_BUILD_EXAMPLES}" )
 message( STATUS "  Tests:           ${NOVA_BUILD_TESTS}" )
+message( STATUS "" )
+message( STATUS "Platform:" )
+message( STATUS "  Bare-Metal Mode: ${NOVA_PLATFORM_BARE_METAL}" )
 message( STATUS "" )
 message( STATUS "Install Prefix:    ${CMAKE_INSTALL_PREFIX}" )
 message( STATUS "===========================================" )
