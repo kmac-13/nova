@@ -1,12 +1,12 @@
 #pragma once
-#ifndef KMAC_NOVA_NON_COPYABLE_H
-#define KMAC_NOVA_NON_COPYABLE_H
+#ifndef KMAC_NOVA_IMMOVABLE_H
+#define KMAC_NOVA_IMMOVABLE_H
 
 // convenience macro to explicitly delete copy and move constructors and assignment operators
-// #define IMMOVABLE( Type ) \
-// 	Type( const Type& ) = delete; \
-// 	Type& operator=( const Type& ) = delete; \
-// 	Type( Type&& ) = delete; \
+// #define IMMOVABLE( Type )
+// 	Type( const Type& ) = delete;
+// 	Type& operator=( const Type& ) = delete;
+// 	Type( Type&& ) = delete;
 // 	Type& operator=( Type&& ) = delete
 
 namespace kmac::nova
@@ -47,4 +47,4 @@ struct Immovable
 
 } // namespace kmac::nova
 
-#endif // KMAC_NOVA_NON_COPYABLE_H
+#endif // KMAC_NOVA_IMMOVABLE_H
