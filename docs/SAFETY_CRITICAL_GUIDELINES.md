@@ -829,7 +829,7 @@ DESIGN-LOG-001: Tag-based routing
     
 DESIGN-LOG-002: Fixed buffer strategy
     Implementation: TruncatingRecordBuilder<Tag, SIZE>
-    Files: nova/include/kmac/nova/truncating_record_builder.h
+    Files: nova/include/kmac/nova/truncating_logging.h
     Rationale: Bounded memory usage, no heap allocation
     
 DESIGN-LOG-003: Error containment
@@ -843,7 +843,7 @@ DESIGN-LOG-003: Error containment
 | Requirement | Design | Implementation | Test | Verification |
 |-------------|--------|----------------|------|--------------|
 | REQ-LOG-001 | DESIGN-LOG-001 | logger.h:45 | TEST-LOG-001 | PASS |
-| REQ-LOG-002 | DESIGN-LOG-002 | truncating_record_builder.h:100 | TEST-LOG-010 | PASS |
+| REQ-LOG-002 | DESIGN-LOG-002 | truncating_logging.h:100 | TEST-LOG-010 | PASS |
 | REQ-LOG-003 | DESIGN-LOG-003 | defensive_sink.h:25 | TEST-LOG-015 | PASS |
 
 ### 4. Configuration Documentation

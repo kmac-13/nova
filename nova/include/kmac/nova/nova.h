@@ -2,7 +2,7 @@
 #ifndef KMAC_NOVA_MACROS_H
 #define KMAC_NOVA_MACROS_H
 
-#include "builder_wrapper.h"
+#include "truncating_logging.h"
 
 #include <cstddef>
 
@@ -142,7 +142,7 @@ constexpr const char* fileName( const char* path );
  *       NOVA_LOG_STACK(DebugTag) << "helper called";
  *   }
  *   void main() {
- *       NOVA_LOG(InfoTag) << "Result: " << helper();  // safe!
+ *       NOVA_LOG(InfoTag) << "Result: " << helper();  // Safe!
  *   }
  *
  * @param TagType the logging tag type

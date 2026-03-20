@@ -1,10 +1,29 @@
 #pragma once
-#ifndef KMAC_NOVA_TRUNCATING_RECORD_BUILDER_H
-#define KMAC_NOVA_TRUNCATING_RECORD_BUILDER_H
+#ifndef KMAC_NOVA_TRUNCATING_LOGGING_H
+#define KMAC_NOVA_TRUNCATING_LOGGING_H
+
+/**
+ * @file truncating_logging.h
+ * @brief Truncating builder, TLS/stack wrappers for Nova core logging.
+ *
+ * This header is included transitively by nova.h and is not typically
+ * included directly.  It provides:
+ *
+ * - TruncatingRecordBuilder<BufferSize>  : the builder itself
+ * - TlsTruncBuilderStorage<Size>         : TLS storage (when NOVA_HAS_TLS)
+ * - TlsTruncBuilderWrapper<Tag, Size>    : TLS RAII wrapper (when NOVA_HAS_TLS)
+ * - StackTruncatingBuilder<Tag, Size>    : stack-based RAII wrapper
+ *
+ * The NOVA_LOG* macros that drive these types are defined in nova.h.
+ *
+ * For continuation logging (complete data preservation without truncation),
+ * include <kmac/nova/extras/continuation_logging.h>.
+ */
 
 #include "immovable.h"
 #include "logger.h"
 #include "logger_traits.h"
+#include "platform/config.h"
 
 #include <array>
 #include <cassert>
@@ -15,6 +34,10 @@
 
 namespace kmac::nova
 {
+
+// ============================================================================
+// TruncatingRecordBuilder
+// ============================================================================
 
 /**
  * @brief Fixed-buffer record builder that truncates when full.
@@ -34,36 +57,23 @@ namespace kmac::nova
  * Thread-local usage (default via macros):
  * - NOVA_LOG uses TlsTruncBuilderWrapper for thread-local storage
  * - provides markedly improved performance over stack-based
- * - see TlsTruncBuilderWrapper and TlsTruncBuilderStorage for TLS details
  * - nested logging detection: assert in debug, silent drop in release
  *
  * Stack-based usage (opt-in via macros or direct usage):
  * - NOVA_LOG_STACK uses StackTruncatingBuilder wrapper
  * - required for signal handlers (avoids stack overflow)
- * - required for functions called within log expressions (avoids nested logging)
- * - see StackTruncatingBuilder for stack-based wrapper details
+ * - required for functions called within log expressions
  *
  * Comparison with other builders:
- * - vs ContinuationRecordBuilder (nova_extras/continuation_logging.h): single record vs multiple records
+ * - vs ContinuationRecordBuilder (nova_extras/continuation_logging.h):
+ *   single record vs multiple records; truncates vs preserves all data
  * - vs StreamingRecordBuilder (Nova Extras): deterministic vs heap allocation
  * - best for: real-time systems, hot paths, most production logging
- * - See ContinuationRecordBuilder in Nova Extras when: complete data preservation is critical
- *
- * Truncation behavior:
- * - when buffer fills, additional data is silently dropped
- * - message ends with "..." to indicate truncation
- * - wasTruncated() returns true if truncation occurred
- * - truncation state resets per log statement
  *
  * Usage via macros (recommended):
  *
- *   // thread-local (default, fast)
  *   NOVA_LOG(InfoTag) << "User " << username << " logged in";
- *
- *   // custom buffer size
  *   NOVA_LOG_BUF(DebugTag, 256) << "Short message";
- *
- *   // stack-based (for signal handlers, nested contexts)
  *   NOVA_LOG_STACK(CrashTag) << "Signal handler logging";
  *
  * Direct usage (advanced):
@@ -71,55 +81,13 @@ namespace kmac::nova
  *   TruncatingRecordBuilder<1024> builder;
  *   builder.setContext<InfoTag>(__FILE__, __func__, __LINE__);
  *   builder << "Message " << value;
- *   builder.commit();  // explicitly emits the record (no use of RAII)
- *
- * Performance characteristics:
- * - O(1) space complexity (fixed buffer)
- * - O(n) time complexity for n characters appended
- * - no allocation overhead
- * - cache-friendly (buffer stays hot)
- *
- * Memory safety:
- * - all operations are bounds-checked
- * - no buffer overruns possible
- * - stack safety limits enforced (max 64KB)
- * - null terminator always added
- *
- * Thread safety:
- * - builder itself is not thread-safe (single-threaded use)
- * - thread-local storage (via wrappers) ensures one builder per thread
- * - Logger<Tag>::log() call IS thread-safe (atomic sink pointer)
- *
- * Nested logging (important):
- * - DO NOT log inside expressions being logged:
- *     UNSAFE: NOVA_LOG(Tag) << "Result: " << compute();
- *     // if compute() logs, corruption occurs!
- *
- *     SAFE: auto result = compute();  // may log internally
- *           NOVA_LOG(Tag) << "Result: " << result;
- *
- * - Use stack-based logging in nested functions:
- *     void compute() {
- *         NOVA_LOG_STACK(Tag) << "computing";  // no conflict
- *     }
- *
- * Signal handlers:
- * - MUST use stack-based builder, e.g. NOVA_LOG_STACK (not thread-local)
- * - thread-local can be interrupted mid-log, causing corruption
- * - stack-based provides independent buffer
+ *   builder.commit();
  *
  * Buffer size guidelines:
- * - minimum: 16 bytes (compile-time enforced, not practical)
+ * - minimum: 16 bytes (compile-time enforced)
  * - typical: 512-1024 bytes (covers 90-95% of messages)
  * - default: 1024 bytes (good balance)
  * - maximum: 65536 bytes (64KB stack safety limit)
- *
- * Implementation details:
- * - tag-agnostic: no Tag template parameter
- * - setContext<Tag>() captures tag name, ID, timestamp, and Logger<Tag>::log function pointer
- * - commit() uses stored function pointer to emit record
- * - _busy flag prevents nested logging (reentrant detection)
- * - _committed flag enables idempotent commit (safe double-call)
  *
  * @tparam BufferSize buffer size in bytes (default 1024)
  */
@@ -144,7 +112,6 @@ private:
 	std::uint32_t _line = 0;           ///< line number (e.g. __LINE__)
 	std::uint64_t _timestamp = 0;      ///< captured timestamp
 
-	// tag and logging details
 	const char* _tagName = nullptr;
 	std::uint64_t _tagId = 0;
 
@@ -152,9 +119,6 @@ private:
 	LogFunc _logFunc = nullptr;
 
 public:
-	/**
-	 * @brief Construct builder with no context or data.
-	 */
 	TruncatingRecordBuilder() noexcept = default;
 
 	/**
@@ -187,31 +151,20 @@ public:
 	~TruncatingRecordBuilder() noexcept = default;
 
 	/**
-	 * @brief Sets the context data for the log.
+	 * @brief Set context for the log statement.
 	 *
 	 * @param file source filename (e.g. __FILE__)
-	 * @param function function name (e.g. __FUNCTION__ or __func__)
+	 * @param function function name (e.g. __func__)
 	 * @param line line number (e.g. __LINE__)
-	 *
-	 * @note tag details are retrieved from logger_traits
 	 */
 	template< typename Tag >
 	void setContext( const char* file, const char* function, std::uint32_t line ) noexcept;
 
 	/**
-	 * @brief Stream insertion operator for building message.
+	 * @brief Stream insertion operator.
 	 *
-	 * @tparam T type to append (must have append() overload)
-	 * @param value value to append to message
-	 * @return reference to this builder (for chaining)
-	 *
-	 * Supported types:
-	 * - C-strings (const char*)
-	 * - characters (char)
-	 * - integers (int, unsigned, long, unsigned long)
-	 * - floating point (float, double)
-	 * - booleans (bool -> "true"/"false")
-	 * - pointers (const void* -> hex address)
+	 * Supported types: const char*, char, int, unsigned int, long, long long,
+	 * unsigned long, unsigned long long, float, double, bool, const void*.
 	 *
 	 * @note after truncation, all further appends are no-ops
 	 */
@@ -220,144 +173,43 @@ public:
 
 	/**
 	 * @brief Check if truncation occurred.
-	 *
 	 * @return true if buffer filled and data was truncated
-	 *
-	 * @note rarely needed - truncation marker "..." is usually sufficient
 	 */
 	bool wasTruncated() const noexcept;
 
 	/**
-	 * @brief Finalize and emit log record:
-	 * 1. add "..." marker if truncated
-	 * 2. null-terminate buffer
-	 * 3. create Record with all metadata
-	 * 4. call Logger<Tag>::log()
-	 * 5. set committed flag and reset busy flag
+	 * @brief Finalize and emit the log record.
+	 *
+	 * Appends "..." marker if truncated, null-terminates, creates Record,
+	 * calls Logger<Tag>::log() via stored function pointer.
 	 */
 	void commit() noexcept;
 
 private:
-	/**
-	 * @brief Check if buffer has space for N bytes.
-	 *
-	 * @param needed number of bytes needed
-	 * @return true if space available, false otherwise
-	 */
 	bool hasSpace( std::size_t needed ) const noexcept;
 
-	/**
-	 * @brief Append single character to buffer.
-	 *
-	 * @param chr character to append
-	 */
 	void append( char chr ) noexcept;
-
-	/**
-	 * @brief Append C-string to buffer.
-	 *
-	 * @param str null-terminated string to append
-	 */
 	void append( const char* str ) noexcept;
 
-	/**
-	 * @brief Append string literal to buffer.
-	 *
-	 * Preferred over append(const char*) for string literals: the array size N
-	 * is known at compile time.
-	 * This overload was introduced due to address the following compiler warning,
-	 * which appears to be a result of calling the string_view overload with a
-	 * string literal of length 1, e.g. "\n":
-	 * - warning: 'void* memcpy(void*, const void*, size_t)' reading 1021 or more bytes from a region of size 1 [-Wstringop-overread]
-	 * - In member function 'void kmac::nova::TruncatingRecordBuilder<BufferSize>::append(const std::string_view&)',
-	 * - inlined from 'void kmac::nova::TruncatingRecordBuilder<BufferSize>::append(const char*)',
-
-	 * @tparam N array size including null terminator
-	 * @param lit string literal to append
-	 *
-	 * @note marked as NOLINT since this is a string literal reference that can't
-	 * be updated to an array declaration; std::array cannot bind to string literals
-	 */
 	template< std::size_t N >
 	void append( const char ( &lit )[ N ] ) noexcept;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 
-	/**
-	 * @brief Append string view to buffer.
-	 *
-	 * @param str string view to append
-	 */
 	void append( const std::string_view& str ) noexcept;
-
-	/**
-	 * @brief Append integer to buffer.
-	 *
-	 * @param value integer value (base 10)
-	 */
 	void append( int value ) noexcept;
-
-	/**
-	 * @brief Append unsigned integer to buffer.
-	 *
-	 * @param value unsigned integer value (base 10)
-	 */
 	void append( unsigned int value ) noexcept;
-
-	/**
-	 * @brief Append long integer to buffer.
-	 *
-	 * @param value long integer value (base 10)
-	 */
 	void append( long value ) noexcept;
-
-	/**
-	 * @brief Append long integer to buffer.
-	 *
-	 * @param value long integer value (base 10)
-	 */
 	void append( long long value ) noexcept;
-
-	/**
-	 * @brief Append unsigned long to buffer.
-	 *
-	 * @param value unsigned long value (base 10)
-	 */
 	void append( unsigned long value ) noexcept;
-
-	/**
-	 * @brief Append unsigned long to buffer.
-	 *
-	 * @param value unsigned long value (base 10)
-	 */
 	void append( unsigned long long value ) noexcept;
-
-	/**
-	 * @brief Append double to buffer.
-	 *
-	 * @param value double-precision float (default precision)
-	 */
 	void append( double value ) noexcept;
-
-	/**
-	 * @brief Append float to buffer.
-	 *
-	 * @param value single-precision float (default precision)
-	 */
 	void append( float value ) noexcept;
-
-	/**
-	 * @brief Append boolean to buffer.
-	 *
-	 * @param value boolean (outputs "true" or "false")
-	 */
 	void append( bool value ) noexcept;
-
-	/**
-	 * @brief Append pointer address to buffer.
-	 *
-	 * @param ptr pointer (outputs as hex address: 0x...)
-	 */
 	void append( const void* ptr ) noexcept;
 };
+
+// ============================================================================
+// TruncatingRecordBuilder — implementation
+// ============================================================================
 
 template< std::size_t BufferSize >
 template< typename Tag >
@@ -365,10 +217,8 @@ void TruncatingRecordBuilder< BufferSize >::setContext( const char* file, const 
 {
 	assert( ! _busy && "Nested logging detected! Use NOVA_LOG_STACK to avoid TLS conflicts" );
 
-	// silently fail in release builds
 	if ( _busy )
 	{
-		// drop nested log, prevent corruption
 		return;
 	}
 
@@ -382,11 +232,9 @@ void TruncatingRecordBuilder< BufferSize >::setContext( const char* file, const 
 	_line = line;
 	_timestamp = logger_traits< Tag >::timestamp();
 
-	// store Tag info for later use in commitCurrent
 	_tagName = logger_traits< Tag >::tagName;
 	_tagId = logger_traits< Tag >::tagId;
 
-	// store function pointer to Logger<Tag>::log
 	_logFunc = &Logger< Tag >::log;
 }
 
@@ -407,7 +255,6 @@ bool TruncatingRecordBuilder< BufferSize >::wasTruncated() const noexcept
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::commit() noexcept
 {
-	// don't attempt to commit if not busy or already committed
 	if ( ! _busy || _committed )
 	{
 		return;
@@ -415,7 +262,6 @@ void TruncatingRecordBuilder< BufferSize >::commit() noexcept
 
 	if ( _truncated )
 	{
-		// add truncation marker
 		const char* marker = "...";
 		std::memcpy( _buffer.data() + _offset, marker, TRUNCATION_MARKER_SIZE );
 		_offset += TRUNCATION_MARKER_SIZE;
@@ -479,7 +325,10 @@ template< std::size_t BufferSize >
 template< std::size_t N >
 void TruncatingRecordBuilder< BufferSize >::append( const char ( &lit )[ N ] ) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 {
-	// N includes the null terminator; pass N-1 as the actual string length
+	// N includes the null terminator; pass N-1 as the actual string length;
+	// this overload avoids a -Wstringop-overread warning that occurs when the
+	// string_view overload is called with a length-1 literal (e.g. "\n") and
+	// the compiler loses track of the source bound after inlining
 	static_assert( N > 0 );
 	if constexpr ( N > 1 )
 	{
@@ -490,7 +339,6 @@ void TruncatingRecordBuilder< BufferSize >::append( const char ( &lit )[ N ] ) n
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( const std::string_view& str ) noexcept
 {
-	// return early if truncation has already occurred or the string is empty
 	if ( _truncated || str.empty() )
 	{
 		return;
@@ -520,20 +368,12 @@ void TruncatingRecordBuilder< BufferSize >::append( int value ) noexcept
 	{
 		return;
 	}
-
-	// worst case: "-2147483648" = 11 chars
-	if ( ! hasSpace( 11 ) )
+	if ( ! hasSpace( 11 ) )  // worst case: "-2147483648"
 	{
 		_truncated = true;
 		return;
 	}
-
-	auto [ ptr, ec ] = std::to_chars(
-		_buffer.data() + _offset,
-		_buffer.data() + BufferSize - 1,
-		value
-	);
-
+	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( ec == std::errc{} )
 	{
 		_offset = ptr - _buffer.data();
@@ -547,20 +387,12 @@ void TruncatingRecordBuilder< BufferSize >::append( unsigned int value ) noexcep
 	{
 		return;
 	}
-
-	// worst case: "4294967295" = 10 chars
-	if ( ! hasSpace( 10 ) )
+	if ( ! hasSpace( 10 ) )  // worst case: "4294967295"
 	{
 		_truncated = true;
 		return;
 	}
-
-	auto [ ptr, ec ] = std::to_chars(
-		_buffer.data() + _offset,
-		_buffer.data() + BufferSize - 1,
-		value
-	);
-
+	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( ec == std::errc{} )
 	{
 		_offset = ptr - _buffer.data();
@@ -574,20 +406,12 @@ void TruncatingRecordBuilder< BufferSize >::append( long value ) noexcept
 	{
 		return;
 	}
-
-	// worst case: 64-bit = 20 chars
-	if ( ! hasSpace( 20 ) )
+	if ( ! hasSpace( 20 ) )  // worst case: 64-bit signed
 	{
 		_truncated = true;
 		return;
 	}
-
-	auto [ ptr, ec ] = std::to_chars(
-		_buffer.data() + _offset,
-		_buffer.data() + BufferSize - 1,
-		value
-	);
-
+	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( ec == std::errc{} )
 	{
 		_offset = ptr - _buffer.data();
@@ -601,20 +425,12 @@ void TruncatingRecordBuilder< BufferSize >::append( long long value ) noexcept
 	{
 		return;
 	}
-
-	// worst case: 64-bit = 20 chars
 	if ( ! hasSpace( 20 ) )
 	{
 		_truncated = true;
 		return;
 	}
-
-	auto [ ptr, ec ] = std::to_chars(
-		_buffer.data() + _offset,
-		_buffer.data() + BufferSize - 1,
-		value
-	);
-
+	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( ec == std::errc{} )
 	{
 		_offset = ptr - _buffer.data();
@@ -628,19 +444,12 @@ void TruncatingRecordBuilder< BufferSize >::append( unsigned long value ) noexce
 	{
 		return;
 	}
-
 	if ( ! hasSpace( 20 ) )
 	{
 		_truncated = true;
 		return;
 	}
-
-	auto [ ptr, ec ] = std::to_chars(
-		_buffer.data() + _offset,
-		_buffer.data() + BufferSize - 1,
-		value
-	);
-
+	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( ec == std::errc{} )
 	{
 		_offset = ptr - _buffer.data();
@@ -654,19 +463,12 @@ void TruncatingRecordBuilder< BufferSize >::append( unsigned long long value ) n
 	{
 		return;
 	}
-
 	if ( ! hasSpace( 20 ) )
 	{
 		_truncated = true;
 		return;
 	}
-
-	auto [ ptr, ec ] = std::to_chars(
-		_buffer.data() + _offset,
-		_buffer.data() + BufferSize - 1,
-		value
-	);
-
+	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( ec == std::errc{} )
 	{
 		_offset = ptr - _buffer.data();
@@ -680,20 +482,12 @@ void TruncatingRecordBuilder< BufferSize >::append( double value ) noexcept
 	{
 		return;
 	}
-
-	// worst case for double in fixed notation: ~25 chars
-	if ( ! hasSpace( 25 ) )
+	if ( ! hasSpace( 25 ) )  // worst case for double
 	{
 		_truncated = true;
 		return;
 	}
-
-	auto [ ptr, ec ] = std::to_chars(
-		_buffer.data() + _offset,
-		_buffer.data() + BufferSize - 1,
-		value
-	);
-
+	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( ec == std::errc{} )
 	{
 		_offset = ptr - _buffer.data();
@@ -707,19 +501,12 @@ void TruncatingRecordBuilder< BufferSize >::append( float value ) noexcept
 	{
 		return;
 	}
-
 	if ( ! hasSpace( 15 ) )
 	{
 		_truncated = true;
 		return;
 	}
-
-	auto [ ptr, ec ] = std::to_chars(
-		_buffer.data() + _offset,
-		_buffer.data() + BufferSize - 1,
-		value
-	);
-
+	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( ec == std::errc{} )
 	{
 		_offset = ptr - _buffer.data();
@@ -739,9 +526,7 @@ void TruncatingRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 	{
 		return;
 	}
-
-	// hex pointer: "0x" + 16 hex digits = 18 chars max
-	if ( ! hasSpace( 18 ) )
+	if ( ! hasSpace( 18 ) )  // "0x" + 16 hex digits
 	{
 		_truncated = true;
 		return;
@@ -761,6 +546,136 @@ void TruncatingRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 	}
 }
 
+// ============================================================================
+// TLS-Based Wrappers
+// ============================================================================
+
+#if NOVA_HAS_TLS
+
+/**
+ * @brief Thread-local storage for TruncatingRecordBuilder instances.
+ *
+ * One builder instance per thread per buffer size, persisting until thread exit.
+ * Not used directly — access via TlsTruncBuilderWrapper (through NOVA_LOG macro).
+ *
+ * @tparam BufferSize size of the builder buffer in bytes
+ */
+template< std::size_t BufferSize >
+struct TlsTruncBuilderStorage
+{
+	thread_local static TruncatingRecordBuilder< BufferSize > builder;
+};
+
+/**
+ * @brief RAII wrapper for thread-local TruncatingRecordBuilder.
+ *
+ * Allocated on the stack per log statement.  Constructor calls setContext(),
+ * destructor calls commit().
+ *
+ * @tparam Tag the logging tag type
+ * @tparam BufferSize size of the builder buffer in bytes
+ */
+template< typename Tag, std::size_t BufferSize >
+struct TlsTruncBuilderWrapper
+{
+	TlsTruncBuilderWrapper( const char* file, const char* function, std::uint32_t line );
+	~TlsTruncBuilderWrapper();
+	inline TruncatingRecordBuilder< BufferSize >& builder() noexcept;
+};
+
+#endif // NOVA_HAS_TLS
+
+// ============================================================================
+// Stack-Based Wrapper
+// ============================================================================
+
+/**
+ * @brief Stack-based RAII wrapper for TruncatingRecordBuilder.
+ *
+ * Allocates the builder on the stack per log statement.  Required for signal
+ * handlers, nested logging contexts, and bare-metal targets (NOVA_NO_TLS).
+ * NOVA_LOG falls back to this transparently when NOVA_NO_TLS is defined.
+ *
+ * @tparam Tag the logging tag type
+ * @tparam BufferSize size of the builder buffer in bytes
+ */
+template< typename Tag, std::size_t BufferSize >
+class StackTruncatingBuilder : private Immovable
+{
+private:
+	TruncatingRecordBuilder< BufferSize > _builder;
+
+public:
+	StackTruncatingBuilder( const char* file, const char* function, std::uint32_t line ) noexcept;
+	~StackTruncatingBuilder() noexcept;
+
+	template< typename T >
+	StackTruncatingBuilder& operator<<( const T& value ) noexcept;
+
+	bool wasTruncated() const noexcept;
+};
+
+// ============================================================================
+// TLS-Based Wrappers — implementation
+// ============================================================================
+
+#if NOVA_HAS_TLS
+
+template< std::size_t BufferSize >
+thread_local TruncatingRecordBuilder< BufferSize > TlsTruncBuilderStorage< BufferSize >::builder;
+
+template< typename Tag, std::size_t BufferSize >
+TlsTruncBuilderWrapper< Tag, BufferSize >::TlsTruncBuilderWrapper( const char* file, const char* function, std::uint32_t line )
+{
+	builder().template setContext< Tag >( file, function, line );
+}
+
+template< typename Tag, std::size_t BufferSize >
+TlsTruncBuilderWrapper< Tag, BufferSize >::~TlsTruncBuilderWrapper()
+{
+	auto& builder = TlsTruncBuilderStorage< BufferSize >::builder;
+	builder.commit();
+}
+
+template< typename Tag, std::size_t BufferSize >
+TruncatingRecordBuilder< BufferSize >& TlsTruncBuilderWrapper< Tag, BufferSize >::builder() noexcept
+{
+	auto& builder = TlsTruncBuilderStorage< BufferSize >::builder;
+	return builder;
+}
+
+#endif // NOVA_HAS_TLS
+
+// ============================================================================
+// Stack-Based Wrapper — implementation
+// ============================================================================
+
+template< typename Tag, std::size_t BufferSize >
+StackTruncatingBuilder< Tag, BufferSize >::StackTruncatingBuilder( const char* file, const char* function, std::uint32_t line ) noexcept
+{
+	_builder.template setContext< Tag >( file, function, line );
+}
+
+template< typename Tag, std::size_t BufferSize >
+StackTruncatingBuilder< Tag, BufferSize >::~StackTruncatingBuilder() noexcept
+{
+	_builder.commit();
+}
+
+template< typename Tag, std::size_t BufferSize >
+template< typename T >
+StackTruncatingBuilder< Tag, BufferSize >& StackTruncatingBuilder< Tag, BufferSize >::operator<<( const T& value ) noexcept
+{
+	_builder << value;
+	return *this;
+}
+
+template< typename Tag, std::size_t BufferSize >
+bool StackTruncatingBuilder< Tag, BufferSize >::wasTruncated() const noexcept
+{
+	return _builder.wasTruncated();
+}
+
 } // namespace kmac::nova
 
-#endif // KMAC_NOVA_TRUNCATING_RECORD_BUILDER_H
+#endif // KMAC_NOVA_TRUNCATING_LOGGING_H
