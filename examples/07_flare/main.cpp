@@ -1,6 +1,7 @@
 #include "kmac/flare/emergency_sink.h"
 #include "kmac/flare/file_writer.h"
 #include "kmac/flare/reader.h"
+#include "kmac/flare/record.h"
 #include "kmac/flare/scanner.h"
 
 #include "kmac/nova/nova.h"
@@ -56,7 +57,7 @@ int main()
 
 		{
 			// use stack-based streaming macro
-			NOVA_LOG_TRUNC_STACK( CrashTag ) << "Test record 3: multi-line message\nLine 2\nLine 3";
+			NOVA_LOG_STACK( CrashTag ) << "Test record 3: multi-line message\nLine 2\nLine 3";
 		}
 
 		// manually create a record to test direct API
@@ -121,10 +122,10 @@ int main()
 				std::cout << "  Thread:    " << record.threadId << "\n";
 			}
 
-			std::cout << "  File:      " << record.file << "\n";
+			std::cout << "  File:      " << record.file.data() << "\n";
 			std::cout << "  Line:      " << record.line << "\n";
-			std::cout << "  Function:  " << record.function << "\n";
-			std::cout << "  Message:   " << record.message;
+			std::cout << "  Function:  " << record.function.data() << "\n";
+			std::cout << "  Message:   " << record.message.data();
 			if ( record.messageTruncated )
 			{
 				std::cout << " [TRUNCATED]";

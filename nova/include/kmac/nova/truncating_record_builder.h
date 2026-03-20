@@ -32,22 +32,22 @@ namespace kmac::nova
  * - tag-agnostic design (stores tag info at runtime via setContext)
  *
  * Thread-local usage (default via macros):
- * - NOVA_LOG_TRUNC uses TlsTruncBuilderWrapper for thread-local storage
+ * - NOVA_LOG uses TlsTruncBuilderWrapper for thread-local storage
  * - provides markedly improved performance over stack-based
  * - see TlsTruncBuilderWrapper and TlsTruncBuilderStorage for TLS details
  * - nested logging detection: assert in debug, silent drop in release
  *
  * Stack-based usage (opt-in via macros or direct usage):
- * - NOVA_LOG_TRUNC_STACK uses StackTruncatingBuilder wrapper
+ * - NOVA_LOG_STACK uses StackTruncatingBuilder wrapper
  * - required for signal handlers (avoids stack overflow)
  * - required for functions called within log expressions (avoids nested logging)
  * - see StackTruncatingBuilder for stack-based wrapper details
  *
  * Comparison with other builders:
- * - vs ContinuationRecordBuilder: single record vs multiple records
+ * - vs ContinuationRecordBuilder (nova_extras/continuation_logging.h): single record vs multiple records
  * - vs StreamingRecordBuilder (Nova Extras): deterministic vs heap allocation
  * - best for: real-time systems, hot paths, most production logging
- * - Consider ContinuationRecordBuilder when: complete data preservation is critical
+ * - See ContinuationRecordBuilder in Nova Extras when: complete data preservation is critical
  *
  * Truncation behavior:
  * - when buffer fills, additional data is silently dropped
@@ -58,13 +58,13 @@ namespace kmac::nova
  * Usage via macros (recommended):
  *
  *   // thread-local (default, fast)
- *   NOVA_LOG_TRUNC(InfoTag) << "User " << username << " logged in";
+ *   NOVA_LOG(InfoTag) << "User " << username << " logged in";
  *
  *   // custom buffer size
- *   NOVA_LOG_TRUNC_BUF(DebugTag, 256) << "Short message";
+ *   NOVA_LOG_BUF(DebugTag, 256) << "Short message";
  *
  *   // stack-based (for signal handlers, nested contexts)
- *   NOVA_LOG_TRUNC_STACK(CrashTag) << "Signal handler logging";
+ *   NOVA_LOG_STACK(CrashTag) << "Signal handler logging";
  *
  * Direct usage (advanced):
  *
@@ -92,19 +92,19 @@ namespace kmac::nova
  *
  * Nested logging (important):
  * - DO NOT log inside expressions being logged:
- *     UNSAFE: NOVA_LOG_TRUNC(Tag) << "Result: " << compute();
+ *     UNSAFE: NOVA_LOG(Tag) << "Result: " << compute();
  *     // if compute() logs, corruption occurs!
  *
  *     SAFE: auto result = compute();  // may log internally
- *           NOVA_LOG_TRUNC(Tag) << "Result: " << result;
+ *           NOVA_LOG(Tag) << "Result: " << result;
  *
  * - Use stack-based logging in nested functions:
  *     void compute() {
- *         NOVA_LOG_TRUNC_STACK(Tag) << "computing";  // no conflict
+ *         NOVA_LOG_STACK(Tag) << "computing";  // no conflict
  *     }
  *
  * Signal handlers:
- * - MUST use stack-based builder, e.g. NOVA_LOG_TRUNC_STACK (not thread-local)
+ * - MUST use stack-based builder, e.g. NOVA_LOG_STACK (not thread-local)
  * - thread-local can be interrupted mid-log, causing corruption
  * - stack-based provides independent buffer
  *

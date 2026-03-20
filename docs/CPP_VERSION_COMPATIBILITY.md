@@ -31,7 +31,7 @@ struct DisabledTag {};
 NOVA_LOGGER_TRAITS(DisabledTag, DISABLED, false, ...);
 
 // This line compiles to NOTHING in C++17:
-NOVA_LOG_TRUNC(DisabledTag) << "Never executed";
+NOVA_LOG(DisabledTag) << "Never executed";
 ```
 
 ### C++14
@@ -53,7 +53,7 @@ struct DisabledTag {};
 NOVA_LOGGER_TRAITS(DisabledTag, DISABLED, false, ...);
 
 // In C++14, this compiles to a runtime if-statement:
-NOVA_LOG_TRUNC(DisabledTag) << "Checked at runtime";
+NOVA_LOG(DisabledTag) << "Checked at runtime";
 // Still very fast (branch prediction), just not completely free
 ```
 

@@ -203,7 +203,7 @@ config.bind<CrashTag>(&emergency);
 signal(SIGSEGV, crash_handler);
 
 void crash_handler(int sig) {
-    NOVA_LOG_TRUNC(CrashTag) << "Crash: signal " << sig;
+    NOVA_LOG(CrashTag) << "Crash: signal " << sig;
     // Emergency sink is async-signal-safe
 }
 ```

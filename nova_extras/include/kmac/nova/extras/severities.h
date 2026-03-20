@@ -3,6 +3,7 @@
 #define KMAC_NOVA_EXTRAS_SEVERITIES_H
 
 #include "kmac/nova/nova.h"
+#include "kmac/nova/extras/continuation_logging.h"
 
 namespace kmac::nova::extras
 {
@@ -24,7 +25,7 @@ namespace kmac::nova::extras
  * - FATAL: fatal error messages for unrecoverable failures
  *
  * Usage with full builder macros:
- *   NOVA_LOG_TRUNC(TraceTag) << "Detailed trace";
+ *   NOVA_LOG(TraceTag) << "Detailed trace";
  *   NOVA_LOG_CONT(DebugTag) << "Debug info";
  *   NOVA_LOG_STREAM(ErrorTag) << "Error: " << code;
  *
@@ -87,31 +88,31 @@ NOVA_LOGGER_TRAITS( ::kmac::nova::extras::FatalTag, FATAL, true, ::kmac::nova::T
  * All use the truncating record builder for maximum performance.
  *
  * @note These are convenience macros. For explicit control over record builder
- *       type, use the full NOVA_LOG_TRUNC/CONT/STREAM macros.
+ *       type, use NOVA_LOG, NOVA_LOG_CONT, or NOVA_LOG_STREAM macros directly.
  */
 
 /// Trace level logging
 #define NOVA_LOG_TRACE() /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_LOG_TRUNC( kmac::nova::extras::TraceTag )
+	NOVA_LOG( kmac::nova::extras::TraceTag )
 
 /// Debug level logging
 #define NOVA_LOG_DEBUG() /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_LOG_TRUNC( kmac::nova::extras::DebugTag )
+	NOVA_LOG( kmac::nova::extras::DebugTag )
 
 /// Info level logging
 #define NOVA_LOG_INFO() /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_LOG_TRUNC( kmac::nova::extras::InfoTag )
+	NOVA_LOG( kmac::nova::extras::InfoTag )
 
 /// Warning level logging
 #define NOVA_LOG_WARN() /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_LOG_TRUNC( kmac::nova::extras::WarningTag )
+	NOVA_LOG( kmac::nova::extras::WarningTag )
 
 /// Error level logging
 #define NOVA_LOG_ERROR() /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_LOG_TRUNC( kmac::nova::extras::ErrorTag )
+	NOVA_LOG( kmac::nova::extras::ErrorTag )
 
 /// Fatal level logging
 #define NOVA_LOG_FATAL() /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_LOG_TRUNC( kmac::nova::extras::FatalTag )
+	NOVA_LOG( kmac::nova::extras::FatalTag )
 
 #endif // KMAC_NOVA_EXTRAS_SEVERITIES_H

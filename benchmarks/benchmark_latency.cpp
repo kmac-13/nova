@@ -19,6 +19,7 @@
 #include "kmac/nova/scoped_configurator.h"
 #include "kmac/nova/timestamp_helper.h"
 
+#include "kmac/nova/extras/continuation_logging.h"
 #include "kmac/nova/extras/memory_pool_async_sink.h"
 #include "kmac/nova/extras/null_sink.h"
 #include "kmac/nova/extras/ostream_sink.h"
@@ -82,10 +83,10 @@ static void BM_Latency_Nova_Truncating( benchmark::State& state )
 	{
 		auto start = std::chrono::high_resolution_clock::now();
 
-		// NOTE: default NOVA_LOG is to call NOVA_LOG_TRUNC, but we
+		// NOTE: using NOVA_LOG (truncating) and NOVA_LOG_CONT for comparison
 		// choose to explicitly use the macro to avoid future updates
 		// possibly changing which macro is called from NOVA_LOG
-		NOVA_LOG_TRUNC( LatencyTag ) << "Latency test message";
+		NOVA_LOG( LatencyTag ) << "Latency test message";
 
 		auto end = std::chrono::high_resolution_clock::now();
 		auto elapsed = std::chrono::duration_cast< std::chrono::nanoseconds >( end - start );

@@ -18,6 +18,7 @@
 #include "kmac/nova/scoped_configurator.h"
 #include "kmac/nova/timestamp_helper.h"
 
+#include "kmac/nova/extras/continuation_logging.h"
 #include "kmac/nova/extras/memory_pool_async_sink.h"
 #include "kmac/nova/extras/null_sink.h"
 #include "kmac/nova/extras/spinlock_sink.h"
@@ -86,7 +87,7 @@ struct ThroughputTag { };
 NOVA_LOGGER_TRAITS( ThroughputTag, THRU, true, kmac::nova::TimestampHelper::steadyNanosecs );
 
 // Each multi-threaded benchmark gets its own tag so their static sink bindings
-// don't interfere — all benchmarks share the same process, and std::once_flag
+// don't interfere - all benchmarks share the same process, and std::once_flag
 // fires exactly once per flag instance regardless of which benchmark is active.
 // Without distinct tags, benchmark 2's call_once is a no-op and it inherits
 // benchmark 1's sink binding, causing data races or null-sink crashes.
@@ -112,7 +113,7 @@ NOVA_LOGGER_TRAITS( MTNullSinkTag, THRU_DNULL, true, kmac::nova::TimestampHelper
 // Nova Single-Threaded Throughput
 // ============================================================================
 //
-// Note: Google Benchmark automatically calculates and reports throughput
+// NOTE: Google Benchmark automatically calculates and reports throughput
 // (items/second) based on SetItemsProcessed() and the measured time.
 // The output will show "items/s" which represents messages/second.
 //
@@ -126,7 +127,7 @@ static void BM_Throughput_Nova_SingleThread_Truncating( benchmark::State& state 
 
 	for ( auto _ : state )
 	{
-		NOVA_LOG_TRUNC( ThroughputTag ) << "Throughput test message " << totalMessages++;
+		NOVA_LOG( ThroughputTag ) << "Throughput test message " << totalMessages++;
 	}
 
 	state.SetItemsProcessed( state.iterations() );
@@ -169,7 +170,7 @@ BENCHMARK( BM_Throughput_Nova_SingleThread_Streaming );
 // Nova Multi-Threaded Throughput
 // ============================================================================
 //
-// Sinks are namespace-scope globals — lifetimes span the entire program with
+// Sinks are namespace-scope globals - lifetimes span the entire program with
 // no magic-static or once_flag initialization races.  CountingSink is used
 // instead of NullSink so the compiler cannot elide the log call as a
 // no-observable-effect operation; the atomic increment forces real work.
@@ -177,27 +178,27 @@ BENCHMARK( BM_Throughput_Nova_SingleThread_Streaming );
 
 namespace MTSinks
 {
-// CountingSink forces real work — the atomic increment prevents the compiler
+// CountingSink forces real work - the atomic increment prevents the compiler
 // from eliding the entire log call as a no-observable-effect operation.
-// Without this, release builds can optimize NOVA_LOG_TRUNC away entirely
+// Without this, release builds can optimize NOVA_LOG away entirely
 // when routing to NullSink, making timings appear as ~0.2ns (noise floor).
 //
-CountingSink                                              countSink;
-kmac::nova::extras::SynchronizedSink                     syncSink( countSink );
-kmac::nova::extras::SpinlockSink                          spinSink( countSink );
-CountingSink                                              directCountSink;
-CountingSink                                              nullSinkTagCountSink;
+CountingSink countSink;
+kmac::nova::extras::SynchronizedSink syncSink( countSink );
+kmac::nova::extras::SpinlockSink spinSink( countSink );
+CountingSink directCountSink;
+CountingSink nullSinkTagCountSink;
 
 struct Setup
 {
 	Setup()
 	{
 		kmac::nova::Logger< MTSynchronizedTag >::bindSink( &syncSink );
-		kmac::nova::Logger< MTSpinlockTag     >::bindSink( &spinSink );
-		kmac::nova::Logger< MTAsyncTag        >::bindSink( &countSink );
-		kmac::nova::Logger< MTSyncDirectTag   >::bindSink( &directCountSink );
+		kmac::nova::Logger< MTSpinlockTag >::bindSink( &spinSink );
+		kmac::nova::Logger< MTAsyncTag >::bindSink( &countSink );
+		kmac::nova::Logger< MTSyncDirectTag >::bindSink( &directCountSink );
 		// MTNullptrTag intentionally unbound (nullptr sink)
-		kmac::nova::Logger< MTNullSinkTag     >::bindSink( &nullSinkTagCountSink );
+		kmac::nova::Logger< MTNullSinkTag >::bindSink( &nullSinkTagCountSink );
 	}
 };
 
@@ -286,7 +287,7 @@ BENCHMARK( BM_Throughput_Nova_MessageSize )->Range( 8, 4096 );
 
 static void BM_Throughput_Nova_RuntimeDisabledTag_NullptrSink( benchmark::State& state )
 {
-	// MTNullptrTag has no sink bound — Logger::getSink() returns nullptr, macro is a no-op
+	// MTNullptrTag has no sink bound - Logger::getSink() returns nullptr, macro is a no-op
 	for ( auto _ : state )
 	{
 		NOVA_LOG( MTNullptrTag ) << "Runtime disabled log message, won't appear in logs";
@@ -302,7 +303,7 @@ BENCHMARK( BM_Throughput_Nova_RuntimeDisabledTag_NullptrSink )->Threads( 1 )->Th
 
 static void BM_Throughput_Nova_RuntimeDisabledTag_NullSink( benchmark::State& state )
 {
-	// MTNullSinkTag routes to a CountingSink — message arrives but the point is
+	// MTNullSinkTag routes to a CountingSink - message arrives but the point is
 	// measuring the overhead of a fully-wired (non-null) sink with a tag that is
 	// "disabled" only in the sense that it's not a meaningful domain, not because
 	// the Logger has no sink.  CountingSink prevents loop elision.
@@ -325,7 +326,7 @@ NOVA_LOGGER_TRAITS( NovaDisabledTag, DISABLED, false, kmac::nova::TimestampHelpe
 
 static void BM_Throughput_Nova_CompiletimeDisabledTag( benchmark::State& state )
 {
-	// NovaDisabledTag is compiled out entirely — no sink needed, no binding needed
+	// NovaDisabledTag is compiled out entirely - no sink needed, no binding needed
 	for ( auto _ : state )
 	{
 		NOVA_LOG( NovaDisabledTag ) << "Disabled log message, won't appear in log even with valid sink";
@@ -374,7 +375,7 @@ BENCHMARK( BM_Throughput_Nova_Optimized_NoTimestamp );
 // ============================================================================
 
 // Minimal logging macro (bypasses streaming operators)
-// NOTE: checks for null sink — Logger returns nullptr when no sink is bound
+// NOTE: checks for null sink - Logger returns nullptr when no sink is bound
 #define NOVA_LOG_DIRECT( Tag, msg ) \
 do { \
 		static constexpr char message[] = msg; \
@@ -709,7 +710,7 @@ BENCHMARK( BM_Throughput_Log4cpp_SingleThread );
 // easylogging++ Throughput Benchmarks
 // ============================================================================
 
-// NOTE: Easylogging++ disabled on Windows/MSVC — its global singleton
+// NOTE: Easylogging++ disabled on Windows/MSVC - its global singleton
 // (el::base::Storage) destructs heap-allocated std::string members during
 // process exit in a way that races with the MSVC CRT locale DLL-detach
 // cleanup, causing RtlFreeHeap to receive an invalid address and crash.

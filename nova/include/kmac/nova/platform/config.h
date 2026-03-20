@@ -65,7 +65,7 @@
  *
  * NOVA_ENABLE_FRAME_COUNTER
  *   Enable the platform::frameCounter() timestamp source for game engines and
- *   simulation systems.  Requires g_frame_counter in the kmac::nova::platform
+ *   simulation systems.  Requires g_frameCounter in the kmac::nova::platform
  *   namespace.  Disabled by default to avoid link errors on bare-metal
  *   toolchains that resolve all extern symbols regardless of call sites.
  *   See platform/chrono.h for usage.
