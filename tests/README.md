@@ -7,8 +7,8 @@ This directory contains a comprehensive Google Test (gtest) based unit test suit
 ### Core Nova Tests
 - **test_nova_core.cpp** - Core Nova functionality (Record, Logger, LoggerTraits)
 - **test_nova_scoped_configurator.cpp** - ScopedConfigurator
-- **test_nova_record_builders.cpp** - TruncatingRecordBuilder and ContinuationRecordBuilder
-- **test_nova_logger.cpp** - Logging macros (NOVA_LOG_TRUNC, NOVA_LOG_CONT) 
+- **test_nova_record_builders.cpp** - TruncatingRecordBuilder and ContinuationRecordBuilder (extras)
+- **test_nova_logger.cpp** - Logging macros (NOVA_LOG, NOVA_LOG_CONT)
 
 ### Nova Extras Tests
 - **test_nova_sinks.cpp** - OStreamSink, NullSink, FilterSink
@@ -166,8 +166,8 @@ FetchContent_MakeAvailable(googletest)
 - ✓ metadata preservation
 
 ### Logger Macros (test_nova_logger.cpp)
-- ✓ NOVA_LOG_TRUNC basic usage
-- ✓ NOVA_LOG_CONT basic usage
+- ✓ NOVA_LOG basic usage
+- ✓ NOVA_LOG_CONT basic usage (requires continuation_logging.h)
 - ✓ macro streaming with various types
 - ✓ __FILE__, __FUNCTION__, __LINE__ capture
 - ✓ multiple sequential macro calls

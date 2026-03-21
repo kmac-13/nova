@@ -102,7 +102,7 @@ This document provides guidelines for using Nova, Nova Extras, and Flare in safe
 | **Logger<Tag>** | Low | None | Yes | All levels |
 | **TruncatingRecordBuilder** | Low | None (stack) | Yes | All levels |
 | **ContinuationRecordBuilder** | Low | None (stack) | Yes | All levels |
-| **NullRecordBuilder** | Minimal | None | Yes | All levels |
+| **NullRecordBuilder** (extras/null_logging.h) | Minimal | None | Yes | All levels |
 | **ScopedConfigurator** | Low | Heap (vector) | Yes* | A-D (with restrictions) |
 | **Macros (NOVA_LOG)** | Low | None | Yes | All levels |
 
@@ -603,7 +603,7 @@ TEST(SafetyLogging, BasicOperation)
     CounterSink counter;
     Logger<TestTag>::bindSink(&counter);
     
-    NOVA_LOG_TRUNC(TestTag) << "Test";
+    NOVA_LOG(TestTag) << "Test";
     
     ASSERT_EQ(counter.count, 1);
 }
@@ -626,7 +626,7 @@ TEST(SafetyLogging, NullHandling)
     Logger<TestTag>::bindSink(nullptr);
     
     // Should not crash
-    NOVA_LOG_TRUNC(TestTag) << "Test";
+    NOVA_LOG(TestTag) << "Test";
 }
 
 // Test 4: Concurrent access (if multi-threaded)
@@ -645,7 +645,7 @@ TEST(SafetyLogging, ThreadSafety)
         threads.emplace_back([&]() {
             for (int j = 0; j < LOGS_PER_THREAD; ++j)
             {
-                NOVA_LOG_TRUNC(TestTag) << "Thread log";
+                NOVA_LOG(TestTag) << "Thread log";
             }
         });
     }
@@ -665,7 +665,7 @@ TEST(SafetyLogging, TimingBounds)
     
     for (int i = 0; i < 1000; ++i)
     {
-        NOVA_LOG_TRUNC(TestTag) << "Timing test " << i;
+        NOVA_LOG(TestTag) << "Timing test " << i;
     }
     
     auto elapsed = std::chrono::high_resolution_clock::now() - start;
@@ -706,7 +706,7 @@ TEST(Integration, StressConditions)
     // Simulate high load
     for (int i = 0; i < 100000; ++i)
     {
-        NOVA_LOG_TRUNC(Tag) << "Stress test " << i;
+        NOVA_LOG(Tag) << "Stress test " << i;
     }
     
     // Verify system remains stable
@@ -762,7 +762,7 @@ void benchmarkLogging()
     auto start = now();
     for (int i = 0; i < ITERATIONS; ++i)
     {
-        NOVA_LOG_TRUNC(DisabledTag) << "Should be compiled out";
+        NOVA_LOG(DisabledTag) << "Should be compiled out";
     }
     auto disabledTime = now() - start;
     
@@ -773,7 +773,7 @@ void benchmarkLogging()
     start = now();
     for (int i = 0; i < ITERATIONS; ++i)
     {
-        NOVA_LOG_TRUNC(TestTag) << "Null sink";
+        NOVA_LOG(TestTag) << "Null sink";
     }
     auto nullTime = now() - start;
     
@@ -784,7 +784,7 @@ void benchmarkLogging()
     start = now();
     for (int i = 0; i < ITERATIONS; ++i)
     {
-        NOVA_LOG_TRUNC(TestTag) << "Real sink";
+        NOVA_LOG(TestTag) << "Real sink";
     }
     auto realTime = now() - start;
     
@@ -829,7 +829,7 @@ DESIGN-LOG-001: Tag-based routing
     
 DESIGN-LOG-002: Fixed buffer strategy
     Implementation: TruncatingRecordBuilder<Tag, SIZE>
-    Files: nova/include/kmac/nova/truncating_record_builder.h
+    Files: nova/include/kmac/nova/truncating_logging.h
     Rationale: Bounded memory usage, no heap allocation
     
 DESIGN-LOG-003: Error containment
@@ -843,7 +843,7 @@ DESIGN-LOG-003: Error containment
 | Requirement | Design | Implementation | Test | Verification |
 |-------------|--------|----------------|------|--------------|
 | REQ-LOG-001 | DESIGN-LOG-001 | logger.h:45 | TEST-LOG-001 | PASS |
-| REQ-LOG-002 | DESIGN-LOG-002 | truncating_record_builder.h:100 | TEST-LOG-010 | PASS |
+| REQ-LOG-002 | DESIGN-LOG-002 | truncating_logging.h:100 | TEST-LOG-010 | PASS |
 | REQ-LOG-003 | DESIGN-LOG-003 | defensive_sink.h:25 | TEST-LOG-015 | PASS |
 
 ### 4. Configuration Documentation

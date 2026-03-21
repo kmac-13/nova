@@ -67,7 +67,7 @@ kmac::flare::EmergencySink* g_emergency_sink = nullptr;
 
 void crash_handler(int signal) {
     // SAFE - Flare is async-signal-safe
-    NOVA_LOG_TRUNC(CrashTag) << "CRASH: Signal " << signal;
+    NOVA_LOG(CrashTag) << "CRASH: Signal " << signal;
     
     // Manually flush to ensure data is written
     if (g_emergency_sink) {
@@ -94,7 +94,7 @@ int main() {
     signal(SIGFPE, crash_handler);
     
     // Log important state before potential crash
-    NOVA_LOG_TRUNC(CrashTag) << "Starting critical operation";
+    NOVA_LOG(CrashTag) << "Starting critical operation";
     
     // ... your application code ...
     
@@ -152,7 +152,7 @@ void control_loop() {
         // Safety check
         if (position > SAFE_LIMIT) {
             // DETERMINISTIC - No allocation, no locks, bounded time
-            NOVA_LOG_TRUNC(SafetyTag) 
+            NOVA_LOG(SafetyTag)
                 << "SAFETY VIOLATION: pos=" << position 
                 << " limit=" << SAFE_LIMIT;
         }
@@ -162,7 +162,7 @@ void control_loop() {
         auto elapsed = get_time() - start;
         if (elapsed > DEADLINE) {
             // Log timing violation
-            NOVA_LOG_TRUNC(SafetyTag) 
+            NOVA_LOG(SafetyTag)
                 << "DEADLINE MISS: " << elapsed << "ns";
         }
     }
@@ -191,7 +191,7 @@ void* tracked_malloc(size_t size, const char* file, int line) {
     void* ptr = malloc(size);
     
     // Log allocation with Flare
-    NOVA_LOG_TRUNC(MemDebugTag) 
+    NOVA_LOG(MemDebugTag)
         << "ALLOC: " << ptr << " size=" << size 
         << " at " << file << ":" << line;
     
@@ -205,7 +205,7 @@ void tracked_free(void* ptr, const char* file, int line) {
     // Check canaries before freeing
     if (!check_canaries(ptr)) {
         // CORRUPTION DETECTED - Log it immediately
-        NOVA_LOG_TRUNC(MemDebugTag) 
+        NOVA_LOG(MemDebugTag)
             << "CORRUPTION at " << ptr 
             << " freed from " << file << ":" << line;
         
@@ -247,11 +247,11 @@ void setup_emergency_logging() {
 void main_loop() {
     while (true) {
         // Log heartbeat
-        NOVA_LOG_TRUNC(SystemTag) << "Heartbeat " << tick_count;
+        NOVA_LOG(SystemTag) << "Heartbeat " << tick_count;
         
         // Log critical operations
         if (perform_risky_operation()) {
-            NOVA_LOG_TRUNC(FaultTag) << "Operation failed";
+            NOVA_LOG(FaultTag) << "Operation failed";
         }
         
         // Flush periodically
@@ -300,7 +300,7 @@ void init_process_emergency_logging(int process_id) {
 
 // In coordination code
 void wait_for_other_process() {
-    NOVA_LOG_TRUNC(CoordTag) << "Waiting for mutex " << mutex_id;
+    NOVA_LOG(CoordTag) << "Waiting for mutex " << mutex_id;
     
     auto start = get_time();
     while (!try_acquire_mutex(mutex_id)) {
@@ -308,7 +308,7 @@ void wait_for_other_process() {
         
         if (elapsed > TIMEOUT) {
             // About to timeout - log state
-            NOVA_LOG_TRUNC(CoordTag) 
+            NOVA_LOG(CoordTag)
                 << "TIMEOUT waiting for mutex " << mutex_id
                 << " held by process " << mutex_owner;
             
@@ -319,7 +319,7 @@ void wait_for_other_process() {
         }
     }
     
-    NOVA_LOG_TRUNC(CoordTag) << "Acquired mutex " << mutex_id;
+    NOVA_LOG(CoordTag) << "Acquired mutex " << mutex_id;
 }
 ```
 
@@ -342,12 +342,12 @@ class TracedException : public std::exception {
 public:
     TracedException(const char* msg) : msg_(msg) {
         // Log when exception is thrown
-        NOVA_LOG_TRUNC(ExceptionTag) << "THROW: " << msg;
+        NOVA_LOG(ExceptionTag) << "THROW: " << msg;
     }
     
     ~TracedException() noexcept {
         // Log when exception is destroyed (after catch or terminate)
-        NOVA_LOG_TRUNC(ExceptionTag) << "DESTROY: " << msg_;
+        NOVA_LOG(ExceptionTag) << "DESTROY: " << msg_;
     }
     
     const char* what() const noexcept override {
@@ -356,12 +356,12 @@ public:
 };
 
 void risky_operation() {
-    NOVA_LOG_TRUNC(ExceptionTag) << "Enter risky_operation";
+    NOVA_LOG(ExceptionTag) << "Enter risky_operation";
     
     try {
         throw TracedException("Database connection failed");
     } catch (...) {
-        NOVA_LOG_TRUNC(ExceptionTag) << "Caught in risky_operation";
+        NOVA_LOG(ExceptionTag) << "Caught in risky_operation";
         throw;  // Re-throw
     }
 }
@@ -377,10 +377,10 @@ void risky_operation() {
 
 ```cpp
 // Normal logging goes to Nova sinks (file, console, etc.)
-NOVA_LOG_TRUNC(InfoTag) << "User logged in";
+NOVA_LOG(InfoTag) << "User logged in";
 
 // Critical events ALSO go to emergency sink
-NOVA_LOG_TRUNC(CrashTag) << "User logged in";  // Same data, different sink
+NOVA_LOG(CrashTag) << "User logged in";  // Same data, different sink
 
 // In crash handler, only CrashTag records are guaranteed
 ```
@@ -391,7 +391,7 @@ NOVA_LOG_TRUNC(CrashTag) << "User logged in";  // Same data, different sink
 // Regular heartbeat
 void heartbeat_thread() {
     while (true) {
-        NOVA_LOG_TRUNC(CrashTag) << "Heartbeat " << tick;
+        NOVA_LOG(CrashTag) << "Heartbeat " << tick;
         sleep(1);
         tick++;
     }

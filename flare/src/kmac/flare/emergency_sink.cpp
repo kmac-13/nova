@@ -209,16 +209,34 @@ bool TlvWriteHelper::writeTlv( kmac::flare::TlvType type, const void* data, std:
 		return false;
 	}
 
+	// use a local copy, committing back to the reference only on success
+	// also, which makes the all-or-nothing write semantics explicit
+	std::size_t localOffset = offset;
+
+	// Even with the bounds check above, GCC's -Wstringop-overflow loses
+	// track of the buffer size across the char* member of TlvWriteHelper
+	// (the pointer carries no size metadata after the call boundary), so
+	// suppress the false positive locally
+#if defined( __GNUC__ ) && ! defined( __clang__ )
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+
 	std::uint16_t typeVal = std::uint16_t( type );
-	std::memcpy( buffer + offset, &typeVal, sizeof( typeVal ) );
-	offset += sizeof( typeVal );
+	std::memcpy( buffer + localOffset, &typeVal, sizeof( typeVal ) );
+	localOffset += sizeof( typeVal );
 
-	std::memcpy( buffer + offset, &len, sizeof( len ) );
-	offset += sizeof( len );
+	std::memcpy( buffer + localOffset, &len, sizeof( len ) );
+	localOffset += sizeof( len );
 
-	std::memcpy( buffer + offset, data, len );
-	offset += len;
+	std::memcpy( buffer + localOffset, data, len );
+	localOffset += len;
 
+#if defined( __GNUC__ ) && ! defined( __clang__ )
+#	pragma GCC diagnostic pop
+#endif
+
+	offset = localOffset;
 	return true;
 }
 

@@ -44,7 +44,7 @@ struct Record;
  *   SampleSink sink;
  *   ScopedConfigurator config;
  *   config.bind<SampleTag>(&sink);
- *   NOVA_LOG_TRUNC(SampleTag) << "Hello!";
+ *   NOVA_LOG(SampleTag) << "Hello!";
  */
 class Sink : private Immovable
 {

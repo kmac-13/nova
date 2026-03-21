@@ -3,7 +3,7 @@
  * @brief Detailed benchmarks for Nova's three record builder variants
  *
  * Compares the performance characteristics of:
- * - TruncatingRecordBuilder (NOVA_LOG_TRUNC)
+ * - TruncatingRecordBuilder (NOVA_LOG)
  * - ContinuationRecordBuilder (NOVA_LOG_CONT)
  * - StreamingRecordBuilder (NOVA_LOG_STREAM)
  *
@@ -24,9 +24,9 @@
 #include "kmac/nova/scoped_configurator.h"
 #include "kmac/nova/timestamp_helper.h"
 
+#include "kmac/nova/extras/continuation_logging.h"
 #include "kmac/nova/extras/null_sink.h"
-#include "kmac/nova/extras/streaming_macros.h"
-#include "kmac/nova/extras/streaming_record_builder.h"
+#include "kmac/nova/extras/streaming_logging.h"
 
 #include <sstream>
 #include <string>
@@ -67,7 +67,7 @@ static void BM_Builder_Truncating_Simple( benchmark::State& state )
 
 	for ( auto _ : state )
 	{
-		NOVA_LOG_TRUNC( BuilderTag ) << "Simple message";
+		NOVA_LOG( BuilderTag ) << "Simple message";
 	}
 
 	state.SetItemsProcessed( state.iterations() );
@@ -116,7 +116,7 @@ static void BM_Builder_Truncating_Complex( benchmark::State& state )
 
 	for ( auto _ : state )
 	{
-		NOVA_LOG_TRUNC( BuilderTag )
+		NOVA_LOG( BuilderTag )
 			<< "Integer: " << 12345
 			<< ", Double: " << 3.14159
 			<< ", String: " << "test"
@@ -182,7 +182,7 @@ static void BM_Builder_Truncating_LongMessage( benchmark::State& state )
 
 	for ( auto _ : state )
 	{
-		NOVA_LOG_TRUNC( BuilderTag ) << "Long message: " << longStr;
+		NOVA_LOG( BuilderTag ) << "Long message: " << longStr;
 	}
 
 	state.SetItemsProcessed( state.iterations() );
@@ -240,7 +240,7 @@ static void BM_Builder_Truncating_HighFrequency( benchmark::State& state )
 
 	for ( auto _ : state )
 	{
-		NOVA_LOG_TRUNC( BuilderTag ) << "Event: " << counter++;
+		NOVA_LOG( BuilderTag ) << "Event: " << counter++;
 	}
 
 	state.SetItemsProcessed( state.iterations() );
@@ -294,7 +294,7 @@ static void BM_Builder_Truncating_ConstructionOverhead( benchmark::State& state 
 	// Measure just the overhead of creating the builder
 	for ( auto _ : state )
 	{
-		NOVA_LOG_TRUNC( BuilderTag ) << "";  // Empty message
+		NOVA_LOG( BuilderTag ) << "";  // Empty message
 	}
 
 	state.SetItemsProcessed( state.iterations() );
@@ -347,7 +347,7 @@ static void BM_Builder_Truncating_Correctness( benchmark::State& state )
 	for ( auto _ : state )
 	{
 		sink.clear();
-		NOVA_LOG_TRUNC( BuilderTag ) << "Prefix: " << veryLongStr;
+		NOVA_LOG( BuilderTag ) << "Prefix: " << veryLongStr;
 
 		// verify we got exactly one message (truncated)
 		benchmark::DoNotOptimize( sink.messages.size() );

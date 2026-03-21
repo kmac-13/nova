@@ -5,6 +5,7 @@
 
 #include "kmac/nova/nova.h"
 #include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova/extras/continuation_logging.h"
 
 #include <gtest/gtest.h>
 
@@ -73,12 +74,12 @@ protected:
 	}
 };
 
-TEST_F( NovaLogger, NOVA_LOG_TRUNC_Basic )
+TEST_F( NovaLogger, NOVA_LOG_Basic )
 {
 	kmac::nova::ScopedConfigurator config;
 	config.bind< MacroTag >( &sink );
 
-	NOVA_LOG_TRUNC( MacroTag ) << "test message";
+	NOVA_LOG( MacroTag ) << "test message";
 
 	EXPECT_EQ( sink.records.size(), 1u );
 	EXPECT_NE( sink.getMessage( 0 ).find( "test message" ), std::string::npos );
@@ -216,7 +217,7 @@ TEST_F( NovaLogger, MacroStreamingInterface )
 TEST_F( NovaLogger, MacroWithoutSink )
 {
 	// no sink bound and should not crash
-	NOVA_LOG_TRUNC( MacroTag ) << "no sink";
+	NOVA_LOG( MacroTag ) << "no sink";
 	NOVA_LOG_CONT( MacroTag ) << "still no sink";
 
 	// test passes if no crash occurred

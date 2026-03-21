@@ -223,7 +223,7 @@ NOVA_LOG_E() << "Connection failed: " << error;
 // for VLOG - define custom verbosity tags
 struct VerboseTag {};
 NOVA_LOGGER_TRAITS( VerboseTag, VERBOSE, true, /* timestamp */ );
-NOVA_LOG_TRUNC( VerboseTag ) << "Detailed trace info";
+NOVA_LOG( VerboseTag ) << "Detailed trace info";
 ```
 
 ### Adapter Sink for Gradual Migration
@@ -399,9 +399,9 @@ config.bind< NetworkDebug >( &console );
 config.bind< NetworkError >( &console );
 
 // log
-NOVA_LOG_TRUNC( NetworkInfo ) << "Connection established";
-NOVA_LOG_TRUNC( NetworkDebug ) << "Bytes received: " << count;
-NOVA_LOG_TRUNC( NetworkError ) << "Timeout occurred";
+NOVA_LOG( NetworkInfo ) << "Connection established";
+NOVA_LOG( NetworkDebug ) << "Bytes received: " << count;
+NOVA_LOG( NetworkError ) << "Timeout occurred";
 ```
 
 ### Adapter Sink
@@ -495,7 +495,7 @@ NOVA_LOG_E() << "Database error: " << err;
 struct VerboseTag {};
 NOVA_LOGGER_TRAITS( VerboseTag, VERBOSE, true, kmac::nova::TimestampHelper::steadyNanosecs );
 config.bind< VerboseTag >( &console );
-NOVA_LOG_TRUNC( VerboseTag ) << "Verbose trace";
+NOVA_LOG( VerboseTag ) << "Verbose trace";
 ```
 
 ### Adapter Sink
@@ -749,7 +749,7 @@ Alternatively, custom config files can be managed by the application to configur
 
 ```cpp
 // fast (stack-based)
-NOVA_LOG_TRUNC( Tag ) << "Message";
+NOVA_LOG( Tag ) << "Message";
 
 // slower (heap allocation)
 NOVA_LOG_STREAM( Tag ) << "Message";
