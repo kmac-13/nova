@@ -5,6 +5,7 @@
 #include "logger.h"
 #include "record.h"
 #include "sink.h"
+#include "platform/atomic.h"
 
 #include <type_traits>
 
@@ -36,9 +37,11 @@ namespace kmac::nova::performance
 template< typename Tag >
 struct LoggerMetrics
 {
-	// Logger should only contain a single atomic pointer
+	// Logger should only contain a single atomic pointer.
+	// Uses platform::AtomicPtr which resolves to std::atomic on hosted targets
+	// and a volatile pointer on bare-metal - both are pointer-sized.
 	static_assert(
-		sizeof( Logger< Tag > ) == sizeof( std::atomic< Sink* > ),
+		sizeof( Logger< Tag > ) == sizeof( platform::AtomicPtr< Sink > ),
 		"Logger size regression: should only contain atomic sink pointer"
 	);
 
