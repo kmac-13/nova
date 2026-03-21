@@ -19,10 +19,9 @@
 #include "kmac/nova/timestamp_helper.h"
 
 #include "kmac/nova/extras/continuation_logging.h"
-#include "kmac/nova/extras/memory_pool_async_sink.h"
 #include "kmac/nova/extras/null_sink.h"
 #include "kmac/nova/extras/spinlock_sink.h"
-#include "kmac/nova/extras/streaming_macros.h"
+#include "kmac/nova/extras/streaming_logging.h"
 #include "kmac/nova/extras/synchronized_sink.h"
 
 #ifdef HAVE_SPDLOG
@@ -56,7 +55,6 @@
 #endif
 
 #include <atomic>
-#include <mutex>
 
 // ============================================================================
 // Test Infrastructure

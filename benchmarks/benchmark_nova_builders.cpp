@@ -26,8 +26,7 @@
 
 #include "kmac/nova/extras/continuation_logging.h"
 #include "kmac/nova/extras/null_sink.h"
-#include "kmac/nova/extras/streaming_macros.h"
-#include "kmac/nova/extras/streaming_record_builder.h"
+#include "kmac/nova/extras/streaming_logging.h"
 
 #include <sstream>
 #include <string>

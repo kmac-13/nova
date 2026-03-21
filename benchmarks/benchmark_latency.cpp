@@ -24,7 +24,7 @@
 #include "kmac/nova/extras/null_sink.h"
 #include "kmac/nova/extras/ostream_sink.h"
 #include "kmac/nova/extras/spinlock_sink.h"
-#include "kmac/nova/extras/streaming_macros.h"
+#include "kmac/nova/extras/streaming_logging.h"
 #include "kmac/nova/extras/synchronized_sink.h"
 
 #ifdef HAVE_SPDLOG
