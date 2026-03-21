@@ -26,4 +26,4 @@ void FileWriter::flush() noexcept
 	}
 }
 
-} // kmac::flare
+} // namespace kmac::flare
