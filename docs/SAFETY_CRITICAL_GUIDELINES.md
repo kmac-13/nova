@@ -102,7 +102,7 @@ This document provides guidelines for using Nova, Nova Extras, and Flare in safe
 | **Logger<Tag>** | Low | None | Yes | All levels |
 | **TruncatingRecordBuilder** | Low | None (stack) | Yes | All levels |
 | **ContinuationRecordBuilder** | Low | None (stack) | Yes | All levels |
-| **NullRecordBuilder** | Minimal | None | Yes | All levels |
+| **NullRecordBuilder** (extras/null_logging.h) | Minimal | None | Yes | All levels |
 | **ScopedConfigurator** | Low | Heap (vector) | Yes* | A-D (with restrictions) |
 | **Macros (NOVA_LOG)** | Low | None | Yes | All levels |
 
