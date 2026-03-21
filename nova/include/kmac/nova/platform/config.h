@@ -52,7 +52,7 @@
  * NOVA_NO_CHRONO   : disable std::chrono; implement steadyNanosecs() in platform/chrono.h
  * NOVA_NO_ARRAY    : disable std::array; C-style array wrapper used instead
  * NOVA_NO_TLS      : disable thread_local; all logging uses stack-based builders.
- *                    Unlike the flags above, this is NOT implied by NOVA_NO_STD —
+ *                    Unlike the flags above, this is NOT implied by NOVA_NO_STD -
  *                    TLS is a runtime dependency separate from stdlib header
  *                    availability.  Useful independently on hosted platforms where
  *                    injecting per-thread state into a host process is undesirable
@@ -75,6 +75,13 @@
  *   platforms Nova detected.  Useful for verifying bare-metal or RTOS setup.
  *   See the diagnostics section below.
  *
+ * NOVA_ASSERT( x )
+ *   Override Nova's internal assertion macro.  On hosted targets this defaults
+ *   to assert() from <cassert>.  On bare-metal targets the default is a no-op
+ *   placeholder - production bare-metal builds MUST define this to a meaningful
+ *   fault handler before including any Nova header.  See the ASSERTIONS section
+ *   below for examples.
+ *
  * ============================================================================
  * Computed Capability Flags
  * ============================================================================
@@ -93,7 +100,7 @@
  * NOVA_PLATFORM_EMBOS, NOVA_PLATFORM_POSIX, NOVA_PLATFORM_WINDOWS
  *
  * ============================================================================
- * Not Needed — Commonly Expected But Unnecessary
+ * Not Needed - Commonly Expected But Unnecessary
  * ============================================================================
  * Nova's architecture makes several flags that other logging libraries expose
  * unnecessary.  If you are looking for one of these, here is why it does not
@@ -122,7 +129,7 @@
  * Automatic Detection
  * ============================================================================
  * Nova uses __has_include (C++17) to auto-detect stdlib header availability.
- * In most cases you do not need to set NOVA_NO_* flags manually — they will
+ * In most cases you do not need to set NOVA_NO_* flags manually - they will
  * be set automatically if the corresponding headers are absent.
  *
  * ============================================================================
@@ -452,11 +459,19 @@
 
 #ifndef NOVA_ASSERT
 	#if defined( NOVA_BARE_METAL )
-		// bare-metal: user must provide their own assert
-		// example: #define NOVA_ASSERT( x ) if ( ! ( x ) ) { bsp_halt(); }
-		#ifndef NOVA_ASSERT
-			#define NOVA_ASSERT( x ) ( (void) 0 )  // default: no-op (unsafe but compiles)
-		#endif
+		// Bare-metal targets must define NOVA_ASSERT before including Nova headers.
+		// The no-op default below allows compilation but silently discards all
+		// assertion failures - this is NOT safe for production use.  A failed
+		// assertion in Nova (e.g. nested logging detected) will go unnoticed,
+		// which can corrupt log output in ways that are difficult to diagnose.
+		//
+		// Always provide a meaningful implementation, for example:
+		//   #define NOVA_ASSERT( x ) do { if ( ! ( x ) ) { bsp_halt(); } } while ( 0 )
+		//   #define NOVA_ASSERT( x ) do { if ( ! ( x ) ) { __BKPT( 0 ); } } while ( 0 )
+		//
+		// The bare-metal example (examples/08_bare_metal/main.cpp) shows how to
+		// define this before including Nova headers.
+		#define NOVA_ASSERT( x ) ( (void) 0 )  /* PLACEHOLDER ONLY - replace for production */
 	#else
 		#include <cassert>
 		#define NOVA_ASSERT( x ) assert( x )
