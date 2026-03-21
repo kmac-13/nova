@@ -53,7 +53,7 @@ protected:
 		kmac::nova::Logger< TestTag3 >::unbindSink();
 		kmac::nova::Logger< TestTag4 >::unbindSink();
 		kmac::nova::Logger< TestTag5 >::unbindSink();
-		
+
 		sink.reset();
 	}
 
@@ -65,7 +65,7 @@ protected:
 TEST_F( NovaScopedConfigurator, DefaultCapacity )
 {
 	kmac::nova::ScopedConfigurator<> config;
-	EXPECT_EQ( config.maxBindings(), 32 );
+	EXPECT_EQ( config.maxBindings(), 16 );
 	EXPECT_EQ( config.bindingCount(), 0 );
 	EXPECT_FALSE( config.isFull() );
 }
@@ -93,7 +93,7 @@ TEST_F( NovaScopedConfigurator, SingleBinding )
 TEST_F( NovaScopedConfigurator, MultipleBindings )
 {
 	kmac::nova::ScopedConfigurator< 10 > config;
-	
+
 	config.bind< TestTag1 >( &sink );
 	config.bind< TestTag2 >( &sink );
 	config.bind< TestTag3 >( &sink );
@@ -385,7 +385,7 @@ TEST_F( NovaScopedConfigurator, NoHeapAllocation )
 	// doesn't allocate on heap.  We can't easily test this at
 	// runtime without instrumentation, but we can verify the
 	// container type is std::array (which is stack-based).
-	
+
 	// The fact that all other tests pass without any heap
 	// allocation failures is evidence this works correctly.
 	SUCCEED();

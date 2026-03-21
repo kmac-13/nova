@@ -31,11 +31,13 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;  // NOLINT(c
  * This variable template acts as a compile-time registry for tag identifiers.
  * Each NOVA_LOGGER_TRAITS invocation defines a specialisation:
  *
- *     tagIdOwner<tagId> = "fully::qualified::TagType"
+ *     tagIdVal<tagId> = tagId
  *
  * If two tags hash to the same tagId within a translation unit, the compiler
  * encounters multiple definitions of the same specialisation and emits a
- * redefinition error, revealing the conflicting tag types.
+ * redefinition error.  The conflicting tag types appear in the error message
+ * via the surrounding template instantiation context - the compiler already
+ * has this information, so no string storage is required.
  *
  * ### Collision detection scope
  *
@@ -122,8 +124,14 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;  // NOLINT(c
  */
 
 // helper requiring specialization to detect/prevent collisions
+//
+// Each NOVA_LOGGER_TRAITS invocation specialises this variable template with
+// the tag's own hash value.  A collision between two tags produces a duplicate
+// specialisation which the compiler rejects as a redefinition error.  The
+// conflicting tag types appear in the error message via the surrounding template
+// instantiation context - no string storage is needed for diagnostics.
 template< std::uint64_t Id >
-inline constexpr const char* tagIdOwner = nullptr;
+inline constexpr std::uint64_t tagIdVal = 0;
 
 //
 // IMPLEMENTATION

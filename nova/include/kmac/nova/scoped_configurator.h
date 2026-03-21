@@ -53,7 +53,7 @@ class Sink;
  * - stores function pointers only (MaxBindings * sizeof(void*))
  * - O(n) unbinding where n = number of bound loggers
  *
- * @tparam MaxBindings maximum number of loggers that can be bound (default: 32)
+ * @tparam MaxBindings maximum number of loggers that can be bound (default: 16)
  *
  * Capacity selection guidelines:
  * - small embedded: 5-10
@@ -70,7 +70,7 @@ class Sink;
  * - exceeding capacity is caught by assert in debug builds
  * - exceeding capacity is silently ignored in release builds (fail-safe)
  */
-template< size_t MaxBindings = 32 >
+template< size_t MaxBindings = 16 >
 class ScopedConfigurator : private Immovable
 {
 private:

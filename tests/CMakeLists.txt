@@ -92,6 +92,7 @@ add_nova_gtest( test_nova_rolling_file_sink test_nova_rolling_file_sink.cpp )
 add_nova_gtest( test_flare_emergency test_flare_emergency.cpp )
 add_nova_gtest( test_flare_reader test_flare_reader.cpp )
 add_nova_gtest( test_flare_scanner test_flare_scanner.cpp )
+add_nova_gtest( test_flare_writers test_flare_writers.cpp )
 
 # Integration Tests
 add_nova_gtest( test_integration test_integration.cpp )
@@ -99,4 +100,4 @@ add_nova_gtest( test_integration test_integration.cpp )
 # Print summary
 message( STATUS "Nova/Flare gtest suite configured" )
 message( STATUS "  GTest version: ${GTest_VERSION}" )
-message( STATUS "  Tests: 16 test executables" )
+message( STATUS "  Tests: 17 test executables" )

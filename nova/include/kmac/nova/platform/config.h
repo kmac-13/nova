@@ -52,11 +52,18 @@
  * NOVA_NO_CHRONO   : disable std::chrono; implement steadyNanosecs() in platform/chrono.h
  * NOVA_NO_ARRAY    : disable std::array; C-style array wrapper used instead
  * NOVA_NO_TLS      : disable thread_local; all logging uses stack-based builders.
- *                    Unlike the flags above, this is NOT implied by NOVA_NO_STD —
+ *                    Unlike the flags above, this is NOT implied by NOVA_NO_STD -
  *                    TLS is a runtime dependency separate from stdlib header
  *                    availability.  Useful independently on hosted platforms where
  *                    injecting per-thread state into a host process is undesirable
  *                    (e.g. Android JNI-attached threads).
+ * NOVA_NO_FLOAT_CHARCONV : disable std::to_chars for float/double.  float and double
+ *                    append overloads fall back to integer truncation with a
+ *                    "<float>" marker (e.g. "3.<float>").  Required on bare-metal
+ *                    toolchains that ship newlib-nano, where the floating-point
+ *                    to_chars symbols are absent despite <charconv> being present.
+ *                    NOT implied by NOVA_BARE_METAL since not all bare-metal
+ *                    toolchains omit these symbols.
  *
  * ============================================================================
  * Opt-In Features
@@ -75,6 +82,13 @@
  *   platforms Nova detected.  Useful for verifying bare-metal or RTOS setup.
  *   See the diagnostics section below.
  *
+ * NOVA_ASSERT( x )
+ *   Override Nova's internal assertion macro.  On hosted targets this defaults
+ *   to assert() from <cassert>.  On bare-metal targets the default is a no-op
+ *   placeholder - production bare-metal builds MUST define this to a meaningful
+ *   fault handler before including any Nova header.  See the ASSERTIONS section
+ *   below for examples.
+ *
  * ============================================================================
  * Computed Capability Flags
  * ============================================================================
@@ -86,6 +100,7 @@
  * NOVA_HAS_STD_ARRAY    : 1 if std::array is available, 0 otherwise
  * NOVA_HAS_TLS          : 1 if thread_local is available, 0 otherwise
  * NOVA_HAS_THREADING    : 1 if threading primitives are available, 0 otherwise
+ * NOVA_HAS_FLOAT_CHARCONV : 1 if std::to_chars for float/double is available, 0 otherwise
  *
  * Platform markers (set when detected, undefined otherwise):
  * NOVA_PLATFORM_ARM_BAREMETAL, NOVA_PLATFORM_FREERTOS, NOVA_PLATFORM_ZEPHYR,
@@ -93,7 +108,7 @@
  * NOVA_PLATFORM_EMBOS, NOVA_PLATFORM_POSIX, NOVA_PLATFORM_WINDOWS
  *
  * ============================================================================
- * Not Needed — Commonly Expected But Unnecessary
+ * Not Needed - Commonly Expected But Unnecessary
  * ============================================================================
  * Nova's architecture makes several flags that other logging libraries expose
  * unnecessary.  If you are looking for one of these, here is why it does not
@@ -122,7 +137,7 @@
  * Automatic Detection
  * ============================================================================
  * Nova uses __has_include (C++17) to auto-detect stdlib header availability.
- * In most cases you do not need to set NOVA_NO_* flags manually — they will
+ * In most cases you do not need to set NOVA_NO_* flags manually - they will
  * be set automatically if the corresponding headers are absent.
  *
  * ============================================================================
@@ -353,6 +368,21 @@
 	#define NOVA_HAS_TLS 0
 #endif
 
+// float/double std::to_chars available?
+// <charconv> may be present but floating-point to_chars symbols absent on some
+// bare-metal toolchains (e.g. arm-none-eabi with newlib-nano).  When disabled,
+// float/double append overloads emit the integer part followed by "<float>"
+// (e.g. "3.<float>") rather than a full floating-point representation.
+//
+// TODO: provide a custom to_chars(float/double) implementation that works
+// without the stdlib symbols, so bare-metal targets can get full float
+// formatting without requiring newlib (not nano).
+#if ! defined( NOVA_NO_FLOAT_CHARCONV )
+	#define NOVA_HAS_FLOAT_CHARCONV 1
+#else
+	#define NOVA_HAS_FLOAT_CHARCONV 0
+#endif
+
 // ============================================================================
 // DIAGNOSTIC MODE
 // ============================================================================
@@ -391,6 +421,12 @@
 		#pragma message( "  thread_local: available (TLS-based builders enabled)" )
 	#else
 		#pragma message( "  thread_local: NOT available (stack-based builders only)" )
+	#endif
+
+	#if NOVA_HAS_FLOAT_CHARCONV
+		#pragma message( "  float to_chars: available" )
+	#else
+		#pragma message( "  float to_chars: NOT available (float/double logged as integer + <float> marker)" )
 	#endif
 
 	#ifdef NOVA_PLATFORM_ARM_BAREMETAL
@@ -452,11 +488,19 @@
 
 #ifndef NOVA_ASSERT
 	#if defined( NOVA_BARE_METAL )
-		// bare-metal: user must provide their own assert
-		// example: #define NOVA_ASSERT( x ) if ( ! ( x ) ) { bsp_halt(); }
-		#ifndef NOVA_ASSERT
-			#define NOVA_ASSERT( x ) ( (void) 0 )  // default: no-op (unsafe but compiles)
-		#endif
+		// Bare-metal targets must define NOVA_ASSERT before including Nova headers.
+		// The no-op default below allows compilation but silently discards all
+		// assertion failures - this is NOT safe for production use.  A failed
+		// assertion in Nova (e.g. nested logging detected) will go unnoticed,
+		// which can corrupt log output in ways that are difficult to diagnose.
+		//
+		// Always provide a meaningful implementation, for example:
+		//   #define NOVA_ASSERT( x ) do { if ( ! ( x ) ) { bsp_halt(); } } while ( 0 )
+		//   #define NOVA_ASSERT( x ) do { if ( ! ( x ) ) { __BKPT( 0 ); } } while ( 0 )
+		//
+		// The bare-metal example (examples/08_bare_metal/main.cpp) shows how to
+		// define this before including Nova headers.
+		#define NOVA_ASSERT( x ) ( (void) 0 )  /* PLACEHOLDER ONLY - replace for production */
 	#else
 		#include <cassert>
 		#define NOVA_ASSERT( x ) assert( x )

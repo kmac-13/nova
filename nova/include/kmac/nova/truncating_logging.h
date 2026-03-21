@@ -208,7 +208,7 @@ private:
 };
 
 // ============================================================================
-// TruncatingRecordBuilder — implementation
+// TruncatingRecordBuilder - implementation
 // ============================================================================
 
 template< std::size_t BufferSize >
@@ -482,6 +482,7 @@ void TruncatingRecordBuilder< BufferSize >::append( double value ) noexcept
 	{
 		return;
 	}
+#if NOVA_HAS_FLOAT_CHARCONV
 	if ( ! hasSpace( 25 ) )  // worst case for double
 	{
 		_truncated = true;
@@ -492,6 +493,13 @@ void TruncatingRecordBuilder< BufferSize >::append( double value ) noexcept
 	{
 		_offset = ptr - _buffer.data();
 	}
+#else
+	// NOVA_NO_FLOAT_CHARCONV: emit integer part + marker (e.g. "3.<float>")
+	// full float formatting requires a custom to_chars implementation (see TODO
+	// in platform/config.h NOVA_HAS_FLOAT_CHARCONV section)
+	append( static_cast< long long >( value ) );
+	append( ".<float>" );
+#endif
 }
 
 template< std::size_t BufferSize >
@@ -501,6 +509,7 @@ void TruncatingRecordBuilder< BufferSize >::append( float value ) noexcept
 	{
 		return;
 	}
+#if NOVA_HAS_FLOAT_CHARCONV
 	if ( ! hasSpace( 15 ) )
 	{
 		_truncated = true;
@@ -511,6 +520,11 @@ void TruncatingRecordBuilder< BufferSize >::append( float value ) noexcept
 	{
 		_offset = ptr - _buffer.data();
 	}
+#else
+	// NOVA_NO_FLOAT_CHARCONV: emit integer part + marker (e.g. "3.<float>")
+	append( static_cast< long long >( value ) );
+	append( ".<float>" );
+#endif
 }
 
 template< std::size_t BufferSize >
@@ -556,7 +570,7 @@ void TruncatingRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
  * @brief Thread-local storage for TruncatingRecordBuilder instances.
  *
  * One builder instance per thread per buffer size, persisting until thread exit.
- * Not used directly — access via TlsTruncBuilderWrapper (through NOVA_LOG macro).
+ * Not used directly - access via TlsTruncBuilderWrapper (through NOVA_LOG macro).
  *
  * @tparam BufferSize size of the builder buffer in bytes
  */
@@ -616,7 +630,7 @@ public:
 };
 
 // ============================================================================
-// TLS-Based Wrappers — implementation
+// TLS-Based Wrappers - implementation
 // ============================================================================
 
 #if NOVA_HAS_TLS
@@ -647,7 +661,7 @@ TruncatingRecordBuilder< BufferSize >& TlsTruncBuilderWrapper< Tag, BufferSize >
 #endif // NOVA_HAS_TLS
 
 // ============================================================================
-// Stack-Based Wrapper — implementation
+// Stack-Based Wrapper - implementation
 // ============================================================================
 
 template< typename Tag, std::size_t BufferSize >
