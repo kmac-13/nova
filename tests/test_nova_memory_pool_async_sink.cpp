@@ -451,11 +451,37 @@ TEST( MemoryPoolAsyncSinkTest, ConcurrentProducers )
 
 TEST( MemoryPoolAsyncSinkTest, SmallPool_DropMessages )
 {
-	CaptureSink capture;
-	// very small pool that will fill quickly
-	kmac::nova::extras::MemoryPoolAsyncSink< 4096, 128, uint16_t > sink( capture );
+	// block the consumer during the burst so pool exhaustion is deterministic
+	// regardless of how fast the worker thread runs under TSan or any scheduler
+	std::mutex blockMutex;
+	std::condition_variable blockCv;
+	bool unblock = false;
 
-	// log many large messages to fill pool
+	class BlockingSink : public kmac::nova::Sink
+	{
+	public:
+		std::mutex& mutex;
+		std::condition_variable& cv;
+		bool& unblock;
+
+		BlockingSink( std::mutex& m, std::condition_variable& c, bool& u )
+			: mutex( m ), cv( c ), unblock( u ) {}
+
+		void process( const kmac::nova::Record& ) noexcept override
+		{
+			std::unique_lock< std::mutex > lock( mutex );
+			cv.wait( lock, [ this ]{ return unblock; } );
+		}
+	};
+
+	BlockingSink blocker( blockMutex, blockCv, unblock );
+
+	// 4096-byte pool, 500-byte messages -> sizeof(Record)+~503 bytes per entry
+	// -> Record is 64 bytes, so ~567 bytes per entry, fits ~7 before full;
+	// 100 messages guarantees drops once the consumer is blocked and cannot
+	// free space
+	kmac::nova::extras::MemoryPoolAsyncSink< 4096, 128, uint16_t > sink( blocker );
+
 	for ( int i = 0; i < 100; ++i )
 	{
 		kmac::nova::Record record{};
@@ -464,7 +490,7 @@ TEST( MemoryPoolAsyncSinkTest, SmallPool_DropMessages )
 		record.file = "test.cpp";
 		record.function = "test_function";
 		record.line = 42;
-		record.timestamp = i;
+		record.timestamp = static_cast< std::uint64_t >( i );
 
 		std::string msg = std::string( 500, 'X' ) + std::to_string( i );
 		record.message = msg.c_str();
@@ -473,12 +499,16 @@ TEST( MemoryPoolAsyncSinkTest, SmallPool_DropMessages )
 		sink.process( record );
 	}
 
-	// wait for processing
-	std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+	// pool is definitely exhausted while consumer is blocked; check drops
+	// before unblocking so the assertion is not racing the drain
+	ASSERT_GT( sink.droppedCount(), 0u );
 
-	// some messages should be dropped due to small pool
-	ASSERT_GT( sink.droppedCount(), 0 );
-	ASSERT_LT( capture.count(), 100 );
+	// unblock the consumer so the sink can shut down cleanly
+	{
+		std::lock_guard< std::mutex > lock( blockMutex );
+		unblock = true;
+		blockCv.notify_all();
+	}
 }
 
 TEST( MemoryPoolAsyncSinkTest, StackAllocatedPool )
