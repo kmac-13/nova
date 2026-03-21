@@ -341,7 +341,10 @@ void ContinuationRecordBuilder< BufferSize >::append( int value ) noexcept
 {
 	ensureSpace( 11 );
 	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} ) { _offset = ptr - _buffer.data(); }
+	if ( ec == std::errc{} )
+	{
+		_offset = ptr - _buffer.data();
+	}
 }
 
 template< std::size_t BufferSize >
@@ -349,7 +352,10 @@ void ContinuationRecordBuilder< BufferSize >::append( unsigned int value ) noexc
 {
 	ensureSpace( 10 );
 	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} ) { _offset = ptr - _buffer.data(); }
+	if ( ec == std::errc{} )
+	{
+		_offset = ptr - _buffer.data();
+	}
 }
 
 template< std::size_t BufferSize >
@@ -357,7 +363,10 @@ void ContinuationRecordBuilder< BufferSize >::append( long value ) noexcept
 {
 	ensureSpace( 20 );
 	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} ) { _offset = ptr - _buffer.data(); }
+	if ( ec == std::errc{} )
+	{
+		_offset = ptr - _buffer.data();
+	}
 }
 
 template< std::size_t BufferSize >
@@ -365,7 +374,10 @@ void ContinuationRecordBuilder< BufferSize >::append( long long value ) noexcept
 {
 	ensureSpace( 20 );
 	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} ) { _offset = ptr - _buffer.data(); }
+	if ( ec == std::errc{} )
+	{
+		_offset = ptr - _buffer.data();
+	}
 }
 
 template< std::size_t BufferSize >
@@ -373,7 +385,10 @@ void ContinuationRecordBuilder< BufferSize >::append( unsigned long value ) noex
 {
 	ensureSpace( 20 );
 	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} ) { _offset = ptr - _buffer.data(); }
+	if ( ec == std::errc{} )
+	{
+		_offset = ptr - _buffer.data();
+	}
 }
 
 template< std::size_t BufferSize >
@@ -381,23 +396,46 @@ void ContinuationRecordBuilder< BufferSize >::append( unsigned long long value )
 {
 	ensureSpace( 20 );
 	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} ) { _offset = ptr - _buffer.data(); }
+	if ( ec == std::errc{} )
+	{
+		_offset = ptr - _buffer.data();
+	}
 }
 
 template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( double value ) noexcept
 {
+#if NOVA_HAS_FLOAT_CHARCONV
 	ensureSpace( 25 );
 	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} ) { _offset = ptr - _buffer.data(); }
+	if ( ec == std::errc{} )
+	{
+		_offset = ptr - _buffer.data();
+	}
+#else
+	// NOVA_NO_FLOAT_CHARCONV: emit integer part + marker (e.g. "3.<float>")
+	// full float formatting requires a custom to_chars implementation (see TODO
+	// in platform/config.h NOVA_HAS_FLOAT_CHARCONV section)
+	append( static_cast< long long >( value ) );
+	append( ".<float>" );
+#endif
 }
 
 template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( float value ) noexcept
 {
+#if NOVA_HAS_FLOAT_CHARCONV
 	ensureSpace( 15 );
 	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} ) { _offset = ptr - _buffer.data(); }
+	if ( ec == std::errc{} )
+	{
+		_offset = ptr - _buffer.data();
+	}
+#else
+	// NOVA_NO_FLOAT_CHARCONV: emit integer part + marker (e.g. "3.<float>")
+	append( static_cast< long long >( value ) );
+	append( ".<float>" );
+#endif
 }
 
 template< std::size_t BufferSize >
@@ -416,7 +454,10 @@ void ContinuationRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 		reinterpret_cast< std::uintptr_t >( ptr ),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 		16
 	);
-	if ( ec == std::errc{} ) { _offset = p - _buffer.data(); }
+	if ( ec == std::errc{} )
+	{
+		_offset = p - _buffer.data();
+	}
 }
 
 // ============================================================================
