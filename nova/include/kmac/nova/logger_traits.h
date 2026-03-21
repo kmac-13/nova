@@ -79,7 +79,7 @@ struct kmac::nova::logger_traits< void >
 };
 // specialize
 template<>
-constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits< void >::tagId > = "<void>";
+constexpr std::uint64_t kmac::nova::details::tagIdVal< kmac::nova::logger_traits< void >::tagId > = kmac::nova::logger_traits< void >::tagId;
 
 //
 // Customization macros
@@ -104,11 +104,11 @@ constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits
  *
  * ### Hash collision detection
  *
- * Each invocation registers the tag with the tagIdOwner guard (see details.h).
+ * Each invocation registers the tag with the tagIdVal guard (see details.h).
  * If two tags in the same binary hash to the same tagId, the compiler produces
  * a redefinition error.  For cross-binary collision detection across independently
  * compiled shared libraries, provide a validation translation unit - see the
- * documentation on details::tagIdOwner for the recommended pattern.
+ * documentation on details::tagIdVal for the recommended pattern.
  *
  * Usage:
  *   NOVA_LOGGER_TRAITS(MyTag, MYtag, true, TimestampHelper::systemNanosecs)
@@ -127,9 +127,11 @@ constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits
 		} \
 	}; \
 	template<> \
-	inline constexpr const char* kmac::nova::details::tagIdOwner< kmac::nova::logger_traits< TagType >::tagId > = #TagType; \
-	static_assert( kmac::nova::details::tagIdOwner< kmac::nova::logger_traits< TagType >::tagId > == nullptr \
-		|| std::string_view( kmac::nova::details::tagIdOwner< kmac::nova::logger_traits< TagType >::tagId > ) == #TagType, \
+	inline constexpr std::uint64_t kmac::nova::details::tagIdVal< kmac::nova::logger_traits< TagType >::tagId > = \
+		kmac::nova::logger_traits< TagType >::tagId; \
+	static_assert( \
+		kmac::nova::details::tagIdVal< kmac::nova::logger_traits< TagType >::tagId > == \
+		kmac::nova::logger_traits< TagType >::tagId, \
 		"Nova tagId collision detected" )
 
 /**
