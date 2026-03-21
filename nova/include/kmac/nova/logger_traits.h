@@ -79,7 +79,7 @@ struct kmac::nova::logger_traits< void >
 };
 // specialize
 template<>
-constexpr std::uint64_t kmac::nova::details::tagIdVal< kmac::nova::logger_traits< void >::tagId > = kmac::nova::logger_traits< void >::tagId;
+inline constexpr std::uint64_t kmac::nova::details::tagIdVal< kmac::nova::logger_traits< void >::tagId > = kmac::nova::logger_traits< void >::tagId;
 
 //
 // Customization macros
