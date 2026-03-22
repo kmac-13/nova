@@ -1,4 +1,4 @@
-name: Build Matrix
+name: Build / Hosted
 
 on:
   push:
@@ -12,53 +12,45 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
-      fail-fast: false  # let all matrix entries run even if one fails
+      fail-fast: false
       matrix:
         build_type: [ Debug, Release ]
         include:
           # -- Linux ----------------------------------------------------------
           - name: Linux / GCC-13
             os: ubuntu-24.04
-            compiler: gcc-13
             cc: gcc-13
             cxx: g++-13
             install: sudo apt-get install -y gcc-13 g++-13
             android: false
-            bare_metal: false
             run_tests: true
 
           - name: Linux / Clang-18
             os: ubuntu-24.04
-            compiler: clang-18
             cc: clang-18
             cxx: clang++-18
             install: sudo apt-get install -y clang-18
             android: false
-            bare_metal: false
             run_tests: true
 
           # -- macOS ----------------------------------------------------------
           # Apple Clang is pre-installed; no extra install step needed
           - name: macOS / Apple Clang
             os: macos-14
-            compiler: apple-clang
             cc: clang
             cxx: clang++
             install: ""
             android: false
-            bare_metal: false
             run_tests: true
 
           # -- Windows --------------------------------------------------------
           # MSVC is pre-installed on windows-latest runners
           - name: Windows / MSVC
             os: windows-latest
-            compiler: msvc
             cc: ""
             cxx: ""
             install: ""
             android: false
-            bare_metal: false
             run_tests: true
 
           # -- Android (Bionic) -----------------------------------------------
@@ -68,68 +60,29 @@ jobs:
           # NDK 27 is the default on ubuntu-24.04 runners (as of Jan 2026).
           - name: Android / arm64-v8a
             os: ubuntu-24.04
-            compiler: android-ndk
-            abi: arm64-v8a
+            cc: ""
+            cxx: ""
             install: ""
             android: true
-            bare_metal: false
+            abi: arm64-v8a
             run_tests: false
 
           - name: Android / armeabi-v7a
             os: ubuntu-24.04
-            compiler: android-ndk
-            abi: armeabi-v7a
+            cc: ""
+            cxx: ""
             install: ""
             android: true
-            bare_metal: false
+            abi: armeabi-v7a
             run_tests: false
 
           - name: Android / x86_64
             os: ubuntu-24.04
-            compiler: android-ndk
-            abi: x86_64
+            cc: ""
+            cxx: ""
             install: ""
             android: true
-            bare_metal: false
-            run_tests: false
-
-          # -- Bare-Metal (hosted smoke test) ---------------------------------
-          # Compiles Nova core and example 08 with NOVA_BARE_METAL defined,
-          # using the native GCC-13 toolchain on a normal Linux runner.
-          # This verifies the preprocessor paths (NOVA_NO_STD, NOVA_NO_TLS,
-          # etc.) and that the bare-metal example compiles cleanly, without
-          # needing a cross-compiler or hardware.
-          # Runs both Debug and Release: Debug exercises NOVA_ASSERT paths;
-          # Release exercises dead-stripping and -O2 constant-folding.
-          - name: Bare-Metal / Hosted
-            os: ubuntu-24.04
-            compiler: gcc-13
-            cc: gcc-13
-            cxx: g++-13
-            install: sudo apt-get install -y gcc-13 g++-13
-            android: false
-            bare_metal: true
-            arm_cross: false
-            run_tests: false
-
-          # -- Bare-Metal (ARM cross-compile) ---------------------------------
-          # Cross-compiles Nova core for Cortex-M4 using arm-none-eabi-g++.
-          # Catches anything that compiles on a hosted target but fails under
-          # a true freestanding toolchain (e.g. missing libc headers, TLS
-          # runtime symbols, or non-freestanding stdlib usage).
-          # Build-only (Release only): there is nothing to execute on the
-          # runner, and Debug adds no additional signal for a header-only
-          # library with no runnable tests.
-          - name: Bare-Metal / ARM Cortex-M4
-            os: ubuntu-24.04
-            compiler: arm-none-eabi
-            cc: arm-none-eabi-gcc
-            cxx: arm-none-eabi-g++
-            install: sudo apt-get install -y gcc-arm-none-eabi
-            android: false
-            bare_metal: true
-            arm_cross: true
-            build_type: Release
+            abi: x86_64
             run_tests: false
 
     steps:
@@ -137,7 +90,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install compiler (Linux / non-Android)
+      - name: Install compiler (Linux)
         if: runner.os == 'Linux' && !matrix.android && matrix.install != ''
         run: |
           sudo apt-get update -qq
@@ -153,15 +106,13 @@ jobs:
           echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
           cat "$ANDROID_NDK_HOME/source.properties" | grep Pkg.Revision
 
-      # CMake is pre-installed on all GitHub-hosted runners; this step
-      # upgrades to a known version only if the runner ships an older one
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.28'
 
       - name: Configure (Linux / macOS)
-        if: runner.os != 'Windows' && !matrix.android && !matrix.bare_metal
+        if: runner.os != 'Windows' && !matrix.android
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
@@ -189,27 +140,6 @@ jobs:
             -DANDROID_STL=c++_static \
             -DNDK_PATH="$ANDROID_NDK_HOME" \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DNOVA_BUILD_TESTS=OFF \
-            -DNOVA_BUILD_EXAMPLES=OFF
-
-      - name: Configure (Bare-Metal / Hosted)
-        if: matrix.bare_metal && !matrix.arm_cross
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
-            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
-            -DNOVA_PLATFORM_BARE_METAL=ON \
-            -DNOVA_BUILD_TESTS=OFF \
-            -DNOVA_BUILD_EXAMPLES=ON
-
-      - name: Configure (Bare-Metal / ARM cross-compile)
-        if: matrix.arm_cross
-        run: |
-          cmake -B build \
-            -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/arm-none-eabi-cortex-m4.cmake \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DNOVA_PLATFORM_BARE_METAL=ON \
             -DNOVA_BUILD_TESTS=OFF \
             -DNOVA_BUILD_EXAMPLES=OFF
 
