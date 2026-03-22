@@ -35,6 +35,15 @@
  *   RTOS target.  Set automatically when a supported RTOS is detected
  *   (FreeRTOS, Zephyr, VxWorks, QNX, ThreadX, embOS).  Can also be set
  *   manually for unsupported RTOS environments.
+ *   Implies NOVA_NO_TLS: many RTOS ports do not provide the runtime TLS
+ *   support that thread_local requires.  FreeRTOS with newlib-nano is a
+ *   common case: the compiler emits references to __tls_get_addr or
+ *   __emutls_get_address that the RTOS startup code does not satisfy.
+ *   If your RTOS port genuinely supports thread_local (e.g. FreeRTOS with
+ *   configUSE_NEWLIB_REENTRANT=1 and full newlib, QNX, or VxWorks 7),
+ *   do not define NOVA_RTOS manually.  Let auto-detection set only the
+ *   NOVA_PLATFORM_* marker for your RTOS, then define NOVA_NO_TLS yourself
+ *   only if needed.  NOVA_NO_TLS is not implied by NOVA_PLATFORM_* alone.
  *
  * FLARE_NO_STDIO
  *   Flare only.  Use raw file descriptors (open/write/close) instead of
@@ -259,6 +268,18 @@
 #endif
 
 // ============================================================================
+// RTOS CONVENIENCE MACRO
+// ============================================================================
+
+#ifdef NOVA_RTOS
+	// implies NOVA_NO_TLS (see the NOVA_RTOS entry in the mode descriptor
+	// documentation above for rationale and the override guidance)
+	#ifndef NOVA_NO_TLS
+		#define NOVA_NO_TLS
+	#endif
+#endif
+
+// ============================================================================
 // PLATFORM DETECTION
 // ============================================================================
 
@@ -393,6 +414,10 @@
 
 	#ifdef NOVA_BARE_METAL
 		#pragma message( "  NOVA_BARE_METAL: enabled" )
+	#endif
+
+	#ifdef NOVA_RTOS
+		#pragma message( "  NOVA_RTOS: enabled" )
 	#endif
 
 	#ifdef NOVA_NO_STD
