@@ -228,8 +228,11 @@ static void mainLoop() noexcept
 	{
 		NOVA_LOG( SystemTag ) << "Main loop iteration " << i;
 
-		// simulate work
-		for ( volatile int j = 0; j < 10000; ++j ) { }
+		// volatile prevents the loop being optimised away on the host simulation.
+		// On target, replace with a hardware delay or __NOP() sequence.
+		// The cast drops volatile for the increment to avoid -Wdeprecated-volatile
+		// in C++20 - the read of j is still volatile, which is all that matters here.
+		for ( volatile int j = 0; j < 10000; static_cast< void >( ++const_cast< int& >( j ) ) ) { }
 	}
 }
 
