@@ -23,10 +23,9 @@
 #include "immovable.h"
 #include "logger.h"
 #include "logger_traits.h"
+#include "platform/array.h"
 #include "platform/config.h"
 
-#include <array>
-#include <cassert>
 #include <charconv>
 #include <cstddef>
 #include <cstring>
@@ -57,7 +56,7 @@ namespace kmac::nova
  * Thread-local usage (default via macros):
  * - NOVA_LOG uses TlsTruncBuilderWrapper for thread-local storage
  * - provides markedly improved performance over stack-based
- * - nested logging detection: assert in debug, silent drop in release
+ * - nested logging detection: NOVA_ASSERT on re-entry, silent drop in release
  *
  * Stack-based usage (opt-in via macros or direct usage):
  * - NOVA_LOG_STACK uses StackTruncatingBuilder wrapper
@@ -101,7 +100,7 @@ private:
 	static_assert( BufferSize >= 16, "Buffer size must be at least 16 bytes" );
 	static_assert( BufferSize <= 65536, "Buffer size must not exceed 64KB (stack safety)" );
 
-	std::array< char, BufferSize > _buffer = { };  ///< stack-allocated message buffer
+	platform::Array< char, BufferSize > _buffer = { };  ///< stack-allocated message buffer
 	std::size_t _offset = 0;     ///< current write position
 	bool _busy = false;          ///< non-atomic, thread-local reentrancy guard, not used for synchronization
 	bool _truncated = false;     ///< true if truncation occurred
@@ -215,7 +214,7 @@ template< std::size_t BufferSize >
 template< typename Tag >
 void TruncatingRecordBuilder< BufferSize >::setContext( const char* file, const char* function, std::uint32_t line ) noexcept
 {
-	assert( ! _busy && "Nested logging detected! Use NOVA_LOG_STACK to avoid TLS conflicts" );
+	NOVA_ASSERT( ! _busy && "Nested logging detected! Use NOVA_LOG_STACK to avoid TLS conflicts" );
 
 	if ( _busy )
 	{
