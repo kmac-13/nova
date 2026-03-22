@@ -225,8 +225,8 @@ TEST( MemoryPoolAsyncSinkTest, BasicLogging )
 	record.timestamp = 12345;
 
 	std::string msg = "Hello, World!";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
 	record.message = msg.c_str();
-	record.messageSize = msg.size();
 
 	// process record
 	sink.process( record );
@@ -259,8 +259,8 @@ TEST( MemoryPoolAsyncSinkTest, MultipleMessages )
 		record.timestamp = i;
 
 		std::string msg = "Message " + std::to_string( i );
+		record.messageSize = static_cast< std::uint32_t >( msg.size() );
 		record.message = msg.c_str();
-		record.messageSize = msg.size();
 
 		sink.process( record );
 	}
@@ -305,8 +305,8 @@ TEST( MemoryPoolAsyncSinkTest, VariableMessageSizes )
 		record.function = "test_function";
 		record.line = 42;
 		record.timestamp = 0;
+		record.messageSize = static_cast< std::uint32_t >( msg.size() );
 		record.message = msg.c_str();
-		record.messageSize = msg.size();
 
 		sink.process( record );
 	}
@@ -343,8 +343,8 @@ TEST( MemoryPoolAsyncSinkTest, NoMessageCorruption )
 		record.function = "test_function";
 		record.line = 42;
 		record.timestamp = i;
+		record.messageSize = static_cast< std::uint32_t >( std::strlen( buffer ) );
 		record.message = buffer;
-		record.messageSize = std::strlen( buffer );
 
 		sink.process( record );
 
@@ -391,8 +391,8 @@ TEST( MemoryPoolAsyncSinkTest, ConcurrentProducers )
 				record.timestamp = t * 1000 + i;
 
 				std::string msg = "Thread " + std::to_string( t ) + " Message " + std::to_string( i );
+				record.messageSize = static_cast< std::uint32_t >( msg.size() );
 				record.message = msg.c_str();
-				record.messageSize = msg.size();
 
 				sink.process( record );
 			}
@@ -493,8 +493,8 @@ TEST( MemoryPoolAsyncSinkTest, SmallPool_DropMessages )
 		record.timestamp = static_cast< std::uint64_t >( i );
 
 		std::string msg = std::string( 500, 'X' ) + std::to_string( i );
+		record.messageSize = static_cast< std::uint32_t >( msg.size() );
 		record.message = msg.c_str();
-		record.messageSize = msg.size();
 
 		sink.process( record );
 	}
@@ -529,8 +529,8 @@ TEST( MemoryPoolAsyncSinkTest, StackAllocatedPool )
 		record.timestamp = i;
 
 		std::string msg = "Message " + std::to_string( i );
+		record.messageSize = static_cast< std::uint32_t >( msg.size() );
 		record.message = msg.c_str();
-		record.messageSize = msg.size();
 
 		sink.process( record );
 	}
@@ -565,8 +565,8 @@ TEST( MemoryPoolAsyncSinkTest, PoolMetrics )
 	record.timestamp = 0;
 
 	std::string msg = "Test message";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
 	record.message = msg.c_str();
-	record.messageSize = msg.size();
 
 	sink.process( record );
 
@@ -615,8 +615,8 @@ TEST( MemoryPoolAsyncBatchSinkTest, PoolMetrics )
 	record.timestamp = 0;
 
 	std::string msg = "Test message";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
 	record.message = msg.c_str();
-	record.messageSize = msg.size();
 
 	sink.process( record );
 

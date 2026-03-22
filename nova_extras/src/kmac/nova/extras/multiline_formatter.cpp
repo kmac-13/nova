@@ -110,8 +110,8 @@ void MultilineFormatter::formatAndWrite(
 
 		// emit record for this line
 		kmac::nova::Record lineRecord = record;
+		lineRecord.messageSize = static_cast< std::uint32_t >( buffer.size() );
 		lineRecord.message = buffer.data();
-		lineRecord.messageSize = buffer.size();
 
 		downstream.process( lineRecord );
 

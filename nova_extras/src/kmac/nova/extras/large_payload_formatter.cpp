@@ -45,8 +45,8 @@ void LargePayloadFormatter::formatAndWrite(
 
 	// create a temporary record with the header message
 	kmac::nova::Record headerRecord = record;
+	headerRecord.messageSize = static_cast< std::uint32_t >( buff.size() );
 	headerRecord.message = buff.data();
-	headerRecord.messageSize = buff.size();
 
 	downstream.process( headerRecord );
 
@@ -70,8 +70,8 @@ void LargePayloadFormatter::formatAndWrite(
 
 		// create record with chunk data
 		kmac::nova::Record chunkRecord = record;
+		chunkRecord.messageSize = static_cast< std::uint32_t >( buff.size() );
 		chunkRecord.message = buff.data();
-		chunkRecord.messageSize = buff.size();
 
 		downstream.process( chunkRecord );
 	}
@@ -84,8 +84,8 @@ void LargePayloadFormatter::formatAndWrite(
 	bufferStorage.data()[ buff.size() ] = '\0';
 
 	kmac::nova::Record footerRecord = record;
+	footerRecord.messageSize = static_cast< std::uint32_t >( buff.size() );
 	footerRecord.message = buff.data();
-	footerRecord.messageSize = buff.size();
 
 	downstream.process( footerRecord );
 }

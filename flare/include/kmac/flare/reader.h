@@ -10,7 +10,7 @@
 namespace kmac::flare
 {
 
-class Record;
+struct Record;
 
 /**
  * @brief Parses and decodes Flare binary records into structured data.

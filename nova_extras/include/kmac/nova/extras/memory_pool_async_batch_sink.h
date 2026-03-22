@@ -415,8 +415,8 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 	formattedRecord.function = nullptr;
 	formattedRecord.line = 0;
 	formattedRecord.timestamp = 0;
+	formattedRecord.messageSize = static_cast< std::uint32_t >( _formatOffset );
 	formattedRecord.message = _formatBuffer.data();
-	formattedRecord.messageSize = _formatOffset;
 
 	// send to downstream (RollingFileSink will write directly)
 	_downstream->process( formattedRecord );
