@@ -126,8 +126,8 @@ void FormattingSink< BufferSize >::flushBuffer( const kmac::nova::Record& record
 	// all other fields (tag, timestamp, file, line, function) are preserved so the
 	// downstream sink can use them if needed
 	kmac::nova::Record formatted = record;
+	formatted.messageSize = static_cast< std::uint32_t >( size );
 	formatted.message = _formatBuffer.data();
-	formatted.messageSize = size;
 	_downstream->process( formatted );
 }
 

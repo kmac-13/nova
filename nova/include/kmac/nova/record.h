@@ -22,19 +22,29 @@ namespace kmac::nova
  * - record lifetime is limited to Sink::process() call
  * - do not store pointers beyond process() call
  *
- * Layout (64-bit platform) - Total size: 64 bytes:
- * - tag: 8 bytes (offset 0)
- * - tagId: 8 bytes (offset 8)
- * - file: 8 bytes (offset 16)
- * - function: 8 bytes (offset 24)
- * - line: 4 bytes (offset 32)
- * - [padding: 4 bytes]
- * - timestamp: 8 bytes (offset 40)
- * - message: 8 bytes (offset 48)
- * - messageSize: 8 bytes (offset 56)
+ * Layout (64-bit platform) - Total size: 56 bytes:
+ * - timestamp:   8 bytes (offset  0)
+ * - tagId:       8 bytes (offset  8)
+ * - tag:         8 bytes (offset 16)
+ * - file:        8 bytes (offset 24)
+ * - function:    8 bytes (offset 32)
+ * - line:        4 bytes (offset 40)
+ * - messageSize: 4 bytes (offset 44)
+ * - message:     8 bytes (offset 48)
  *
- * Note: Members are ordered for clarity, not optimally packed.
- * The 4-byte padding after 'line' could be eliminated by reordering.
+ * Layout (32-bit platform) - Total size: 40 bytes:
+ * - timestamp:   8 bytes (offset  0)
+ * - tagId:       8 bytes (offset  8)
+ * - tag:         4 bytes (offset 16)
+ * - file:        4 bytes (offset 20)
+ * - function:    4 bytes (offset 24)
+ * - line:        4 bytes (offset 28)
+ * - messageSize: 4 bytes (offset 32)
+ * - message:     4 bytes (offset 36)
+ *
+ * Fields ordered to eliminate padding: 8-byte aligned fields first (timestamp,
+ * tagId, then pointers), then line and messageSize packed as a natural pair,
+ * then message pointer last so it follows its size field logically.
  *
  * Usage:
  *   void MySink::process(const Record& record) {
@@ -50,16 +60,17 @@ namespace kmac::nova
  */
 struct Record
 {
-	const char* tag;         ///< tag name string (e.g., "ERROR", "DEBUG")
-	std::uint64_t tagId;     ///< unique tag identifier (hash)
+	std::uint64_t timestamp;   ///< timestamp from logger_traits<Tag>::timestamp() (typically nanoseconds)
 
-	const char* file;        ///< source filename (e.g. __FILE__)
-	const char* function;    ///< function name (e.g. __FUNCTION__)
-	uint32_t line;           ///< line number (e.g. __LINE__)
+	std::uint64_t tagId;       ///< unique tag identifier (hash)
+	const char* tag;           ///< tag name string (e.g., "ERROR", "DEBUG")
 
-	std::uint64_t timestamp; ///< timestamp from logger_traits<Tag>::timestamp() (typically nanoseconds)
-	const char* message;     ///< log message (may NOT be null-terminated)
-	std::size_t messageSize; ///< byte length of message
+	const char* file;          ///< source filename (e.g. __FILE__)
+	const char* function;      ///< function name (e.g. __FUNCTION__)
+	std::uint32_t line;        ///< line number (e.g. __LINE__)
+
+	std::uint32_t messageSize; ///< byte length of message
+	const char* message;       ///< log message (may NOT be null-terminated)
 };
 
 } // namespace kmac::nova

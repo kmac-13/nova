@@ -67,14 +67,14 @@ TEST_F( FlareEmergency, EmergencySinkWriteSingleRecord )
 	kmac::flare::EmergencySink sink( &writer );
 
 	kmac::nova::Record record {
-		"TEST",
+		1234567890ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"testFunction",
 		42,
-		1234567890ULL,
-		"test message",
-		12
+		12,
+		"test message"
 	};
 
 	sink.process( record );
@@ -101,14 +101,14 @@ TEST_F(FlareEmergency, EmergencySinkMultipleRecords)
 	{
 		std::string msg = "message " + std::to_string( i );
 		kmac::nova::Record record {
-			"TEST",
+			std::uint64_t( 1000 + i ),
 			0,
+			"TEST",
 			"file.cpp",
 			"testFunction",
 			uint32_t( 100 + i ),
-			std::uint64_t( 1000 + i ),
-			msg.c_str(),
-			msg.size()
+			static_cast< std::uint32_t >( msg.size() ),
+			msg.c_str()
 		};
 		sink.process( record );
 	}
@@ -158,14 +158,14 @@ TEST_F( FlareEmergency, EmergencySinkLargeMessage )
 	// create a very large message
 	std::string largeMsg( 10000, 'X' );
 	kmac::nova::Record record {
-		"TEST",
+		1234567890ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"testFunction",
 		42,
-		1234567890ULL,
-		largeMsg.c_str(),
-		largeMsg.size()
+		static_cast< std::uint32_t >( largeMsg.size() ),
+		largeMsg.c_str()
 	};
 
 	sink.process( record );
@@ -188,14 +188,14 @@ TEST_F( FlareEmergency, EmergencySinkFlushBehavior )
 	kmac::flare::EmergencySink sink( &writer );
 
 	kmac::nova::Record record {
-		"TEST",
+		1234567890ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"testFunction",
 		42,
-		1234567890ULL,
-		"test message",
-		12
+		12,
+		"test message"
 	};
 
 	sink.process( record );
@@ -219,14 +219,14 @@ TEST_F( FlareEmergency, EmergencySinkEmptyMessage )
 	kmac::flare::EmergencySink sink( &writer );
 
 	kmac::nova::Record record {
-		"TEST",
+		1234567890ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"testFunction",
 		42,
-		1234567890ULL,
-		"",
-		0
+		0,
+		""
 	};
 
 	sink.process( record );
@@ -250,14 +250,14 @@ TEST_F( FlareEmergency, EmergencySinkNullPointers )
 
 	// test with empty strings (not null pointers, as Record requires valid pointers)
 	kmac::nova::Record record {
-		"",
-		0,
-		"",
-		"",
-		0,
 		0ULL,
+		0,
 		"",
-		0
+		"",
+		"",
+		0,
+		0,
+		""
 	};
 
 	sink.process( record );
@@ -283,14 +283,14 @@ TEST_F( FlareEmergency, EmergencySinkSequentialWrites )
 	{
 		std::string msg = "sequential message " + std::to_string( i );
 		kmac::nova::Record record {
-			"SEQ",
+			std::uint64_t( 1000 * ( i + 1 ) ),
 			0,
+			"SEQ",
 			"file.cpp",
 			"func",
 			uint32_t( 100 + i ),
-			std::uint64_t( 1000 * ( i + 1 ) ),
-			msg.c_str(),
-			msg.size()
+			static_cast< std::uint32_t >( msg.size() ),
+			msg.c_str()
 		};
 		sink.process( record );
 	}
@@ -313,14 +313,14 @@ TEST_F( FlareEmergency, EmergencySinkWithProcessInfo )
 	kmac::flare::EmergencySink sink( &writer );
 
 	kmac::nova::Record record {
-		"TEST",
+		1234567890ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"testFunction",
 		42,
-		1234567890ULL,
-		"with process info",
-		17
+		17,
+		"with process info"
 	};
 
 	sink.process( record );
@@ -343,14 +343,14 @@ TEST_F( FlareEmergency, EmergencySinkWithoutProcessInfo )
 	kmac::flare::EmergencySink sink( &writer );
 
 	kmac::nova::Record record {
-		"TEST",
+		1234567890ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"testFunction",
 		42,
-		1234567890ULL,
-		"without process info",
-		20
+		20,
+		"without process info"
 	};
 
 	sink.process( record );

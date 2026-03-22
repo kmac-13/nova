@@ -378,13 +378,14 @@ BENCHMARK( BM_Throughput_Nova_Optimized_NoTimestamp );
 do { \
 		static constexpr char message[] = msg; \
 		kmac::nova::Record rec; \
+		rec.timestamp = 0; \
+		rec.tagId = kmac::nova::logger_traits< Tag >::tagId; \
 		rec.tag = #Tag; \
 		rec.file = __FILE__; \
-		rec.line = __LINE__; \
 		rec.function = __func__; \
-		rec.timestamp = 0; \
+		rec.line = __LINE__; \
+		rec.messageSize = static_cast< std::uint32_t >( sizeof( message ) - 1 ); \
 		rec.message = message; \
-		rec.messageSize = sizeof( message ) - 1; \
 		auto* _sink = kmac::nova::Logger< Tag >::getSink(); \
 		if ( _sink ) { _sink->process( rec ); } \
 } while( 0 )
@@ -416,13 +417,14 @@ static void BM_Throughput_Nova_Optimized_Minimal( benchmark::State& state )
 	// Pre-create record outside loop
 	static constexpr char msg[] = "Benchmark";
 	kmac::nova::Record rec;
+	rec.timestamp = 0;
+	rec.tagId = kmac::nova::logger_traits< NovaOptimizedTag >::tagId;
 	rec.tag = "NovaOptimizedTag";
 	rec.file = __FILE__;
-	rec.line = __LINE__;
 	rec.function = __func__;
-	rec.timestamp = 0;
+	rec.line = __LINE__;
+	rec.messageSize = static_cast< std::uint32_t >( sizeof( msg ) - 1 );
 	rec.message = msg;
-	rec.messageSize = sizeof(msg) - 1;
 
 	for ( auto _ : state )
 	{

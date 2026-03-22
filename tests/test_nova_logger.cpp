@@ -42,8 +42,8 @@ public:
 
 		// create a copy of the record with pointer to stored message
 		kmac::nova::Record copy = record;
+		copy.messageSize = static_cast< std::uint32_t >( storage.back().size() );
 		copy.message = storage.back().c_str();
-		copy.messageSize = storage.back().size();
 		records.push_back( copy );
 	}
 

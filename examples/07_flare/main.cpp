@@ -61,15 +61,16 @@ int main()
 		}
 
 		// manually create a record to test direct API
+		const char* msg = "SIGSEGV: Segmentation fault at 0xdeadbeef";
 		kmac::nova::Record manualRecord {
-			"CRASH",
+			1704067200000000000ULL,
 			kmac::nova::logger_traits< CrashTag >::tagId,
+			"CRASH",
 			"crash_handler.cpp",
 			"signal_handler",
 			99,
-			1704067200000000000ULL,
-			"SIGSEGV: Segmentation fault at 0xdeadbeef",
-			std::strlen( "SIGSEGV: Segmentation fault at 0xdeadbeef" )
+			static_cast< std::uint32_t >( std::strlen( msg ) ),
+			msg
 		};
 		sink.process( manualRecord );
 
@@ -195,14 +196,14 @@ int main()
 		std::string largeMsg( 70000, 'X' );  // 70KB of 'X'
 
 		kmac::nova::Record largeRecord {
-			"CRASH",
+			1704067200000000000ULL,
 			kmac::nova::logger_traits< CrashTag >::tagId,
+			"CRASH",
 			"test.cpp",
 			"testLarge",
 			100,
-			1704067200000000000ULL,
-			largeMsg.c_str(),
-			largeMsg.size()
+			static_cast< std::uint32_t >( largeMsg.size() ),
+			largeMsg.c_str()
 		};
 
 		sink.process( largeRecord );
@@ -256,14 +257,14 @@ int main()
 		kmac::flare::EmergencySink sink1( &f1Writer );
 
 		kmac::nova::Record rec1 {
-			"TestTag",
+			12345ULL,
 			0,
+			"TestTag",
 			"file.cpp",
 			"func",
 			1,
-			12345ULL,
-			"Message 1",
-			9
+			9,
+			"Message 1"
 		};
 		sink1.process( rec1 );
 		sink1.flush();
@@ -275,14 +276,14 @@ int main()
 		kmac::flare::EmergencySink sink2( &f2Writer );
 
 		kmac::nova::Record rec2 {
-			"TestTag",
+			67890ULL,
 			0,
+			"TestTag",
 			"file2.cpp",
 			"func2",
 			2,
-			67890ULL,
-			"Message 2",
-			9
+			9,
+			"Message 2"
 		};
 		sink2.process( rec2 );
 		sink2.flush();
@@ -343,14 +344,14 @@ int main()
 		{
 			std::string msg = "Record " + std::to_string( i );
 			kmac::nova::Record rec {
-				"SEQ",
+				std::uint64_t( 1000 + i ),
 				1,
+				"SEQ",
 				"test.cpp",
 				"testSeq",
 				uint32_t( 100 + i ),
-				std::uint64_t( 1000 + i ),
-				msg.c_str(),
-				msg.size()
+				static_cast< std::uint32_t >( msg.size() ),
+				msg.c_str()
 			};
 			seqSink.process( rec );
 		}

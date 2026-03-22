@@ -244,14 +244,14 @@ void ContinuationRecordBuilder< BufferSize >::commitCurrent() noexcept
 	_buffer[ _offset ] = '\0';
 
 	Record record {
-		_tagName,
+		_timestamp,
 		_tagId,
+		_tagName,
 		_file,
 		_function,
 		_line,
-		_timestamp,
-		_buffer.data(),
-		_offset
+		static_cast< std::uint32_t >( _offset ),
+		_buffer.data()
 	};
 
 	_logFunc( record );

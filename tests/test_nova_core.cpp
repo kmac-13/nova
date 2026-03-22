@@ -81,14 +81,14 @@ protected:
 TEST_F( NovaCore, RecordStructure )
 {
 	kmac::nova::Record record {
-		"TAG",
+		1234567890ULL,
 		0,
+		"TAG",
 		"file.cpp",
 		"function",
 		42,
-		1234567890ULL,
-		"test message",
-		12
+		12,
+		"test message"
 	};
 
 	EXPECT_STREQ( record.tag, "TAG" );

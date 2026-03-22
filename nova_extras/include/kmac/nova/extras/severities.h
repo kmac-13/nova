@@ -3,7 +3,6 @@
 #define KMAC_NOVA_EXTRAS_SEVERITIES_H
 
 #include "kmac/nova/nova.h"
-#include "kmac/nova/extras/continuation_logging.h"
 
 namespace kmac::nova::extras
 {

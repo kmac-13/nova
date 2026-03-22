@@ -115,14 +115,14 @@ void Logger< Tag >::log( const char* file, const char* function, std::uint32_t l
 	if constexpr ( logger_traits< Tag >::enabled )
 	{
 		Record record {
-			logger_traits< Tag >::tagName,
+			logger_traits< Tag >::timestamp(),
 			logger_traits< Tag >::tagId,
+			logger_traits< Tag >::tagName,
 			file,
 			function,
 			line,
-			logger_traits< Tag >::timestamp(),
-			message,
-			std::strlen( message )
+			static_cast< std::uint32_t >( std::strlen( message ) ),
+			message
 		};
 		log( record );
 	}

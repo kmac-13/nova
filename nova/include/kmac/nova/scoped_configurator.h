@@ -4,8 +4,8 @@
 
 #include "immovable.h"
 #include "logger.h"
-#include "platform/config.h"
 #include "platform/array.h"
+#include "platform/config.h"
 
 #include <cstddef>
 

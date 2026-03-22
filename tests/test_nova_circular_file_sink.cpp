@@ -101,8 +101,8 @@ TEST( CircularFileSink, WritesRawRecord )
 
 	kmac::nova::Record record {};
 	const char* msg = "Hello World";
+	record.messageSize = static_cast< std::uint32_t >( std::strlen( msg ) );
 	record.message = msg;
-	record.messageSize = std::strlen( msg );
 
 	sink.process( record );
 	sink.flush();

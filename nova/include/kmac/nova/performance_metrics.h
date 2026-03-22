@@ -70,11 +70,19 @@ struct LoggerMetrics
 
 struct RecordMetrics
 {
-	// Record should fit comfortably in a cache line (64 bytes on most platforms)
+	// Lock in the exact layout size, catches accidental field additions or padding.
+	// 56 bytes on 64-bit (pointers are 8 bytes); 40 bytes on 32-bit (pointers are 4 bytes).
+#if UINTPTR_MAX == UINT64_MAX
 	static_assert(
-		sizeof( Record ) <= 64,
-		"Record size regression: should fit in cache line (64 bytes)"
+		sizeof( Record ) == 56,
+		"Record size regression: expected 56 bytes on 64-bit platform"
 	);
+#else
+	static_assert(
+		sizeof( Record ) == 40,
+		"Record size regression: expected 40 bytes on 32-bit platform"
+	);
+#endif
 
 	// Record should be trivially copyable (POD-like)
 	static_assert(

@@ -69,14 +69,14 @@ TEST_F( FlareReader, ReaderParseSingleRecord )
 	kmac::flare::FileWriter writer( file );
 	kmac::flare::EmergencySink sink( &writer );
 	kmac::nova::Record writeRecord {
-		"TEST",
+		1704067200000000000ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"testFunc",
 		123,
-		1704067200000000000ULL,
-		"test message",
-		12
+		12,
+		"test message"
 	};
 	sink.process( writeRecord );
 	sink.flush();
@@ -114,14 +114,14 @@ TEST_F( FlareReader, ReaderParseMultipleRecords )
 	{
 		std::string msg = "message " + std::to_string( i );
 		kmac::nova::Record record {
-			"TEST",
+			std::uint64_t( 1000 + i ),
 			0,
+			"TEST",
 			"file.cpp",
 			"func",
 			uint32_t( 100 + i ),
-			std::uint64_t( 1000 + i ),
-			msg.c_str(),
-			msg.size()
+			static_cast< std::uint32_t >( msg.size() ),
+			msg.c_str()
 		};
 		sink.process( record );
 	}
@@ -166,14 +166,14 @@ TEST_F( FlareReader, ReaderSequenceNumbers )
 	{
 		std::string msg = "seq " + std::to_string( i );
 		kmac::nova::Record record {
-			"SEQ",
+			uint64_t( i ),
 			0,
+			"SEQ",
 			"file.cpp",
 			"func",
 			uint32_t( i ),
-			uint64_t( i ),
-			msg.c_str(),
-			msg.size()
+			static_cast< std::uint32_t >( msg.size() ),
+			msg.c_str()
 		};
 		sink.process( record );
 	}
@@ -209,38 +209,38 @@ TEST_F( FlareReader, ReaderTagHash )
 	kmac::flare::EmergencySink sink( &writer );
 
 	kmac::nova::Record record1 {
-		"TAG_A",
+		100ULL,
 		0,
+		"TAG_A",
 		"file.cpp",
 		"func",
 		1,
-		100ULL,
-		"message A",
-		9
+		9,
+		"message A"
 	};
 	sink.process( record1 );
 
 	kmac::nova::Record record2 {
-		"TAG_B",
+		200ULL,
 		0,
+		"TAG_B",
 		"file.cpp",
 		"func",
 		2,
-		200ULL,
-		"message B",
-		9
+		9,
+		"message B"
 	};
 	sink.process( record2 );
 
 	kmac::nova::Record record3 {
-		"TAG_A",  // same tag as record1
+		300ULL,
 		0,
+		"TAG_A",  // same tag as record1
 		"file.cpp",
 		"func",
 		3,
-		300ULL,
-		"message C",
-		9
+		9,
+		"message C"
 	};
 	sink.process( record3 );
 
@@ -299,14 +299,14 @@ TEST_F( FlareReader, ReaderLargeMessage )
 
 	std::string largeMsg( 10000, 'X' );
 	kmac::nova::Record record {
-		"TEST",
+		1234567890ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"func",
 		42,
-		1234567890ULL,
-		largeMsg.c_str(),
-		largeMsg.size()
+		static_cast< std::uint32_t >( largeMsg.size() ),
+		largeMsg.c_str()
 	};
 	sink.process( record );
 	sink.flush();
@@ -337,14 +337,14 @@ TEST_F( FlareReader, ReaderRecordStatus )
 	kmac::flare::FileWriter writer( file );
 	kmac::flare::EmergencySink sink( &writer );
 	kmac::nova::Record record {
-		"TEST",
+		1234ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"func",
 		42,
-		1234ULL,
-		"status test",
-		11
+		11,
+		"status test"
 	};
 	sink.process( record );
 	sink.flush();
@@ -375,14 +375,14 @@ TEST_F( FlareReader, ReaderProcessInfo )
 	kmac::flare::FileWriter writer( file );
 	kmac::flare::EmergencySink sink( &writer );
 	kmac::nova::Record record {
-		"TEST",
+		1234ULL,
 		0,
+		"TEST",
 		"file.cpp",
 		"func",
 		42,
-		1234ULL,
-		"process test",
-		12
+		12,
+		"process test"
 	};
 	sink.process( record );
 	sink.flush();
@@ -416,14 +416,14 @@ TEST_F( FlareReader, ReaderMultiplePasses )
 	{
 		std::string msg = "pass " + std::to_string( i );
 		kmac::nova::Record record {
-			"TEST",
+			uint64_t( i ),
 			0,
+			"TEST",
 			"file.cpp",
 			"func",
 			uint32_t( i ),
-			uint64_t( i ),
-			msg.c_str(),
-			msg.size()
+			static_cast< std::uint32_t >( msg.size() ),
+			msg.c_str()
 		};
 		sink.process( record );
 	}

@@ -139,14 +139,14 @@ void StreamingRecordBuilder< Tag >::commit()
 	_message = _stream.str();
 
 	kmac::nova::Record record {
-		kmac::nova::logger_traits< Tag >::tagName,
+		_timestamp,
 		kmac::nova::logger_traits< Tag >::tagId,
+		kmac::nova::logger_traits< Tag >::tagName,
 		_file,
 		_function,
 		_line,
-		_timestamp,
-		_message.c_str(),
-		_message.length()
+		static_cast< std::uint32_t >( _message.length() ),
+		_message.c_str()
 	};
 
 	// record is processed before _message is destroyed, so pointer is valid
