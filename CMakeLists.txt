@@ -23,6 +23,7 @@ option( NOVA_BUILD_FLARE         "Build Flare emergency logging library" ON  )
 option( NOVA_BUILD_EXAMPLES      "Build example programs"                OFF )
 option( NOVA_BUILD_TESTS         "Build unit tests"                      OFF )
 option( NOVA_PLATFORM_BARE_METAL "Configure for bare-metal targets"      OFF )
+option( NOVA_PLATFORM_RTOS       "Configure for RTOS targets"            OFF )
 
 # ============================================================================
 # Bare-Metal Mode
@@ -61,6 +62,37 @@ if( NOVA_PLATFORM_BARE_METAL )
 	# Pass NOVA_BARE_METAL to all targets that link against Nova core so the
 	# platform abstraction layer activates correctly.
 	add_compile_definitions( NOVA_BARE_METAL )
+endif()
+
+# ============================================================================
+# RTOS Mode
+# ============================================================================
+
+if( NOVA_PLATFORM_RTOS )
+	message( STATUS "Nova: RTOS mode enabled" )
+
+	# Nova Extras requires std::thread and std::mutex which are not available
+	# on most RTOS targets without a POSIX compatibility layer.  Disable
+	# unconditionally; users who have a POSIX layer can re-enable manually.
+	if( NOVA_BUILD_EXTRAS )
+		message( STATUS "  Nova Extras: disabled (std::thread/mutex not available on RTOS)" )
+		set( NOVA_BUILD_EXTRAS OFF CACHE BOOL "Build Nova Extras library" FORCE )
+	endif()
+
+	# Tests and examples depend on Nova Extras.
+	if( NOVA_BUILD_TESTS )
+		message( STATUS "  Tests: disabled (require Nova Extras)" )
+		set( NOVA_BUILD_TESTS OFF CACHE BOOL "Build unit tests" FORCE )
+	endif()
+
+	if( NOVA_BUILD_EXAMPLES )
+		message( STATUS "  Examples: disabled (require Nova Extras)" )
+		set( NOVA_BUILD_EXAMPLES OFF CACHE BOOL "Build example programs" FORCE )
+	endif()
+
+	# Pass NOVA_RTOS to all targets so the platform abstraction layer
+	# activates correctly (notably NOVA_NO_TLS).
+	add_compile_definitions( NOVA_RTOS )
 endif()
 
 # C++17 required
@@ -319,6 +351,7 @@ message( STATUS "  Tests:           ${NOVA_BUILD_TESTS}" )
 message( STATUS "" )
 message( STATUS "Platform:" )
 message( STATUS "  Bare-Metal Mode: ${NOVA_PLATFORM_BARE_METAL}" )
+message( STATUS "  RTOS Mode:       ${NOVA_PLATFORM_RTOS}" )
 message( STATUS "" )
 message( STATUS "Install Prefix:    ${CMAKE_INSTALL_PREFIX}" )
 message( STATUS "===========================================" )

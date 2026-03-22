@@ -109,6 +109,65 @@ target_compile_definitions( my_lib PRIVATE NOVA_NO_TLS )
 
 ---
 
+## arm-none-eabi-cortex-m3.cmake
+
+Targets ARM Cortex-M3 (no FPU, software float) using the `arm-none-eabi` GCC toolchain.
+
+Used by the RTOS CI job because Cortex-M3 matches the `lm3s6965evb` QEMU machine - the standard FreeRTOS demo target - keeping the option open for a future QEMU execution step.
+
+**CPU/FPU flags**
+
+| Target | `-mcpu` | `-mfpu` | `-mfloat-abi` |
+|---|---|---|---|
+| Cortex-M3 | `cortex-m3` | - | `soft` |
+
+See the Cortex-M4 table above for other variants.
+
+---
+
+## FreeRTOS / RTOS targets
+
+Nova does not require a dedicated RTOS toolchain file.  Use the standard `arm-none-eabi` toolchain files above combined with the CMake `NOVA_PLATFORM_RTOS` option:
+
+```sh
+cmake -B build \
+    -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/arm-none-eabi-cortex-m3.cmake \
+    -DNOVA_PLATFORM_RTOS=ON \
+    -DCMAKE_CXX_FLAGS="-DINC_FREERTOS_H" \
+    -DCMAKE_BUILD_TYPE=Release
+```
+
+`NOVA_PLATFORM_RTOS=ON`:
+- passes `-DNOVA_RTOS` to all targets, which triggers `NOVA_NO_TLS` (most RTOS ports do not provide the TLS runtime that `thread_local` requires)
+- disables Nova Extras (requires `std::thread` / `std::mutex`, unavailable without a POSIX layer)
+- keeps Flare enabled (`RamWriter` and `UartWriter` are RTOS-compatible; `FileWriter` is available if the RTOS provides a C file I/O layer)
+
+`-DINC_FREERTOS_H` simulates FreeRTOS being present (it is the macro that `FreeRTOS.h` defines when included), triggering Nova's auto-detection of `NOVA_PLATFORM_FREERTOS`. In a real application this is unnecessary; including `FreeRTOS.h` before any Nova header achieves the same effect.
+
+**FreeRTOS timestamp implementation**
+
+FreeRTOS does not provide a monotonic nanosecond clock by default. Implement `steadyNanosecs()` in `platform/chrono.h` using your hardware timer or the FreeRTOS tick counter:
+
+```cpp
+// In your application, before including Nova headers:
+namespace kmac::nova::platform {
+    inline std::uint64_t steadyNanosecs() noexcept {
+        // Option 1: FreeRTOS tick counter (millisecond resolution)
+        return static_cast< std::uint64_t >( xTaskGetTickCount() )
+             * ( 1000000000ULL / configTICK_RATE_HZ );
+
+        // Option 2: Hardware timer (higher resolution)
+        // return myHardwareTimerNanosecs();
+    }
+}
+```
+
+**TLS on RTOS targets**
+
+`NOVA_NO_TLS` is implied by `NOVA_RTOS`, so all `NOVA_LOG` calls use stack-based builders automatically. No additional configuration is needed. See `config.h` for details on RTOS ports that do support `thread_local`.
+
+---
+
 ## Adding a new target
 
 1. copy the closest existing toolchain file

@@ -1,0 +1,96 @@
+name: Build / RTOS
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    name: ${{ matrix.name }} / ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [ Debug, Release ]
+        include:
+          # -- FreeRTOS hosted smoke test -------------------------------------
+          # Compiles Nova core and example 09 (diagnostics) with NOVA_RTOS and
+          # NOVA_PLATFORM_FREERTOS defined, using the native GCC-13 toolchain.
+          # Verifies that the NOVA_RTOS preprocessor paths (notably the
+          # NOVA_NO_TLS implication) are exercised and that the headers compile
+          # cleanly in a simulated FreeRTOS environment.
+          # Example 09 is used rather than 08 because it does not define
+          # NOVA_BARE_METAL itself, making the NOVA_RTOS path unambiguous.
+          # Runs both Debug and Release for the same reasons as the bare-metal
+          # hosted job.
+          - name: RTOS / FreeRTOS Hosted
+            os: ubuntu-24.04
+            cc: gcc-13
+            cxx: g++-13
+            install: sudo apt-get install -y gcc-13 g++-13
+            rtos_cross: false
+
+          # -- FreeRTOS ARM cross-compile -------------------------------------
+          # Cross-compiles Nova core and Flare for Cortex-M3 using
+          # arm-none-eabi-g++ with NOVA_PLATFORM_RTOS=ON.  The CMake RTOS
+          # block adds -DNOVA_RTOS, disables Nova Extras (std::thread/mutex
+          # unavailable), and keeps Flare enabled (RamWriter/UartWriter are
+          # RTOS-compatible).
+          # -DINC_FREERTOS_H is passed via CMAKE_CXX_FLAGS to trigger Nova's
+          # FreeRTOS auto-detection path (INC_FREERTOS_H is the macro that
+          # FreeRTOS.h defines when included).
+          # Cortex-M3 matches the lm3s6965evb QEMU machine, keeping the option
+          # open for a future QEMU execution step.
+          # Release only: same rationale as the bare-metal ARM cross-compile.
+          - name: RTOS / FreeRTOS ARM Cortex-M3
+            os: ubuntu-24.04
+            cc: arm-none-eabi-gcc
+            cxx: arm-none-eabi-g++
+            install: sudo apt-get install -y gcc-arm-none-eabi
+            rtos_cross: true
+            build_type: Release
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install compiler
+        run: |
+          sudo apt-get update -qq
+          ${{ matrix.install }}
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      - name: Configure (Hosted)
+        if: '!matrix.rtos_cross'
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DNOVA_PLATFORM_RTOS=ON \
+            -DCMAKE_CXX_FLAGS="-DNOVA_PLATFORM_FREERTOS" \
+            -DNOVA_BUILD_TESTS=OFF \
+            -DNOVA_BUILD_EXAMPLES=ON \
+            -DEXAMPLE=09_diagnostics
+
+      - name: Configure (ARM cross-compile)
+        if: matrix.rtos_cross
+        run: |
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/arm-none-eabi-cortex-m3.cmake \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DNOVA_PLATFORM_RTOS=ON \
+            -DCMAKE_CXX_FLAGS="-DINC_FREERTOS_H" \
+            -DNOVA_BUILD_TESTS=OFF \
+            -DNOVA_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel
