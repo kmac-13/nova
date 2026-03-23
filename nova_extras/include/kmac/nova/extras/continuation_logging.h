@@ -382,9 +382,9 @@ void ContinuationRecordBuilder< BufferSize >::append( unsigned long long value )
 }
 
 template< std::size_t BufferSize >
-void ContinuationRecordBuilder< BufferSize >::appendSigned( std::size_t maxSize, std::int64_t value ) noexcept
+void ContinuationRecordBuilder< BufferSize >::appendSigned( std::size_t maxChars, std::int64_t value ) noexcept
 {
-	ensureSpace( maxSize );  // worst case: "-9223372036854775808"
+	ensureSpace( maxChars );  // worst case: "-9223372036854775808"
 	auto result = kmac::nova::platform::intToChars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( result.ok )
 	{
@@ -393,9 +393,9 @@ void ContinuationRecordBuilder< BufferSize >::appendSigned( std::size_t maxSize,
 }
 
 template< std::size_t BufferSize >
-void ContinuationRecordBuilder< BufferSize >::appendUnsigned( std::size_t maxSize, std::uint64_t value ) noexcept
+void ContinuationRecordBuilder< BufferSize >::appendUnsigned( std::size_t maxChars, std::uint64_t value ) noexcept
 {
-	ensureSpace( maxSize );  // worst case: "18446744073709551615"
+	ensureSpace( maxChars );  // worst case: "18446744073709551615"
 	auto result = kmac::nova::platform::intToChars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
 	if ( result.ok )
 	{
