@@ -25,8 +25,9 @@
 #include "logger_traits.h"
 #include "platform/array.h"
 #include "platform/config.h"
+#include "platform/float_to_chars.h"
+#include "platform/int_to_chars.h"
 
-#include <charconv>
 #include <cstddef>
 #include <cstring>
 #include <string_view>
@@ -194,16 +195,21 @@ private:
 	void append( const char ( &lit )[ N ] ) noexcept;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 
 	void append( const std::string_view& str ) noexcept;
-	void append( int value ) noexcept;
-	void append( unsigned int value ) noexcept;
-	void append( long value ) noexcept;
-	void append( long long value ) noexcept;
-	void append( unsigned long value ) noexcept;
-	void append( unsigned long long value ) noexcept;
+
+	inline void append( int value ) noexcept;
+	inline void append( unsigned int value ) noexcept;
+	inline void append( long value ) noexcept;
+	inline void append( unsigned long value ) noexcept;
+	inline void append( long long value ) noexcept;
+	inline void append( unsigned long long value ) noexcept;
+	inline void append( float value ) noexcept;
 	void append( double value ) noexcept;
-	void append( float value ) noexcept;
+
 	void append( bool value ) noexcept;
 	void append( const void* ptr ) noexcept;
+
+	void appendSigned( std::size_t maxChars, std::int64_t value ) noexcept;
+	void appendUnsigned( std::size_t maxChars, std::uint64_t value ) noexcept;
 };
 
 // ============================================================================
@@ -363,115 +369,45 @@ void TruncatingRecordBuilder< BufferSize >::append( const std::string_view& str 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( int value ) noexcept
 {
-	if ( _truncated )
-	{
-		return;
-	}
-	if ( ! hasSpace( 11 ) )  // worst case: "-2147483648"
-	{
-		_truncated = true;
-		return;
-	}
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
+	// worst case: "-2147483648"
+	appendSigned( 11, static_cast< std::int64_t >( value ) );
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( unsigned int value ) noexcept
 {
-	if ( _truncated )
-	{
-		return;
-	}
-	if ( ! hasSpace( 10 ) )  // worst case: "4294967295"
-	{
-		_truncated = true;
-		return;
-	}
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
+	// worst case: "4294967295"
+	appendUnsigned( 10, static_cast< std::uint64_t >( value ) );
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( long value ) noexcept
 {
-	if ( _truncated )
-	{
-		return;
-	}
-	if ( ! hasSpace( 20 ) )  // worst case: 64-bit signed
-	{
-		_truncated = true;
-		return;
-	}
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
-}
-
-template< std::size_t BufferSize >
-void TruncatingRecordBuilder< BufferSize >::append( long long value ) noexcept
-{
-	if ( _truncated )
-	{
-		return;
-	}
-	if ( ! hasSpace( 20 ) )
-	{
-		_truncated = true;
-		return;
-	}
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
+	appendSigned( 20, static_cast< std::int64_t >( value ) );
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( unsigned long value ) noexcept
 {
-	if ( _truncated )
-	{
-		return;
-	}
-	if ( ! hasSpace( 20 ) )
-	{
-		_truncated = true;
-		return;
-	}
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
+	appendUnsigned( 20, static_cast< std::uint64_t >( value ) );
+}
+
+template< std::size_t BufferSize >
+void TruncatingRecordBuilder< BufferSize >::append( long long value ) noexcept
+{
+	appendSigned( 20, static_cast< std::int64_t >( value ) );
 }
 
 template< std::size_t BufferSize >
 void TruncatingRecordBuilder< BufferSize >::append( unsigned long long value ) noexcept
 {
-	if ( _truncated )
-	{
-		return;
-	}
-	if ( ! hasSpace( 20 ) )
-	{
-		_truncated = true;
-		return;
-	}
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
+	appendUnsigned( 20, static_cast< std::uint64_t >( value ) );
+}
+
+template< std::size_t BufferSize >
+void TruncatingRecordBuilder< BufferSize >::append( float value ) noexcept
+{
+	append( static_cast< double >( value ) );
 }
 
 template< std::size_t BufferSize >
@@ -481,49 +417,16 @@ void TruncatingRecordBuilder< BufferSize >::append( double value ) noexcept
 	{
 		return;
 	}
-#if NOVA_HAS_FLOAT_CHARCONV
-	if ( ! hasSpace( 25 ) )  // worst case for double
+	if ( ! hasSpace( 32 ) )  // worst case: sign + 20 integer digits + '.' + 6 fractional
 	{
 		_truncated = true;
 		return;
 	}
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
+	auto result = platform::floatToChars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
+	if ( result.ok )
 	{
-		_offset = ptr - _buffer.data();
+		_offset = static_cast< std::size_t >( result.ptr - _buffer.data() );
 	}
-#else
-	// NOVA_NO_FLOAT_CHARCONV: emit integer part + marker (e.g. "3.<float>")
-	// full float formatting requires a custom to_chars implementation (see TODO
-	// in platform/config.h NOVA_HAS_FLOAT_CHARCONV section)
-	append( static_cast< long long >( value ) );
-	append( ".<float>" );
-#endif
-}
-
-template< std::size_t BufferSize >
-void TruncatingRecordBuilder< BufferSize >::append( float value ) noexcept
-{
-	if ( _truncated )
-	{
-		return;
-	}
-#if NOVA_HAS_FLOAT_CHARCONV
-	if ( ! hasSpace( 15 ) )
-	{
-		_truncated = true;
-		return;
-	}
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
-#else
-	// NOVA_NO_FLOAT_CHARCONV: emit integer part + marker (e.g. "3.<float>")
-	append( static_cast< long long >( value ) );
-	append( ".<float>" );
-#endif
 }
 
 template< std::size_t BufferSize >
@@ -546,16 +449,54 @@ void TruncatingRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 	}
 
 	// NOLINT NOTE: pointer-to-integer for address formatting (std::bit_cast requires C++20)
-	auto [ p, ec ] = std::to_chars(
+	auto result = platform::intToChars(
 		_buffer.data() + _offset,
 		_buffer.data() + BufferSize - 1,
-		reinterpret_cast< std::uintptr_t >( ptr ),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+		static_cast< std::uint64_t >( reinterpret_cast< std::uintptr_t >( ptr ) ),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 		16
 	);
 
-	if ( ec == std::errc{} )
+	if ( result.ok )
 	{
-		_offset = p - _buffer.data();
+		_offset = static_cast< std::size_t >( result.ptr - _buffer.data() );
+	}
+}
+
+template< std::size_t BufferSize >
+void TruncatingRecordBuilder< BufferSize >::appendSigned( std::size_t maxChars, std::int64_t value ) noexcept
+{
+	if ( _truncated )
+	{
+		return;
+	}
+	if ( ! hasSpace( maxChars ) )  // worst case: "-9223372036854775808"
+	{
+		_truncated = true;
+		return;
+	}
+	auto result = platform::intToChars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
+	if ( result.ok )
+	{
+		_offset = static_cast< std::size_t >( result.ptr - _buffer.data() );
+	}
+}
+
+template< std::size_t BufferSize >
+void TruncatingRecordBuilder< BufferSize >::appendUnsigned( std::size_t maxChars, std::uint64_t value ) noexcept
+{
+	if ( _truncated )
+	{
+		return;
+	}
+	if ( ! hasSpace( maxChars ) )  // worst case: "18446744073709551615"
+	{
+		_truncated = true;
+		return;
+	}
+	auto result = platform::intToChars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
+	if ( result.ok )
+	{
+		_offset = static_cast< std::size_t >( result.ptr - _buffer.data() );
 	}
 }
 
