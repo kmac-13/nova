@@ -60,19 +60,23 @@
  * NOVA_NO_ATOMIC   : disable std::atomic; provide AtomicPtr via platform/atomic.h
  * NOVA_NO_CHRONO   : disable std::chrono; implement steadyNanosecs() in platform/chrono.h
  * NOVA_NO_ARRAY    : disable std::array; C-style array wrapper used instead
+ * NOVA_NO_STRING_VIEW : disable std::string_view; a minimal (pointer, length)
+ *                    substitute is used instead.  Implied by NOVA_NO_STD.
+ *                    Auto-detected via __has_include when possible.
  * NOVA_NO_TLS      : disable thread_local; all logging uses stack-based builders.
  *                    Unlike the flags above, this is NOT implied by NOVA_NO_STD -
  *                    TLS is a runtime dependency separate from stdlib header
  *                    availability.  Useful independently on hosted platforms where
  *                    injecting per-thread state into a host process is undesirable
  *                    (e.g. Android JNI-attached threads).
- * NOVA_NO_FLOAT_CHARCONV : disable std::to_chars for float/double.  float and double
- *                    append overloads fall back to integer truncation with a
- *                    "<float>" marker (e.g. "3.<float>").  Required on bare-metal
- *                    toolchains that ship newlib-nano, where the floating-point
- *                    to_chars symbols are absent despite <charconv> being present.
- *                    NOT implied by NOVA_BARE_METAL since not all bare-metal
- *                    toolchains omit these symbols.
+ * NOVA_NO_CHARCONV : disable <charconv> entirely.  All integer and
+ *                    float/double append overloads fall back to platform
+ *                    implementations in platform/int_to_chars.h and
+ *                    platform/float_to_chars.h.  Required on bare-metal
+ *                    toolchains where <charconv> is absent (e.g. arm-none-eabi
+ *                    with newlib-nano).  Implied by NOVA_BARE_METAL.
+ *                    NOT implied by NOVA_NO_STD since charconv absence is
+ *                    toolchain-specific rather than stdlib-wide.
  *
  * ============================================================================
  * Opt-In Features
@@ -104,12 +108,13 @@
  * Set by this header based on the flags above and platform detection.
  * Do not define these manually.
  *
- * NOVA_HAS_STD_ATOMIC   : 1 if std::atomic is available, 0 otherwise
- * NOVA_HAS_STD_CHRONO   : 1 if std::chrono is available, 0 otherwise
- * NOVA_HAS_STD_ARRAY    : 1 if std::array is available, 0 otherwise
- * NOVA_HAS_TLS          : 1 if thread_local is available, 0 otherwise
- * NOVA_HAS_THREADING    : 1 if threading primitives are available, 0 otherwise
- * NOVA_HAS_FLOAT_CHARCONV : 1 if std::to_chars for float/double is available, 0 otherwise
+ * NOVA_HAS_STD_ATOMIC      : 1 if std::atomic is available, 0 otherwise
+ * NOVA_HAS_STD_CHRONO      : 1 if std::chrono is available, 0 otherwise
+ * NOVA_HAS_STD_ARRAY       : 1 if std::array is available, 0 otherwise
+ * NOVA_HAS_STD_STRING_VIEW : 1 if std::string_view is available, 0 otherwise
+ * NOVA_HAS_TLS             : 1 if thread_local is available, 0 otherwise
+ * NOVA_HAS_THREADING       : 1 if threading primitives are available, 0 otherwise
+ * NOVA_HAS_CHARCONV        : 1 if <charconv> (std::to_chars) is available, 0 otherwise
  *
  * Platform markers (set when detected, undefined otherwise):
  * NOVA_PLATFORM_ARM_BAREMETAL, NOVA_PLATFORM_FREERTOS, NOVA_PLATFORM_ZEPHYR,
@@ -202,6 +207,12 @@
 	#ifndef NOVA_NO_TLS
 		#define NOVA_NO_TLS
 	#endif
+
+	// newlib-nano omits <charconv> entirely.  Disable unconditionally so
+	// bare-metal builds don't fail when the header is absent.
+	#ifndef NOVA_NO_CHARCONV
+		#define NOVA_NO_CHARCONV
+	#endif
 #endif
 
 // ============================================================================
@@ -221,6 +232,10 @@
 
 	#ifndef NOVA_NO_ARRAY
 		#define NOVA_NO_ARRAY
+	#endif
+
+	#ifndef NOVA_NO_STRING_VIEW
+		#define NOVA_NO_STRING_VIEW
 	#endif
 #endif
 
@@ -250,6 +265,13 @@
 	#if defined( __has_include )
 		#if ! __has_include( <array> ) && ! defined( NOVA_NO_ARRAY )
 			#define NOVA_NO_ARRAY
+		#endif
+	#endif
+
+	// check for std::string_view availability
+	#if defined( __has_include )
+		#if ! __has_include( <string_view> ) && ! defined( NOVA_NO_STRING_VIEW )
+			#define NOVA_NO_STRING_VIEW
 		#endif
 	#endif
 
@@ -371,6 +393,13 @@
 	#define NOVA_HAS_STD_ARRAY 0
 #endif
 
+// standard library string_view available?
+#if ! defined( NOVA_NO_STRING_VIEW ) && ! defined( NOVA_NO_STD )
+	#define NOVA_HAS_STD_STRING_VIEW 1
+#else
+	#define NOVA_HAS_STD_STRING_VIEW 0
+#endif
+
 // threading support available?
 #if defined( NOVA_RTOS ) || defined( NOVA_PLATFORM_POSIX ) || defined( NOVA_PLATFORM_WINDOWS )
 	#define NOVA_HAS_THREADING 1
@@ -389,19 +418,15 @@
 	#define NOVA_HAS_TLS 0
 #endif
 
-// float/double std::to_chars available?
-// <charconv> may be present but floating-point to_chars symbols absent on some
-// bare-metal toolchains (e.g. arm-none-eabi with newlib-nano).  When disabled,
-// float/double append overloads emit the integer part followed by "<float>"
-// (e.g. "3.<float>") rather than a full floating-point representation.
-//
-// TODO: provide a custom to_chars(float/double) implementation that works
-// without the stdlib symbols, so bare-metal targets can get full float
-// formatting without requiring newlib (not nano).
-#if ! defined( NOVA_NO_FLOAT_CHARCONV )
-	#define NOVA_HAS_FLOAT_CHARCONV 1
+// <charconv> (std::to_chars) available?
+// Absent on some bare-metal toolchains (e.g. arm-none-eabi with newlib-nano).
+// When disabled, platform/int_to_chars.h and platform/float_to_chars.h provide
+// fallback implementations without any libc dependency.
+// Implied by NOVA_BARE_METAL; can also be set independently.
+#if ! defined( NOVA_NO_CHARCONV )
+	#define NOVA_HAS_CHARCONV 1
 #else
-	#define NOVA_HAS_FLOAT_CHARCONV 0
+	#define NOVA_HAS_CHARCONV 0
 #endif
 
 // ============================================================================
@@ -442,16 +467,22 @@
 		#pragma message( "  std::array: NOT available (using C array wrapper)" )
 	#endif
 
+	#if NOVA_HAS_STD_STRING_VIEW
+		#pragma message( "  std::string_view: available" )
+	#else
+		#pragma message( "  std::string_view: NOT available (using platform::StringView)" )
+	#endif
+
 	#if NOVA_HAS_TLS
 		#pragma message( "  thread_local: available (TLS-based builders enabled)" )
 	#else
 		#pragma message( "  thread_local: NOT available (stack-based builders only)" )
 	#endif
 
-	#if NOVA_HAS_FLOAT_CHARCONV
-		#pragma message( "  float to_chars: available" )
+	#if NOVA_HAS_CHARCONV
+		#pragma message( "  charconv (std::to_chars): available" )
 	#else
-		#pragma message( "  float to_chars: NOT available (float/double logged as integer + <float> marker)" )
+		#pragma message( "  charconv (std::to_chars): NOT available (using platform fallbacks)" )
 	#endif
 
 	#ifdef NOVA_PLATFORM_ARM_BAREMETAL

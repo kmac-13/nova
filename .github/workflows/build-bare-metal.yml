@@ -20,8 +20,9 @@ jobs:
           # Compiles Nova core and example 08 with NOVA_BARE_METAL defined,
           # using the native GCC-13 toolchain on a normal Linux runner.
           # This verifies the preprocessor paths (NOVA_NO_STD, NOVA_NO_TLS,
-          # etc.) and that the bare-metal example compiles cleanly, without
-          # needing a cross-compiler or hardware.
+          # NOVA_NO_CHARCONV, NOVA_NO_STRING_VIEW, etc.) and that the
+          # bare-metal example compiles cleanly, without needing a
+          # cross-compiler or hardware.
           # Runs both Debug and Release: Debug exercises NOVA_ASSERT paths;
           # Release exercises dead-stripping and -O2 constant-folding.
           - name: Bare-Metal / Hosted
@@ -30,6 +31,24 @@ jobs:
             cxx: g++-13
             install: sudo apt-get install -y gcc-13 g++-13
             arm_cross: false
+            newlib_nano: false
+            fine_grained: false
+
+          # -- Fine-grained flags (hosted) ------------------------------------
+          # Compiles Nova core with only NOVA_NO_CHARCONV and
+          # NOVA_NO_STRING_VIEW set, without NOVA_BARE_METAL.
+          # Verifies that the charconv and string_view fallback paths work
+          # independently — as a user on an RTOS or partial stdlib environment
+          # would set them, rather than via the NOVA_BARE_METAL umbrella flag.
+          # Runs both Debug and Release for the same reasons as the hosted job.
+          - name: Bare-Metal / No-Stdlib-Headers Hosted
+            os: ubuntu-24.04
+            cc: gcc-13
+            cxx: g++-13
+            install: sudo apt-get install -y gcc-13 g++-13
+            arm_cross: false
+            newlib_nano: false
+            fine_grained: true
 
           # -- ARM cross-compile ----------------------------------------------
           # Cross-compiles Nova core for Cortex-M4 using arm-none-eabi-g++.
@@ -45,6 +64,27 @@ jobs:
             cxx: arm-none-eabi-g++
             install: sudo apt-get install -y gcc-arm-none-eabi
             arm_cross: true
+            newlib_nano: false
+            fine_grained: false
+            build_type: Release
+
+          # -- ARM cross-compile (newlib-nano) --------------------------------
+          # Cross-compiles Nova core for Cortex-M4 with NOVA_NO_CHARCONV and
+          # NOVA_NO_STRING_VIEW explicitly set alongside NOVA_BARE_METAL.
+          # Documents and verifies the canonical newlib-nano configuration
+          # where <charconv> and <string_view> are absent from the toolchain.
+          # Although NOVA_BARE_METAL already implies both flags, making them
+          # explicit here serves as a named, intentional CI target for the
+          # newlib-nano use case.
+          # Build-only (Release only): same rationale as the ARM job above.
+          - name: Bare-Metal / ARM Cortex-M4 (newlib-nano)
+            os: ubuntu-24.04
+            cc: arm-none-eabi-gcc
+            cxx: arm-none-eabi-g++
+            install: sudo apt-get install -y gcc-arm-none-eabi
+            arm_cross: true
+            newlib_nano: true
+            fine_grained: false
             build_type: Release
 
     steps:
@@ -63,7 +103,7 @@ jobs:
           cmake-version: '3.28'
 
       - name: Configure (Hosted)
-        if: '!matrix.arm_cross'
+        if: '!matrix.arm_cross && !matrix.fine_grained'
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
@@ -73,12 +113,34 @@ jobs:
             -DNOVA_BUILD_TESTS=OFF \
             -DNOVA_BUILD_EXAMPLES=ON
 
+      - name: Configure (Fine-Grained Flags)
+        if: matrix.fine_grained
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_CXX_FLAGS="-DNOVA_NO_CHARCONV -DNOVA_NO_STRING_VIEW" \
+            -DNOVA_BUILD_TESTS=OFF \
+            -DNOVA_BUILD_EXAMPLES=OFF
+
       - name: Configure (ARM cross-compile)
-        if: matrix.arm_cross
+        if: matrix.arm_cross && !matrix.newlib_nano
         run: |
           cmake -B build \
             -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/arm-none-eabi-cortex-m4.cmake \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DNOVA_PLATFORM_BARE_METAL=ON \
+            -DNOVA_BUILD_TESTS=OFF \
+            -DNOVA_BUILD_EXAMPLES=OFF
+
+      - name: Configure (ARM cross-compile / newlib-nano)
+        if: matrix.newlib_nano
+        run: |
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/arm-none-eabi-cortex-m4.cmake \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_CXX_FLAGS="-DNOVA_NO_CHARCONV -DNOVA_NO_STRING_VIEW" \
             -DNOVA_PLATFORM_BARE_METAL=ON \
             -DNOVA_BUILD_TESTS=OFF \
             -DNOVA_BUILD_EXAMPLES=OFF

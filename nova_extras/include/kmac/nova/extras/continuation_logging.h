@@ -47,13 +47,15 @@
 #include <kmac/nova/immovable.h>
 #include <kmac/nova/logger.h>
 #include <kmac/nova/logger_traits.h>
+#include <kmac/nova/platform/array.h>
+#include <kmac/nova/platform/config.h>
+#include <kmac/nova/platform/float_to_chars.h>
+#include <kmac/nova/platform/int_to_chars.h>
+#include <kmac/nova/platform/string_view.h>
 
-#include <array>
 #include <cassert>
-#include <charconv>
 #include <cstddef>
 #include <cstring>
-#include <string_view>
 
 namespace kmac::nova
 {
@@ -111,7 +113,7 @@ private:
 	static_assert( BufferSize >= 16, "Buffer size must be at least 16 bytes" );
 	static_assert( BufferSize <= 65536, "Buffer size must not exceed 64KB (stack safety)" );
 
-	std::array< char, BufferSize > _buffer{};  ///< stack-allocated message buffer
+	platform::Array< char, BufferSize > _buffer{};  ///< stack-allocated message buffer
 	std::size_t _offset = 0;     ///< current write position
 	bool _busy = false;          ///< non-atomic, thread-local reentrancy guard
 	bool _committed = false;     ///< true if already committed
@@ -165,17 +167,22 @@ private:
 	template< std::size_t N >
 	void append( const char ( &lit )[ N ] ) noexcept;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 
-	void append( const std::string_view& str ) noexcept;
-	void append( int value ) noexcept;
-	void append( unsigned int value ) noexcept;
-	void append( long value ) noexcept;
-	void append( long long value ) noexcept;
-	void append( unsigned long value ) noexcept;
-	void append( unsigned long long value ) noexcept;
+	void append( const platform::StringView& str ) noexcept;
+
+	inline void append( int value ) noexcept;
+	inline void append( unsigned int value ) noexcept;
+	inline void append( long value ) noexcept;
+	inline void append( unsigned long value ) noexcept;
+	inline void append( long long value ) noexcept;
+	inline void append( unsigned long long value ) noexcept;
+	inline void append( float value ) noexcept;
 	void append( double value ) noexcept;
-	void append( float value ) noexcept;
+
 	void append( bool value ) noexcept;
 	void append( const void* ptr ) noexcept;
+
+	void appendSigned( std::size_t maxChars, std::int64_t value ) noexcept;
+	void appendUnsigned( std::size_t maxChars, std::uint64_t value ) noexcept;
 };
 
 // ============================================================================
@@ -295,7 +302,7 @@ template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( const char* str ) noexcept
 {
 	const std::size_t len = std::strlen( str );
-	append( std::string_view( str, len ) );
+	append( platform::StringView( str, len ) );
 }
 
 template< std::size_t BufferSize >
@@ -305,12 +312,12 @@ void ContinuationRecordBuilder< BufferSize >::append( const char ( &lit )[ N ] )
 	static_assert( N > 0 );
 	if constexpr ( N > 1 )
 	{
-		append( std::string_view( lit, N - 1 ) );
+		append( platform::StringView( lit, N - 1 ) );
 	}
 }
 
 template< std::size_t BufferSize >
-void ContinuationRecordBuilder< BufferSize >::append( const std::string_view& str ) noexcept
+void ContinuationRecordBuilder< BufferSize >::append( const platform::StringView& str ) noexcept
 {
 	if ( str.empty() )
 	{
@@ -339,103 +346,78 @@ void ContinuationRecordBuilder< BufferSize >::append( const std::string_view& st
 template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( int value ) noexcept
 {
-	ensureSpace( 11 );
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
+	// worst case: "-2147483648"
+	appendSigned( 11, static_cast< std::int64_t >( value ) );
 }
 
 template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( unsigned int value ) noexcept
 {
-	ensureSpace( 10 );
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
+	// worst case: "4294967295"
+	appendUnsigned( 10, static_cast< std::uint64_t >( value ) );
 }
 
 template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( long value ) noexcept
 {
-	ensureSpace( 20 );
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
-}
-
-template< std::size_t BufferSize >
-void ContinuationRecordBuilder< BufferSize >::append( long long value ) noexcept
-{
-	ensureSpace( 20 );
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
+	appendSigned( 20, static_cast< std::int64_t >( value ) );
 }
 
 template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( unsigned long value ) noexcept
 {
-	ensureSpace( 20 );
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
-	{
-		_offset = ptr - _buffer.data();
-	}
+	appendUnsigned( 20, static_cast< std::uint64_t >( value ) );
+}
+
+template< std::size_t BufferSize >
+void ContinuationRecordBuilder< BufferSize >::append( long long value ) noexcept
+{
+	appendSigned( 20, static_cast< std::int64_t >( value ) );
 }
 
 template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( unsigned long long value ) noexcept
 {
-	ensureSpace( 20 );
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
+	appendUnsigned( 20, static_cast< std::uint64_t >( value ) );
+}
+
+template< std::size_t BufferSize >
+void ContinuationRecordBuilder< BufferSize >::appendSigned( std::size_t maxChars, std::int64_t value ) noexcept
+{
+	ensureSpace( maxChars );  // worst case: "-9223372036854775808"
+	auto result = kmac::nova::platform::intToChars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
+	if ( result.ok )
 	{
-		_offset = ptr - _buffer.data();
+		_offset = static_cast< std::size_t >( result.ptr - _buffer.data() );
 	}
 }
 
 template< std::size_t BufferSize >
-void ContinuationRecordBuilder< BufferSize >::append( double value ) noexcept
+void ContinuationRecordBuilder< BufferSize >::appendUnsigned( std::size_t maxChars, std::uint64_t value ) noexcept
 {
-#if NOVA_HAS_FLOAT_CHARCONV
-	ensureSpace( 25 );
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
+	ensureSpace( maxChars );  // worst case: "18446744073709551615"
+	auto result = kmac::nova::platform::intToChars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
+	if ( result.ok )
 	{
-		_offset = ptr - _buffer.data();
+		_offset = static_cast< std::size_t >( result.ptr - _buffer.data() );
 	}
-#else
-	// NOVA_NO_FLOAT_CHARCONV: emit integer part + marker (e.g. "3.<float>")
-	// full float formatting requires a custom to_chars implementation (see TODO
-	// in platform/config.h NOVA_HAS_FLOAT_CHARCONV section)
-	append( static_cast< long long >( value ) );
-	append( ".<float>" );
-#endif
 }
 
 template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( float value ) noexcept
 {
-#if NOVA_HAS_FLOAT_CHARCONV
-	ensureSpace( 15 );
-	auto [ ptr, ec ] = std::to_chars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
-	if ( ec == std::errc{} )
+	append( static_cast< double >( value ) );
+}
+
+template< std::size_t BufferSize >
+void ContinuationRecordBuilder< BufferSize >::append( double value ) noexcept
+{
+	ensureSpace( 32 );  // worst case: sign + 20 integer digits + '.' + 6 fractional
+	auto result = kmac::nova::platform::floatToChars( _buffer.data() + _offset, _buffer.data() + BufferSize - 1, value );
+	if ( result.ok )
 	{
-		_offset = ptr - _buffer.data();
+		_offset = static_cast< std::size_t >( result.ptr - _buffer.data() );
 	}
-#else
-	// NOVA_NO_FLOAT_CHARCONV: emit integer part + marker (e.g. "3.<float>")
-	append( static_cast< long long >( value ) );
-	append( ".<float>" );
-#endif
 }
 
 template< std::size_t BufferSize >
@@ -448,15 +430,15 @@ template< std::size_t BufferSize >
 void ContinuationRecordBuilder< BufferSize >::append( const void* ptr ) noexcept
 {
 	ensureSpace( 18 );
-	auto [ p, ec ] = std::to_chars(
+	auto result = kmac::nova::platform::intToChars(
 		_buffer.data() + _offset,
 		_buffer.data() + BufferSize - 1,
-		reinterpret_cast< std::uintptr_t >( ptr ),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+		static_cast< std::uint64_t >( reinterpret_cast< std::uintptr_t >( ptr ) ),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 		16
 	);
-	if ( ec == std::errc{} )
+	if ( result.ok )
 	{
-		_offset = p - _buffer.data();
+		_offset = static_cast< std::size_t >( result.ptr - _buffer.data() );
 	}
 }
 
