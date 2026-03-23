@@ -60,6 +60,9 @@
  * NOVA_NO_ATOMIC   : disable std::atomic; provide AtomicPtr via platform/atomic.h
  * NOVA_NO_CHRONO   : disable std::chrono; implement steadyNanosecs() in platform/chrono.h
  * NOVA_NO_ARRAY    : disable std::array; C-style array wrapper used instead
+ * NOVA_NO_STRING_VIEW : disable std::string_view; a minimal (pointer, length)
+ *                    substitute is used instead.  Implied by NOVA_NO_STD.
+ *                    Auto-detected via __has_include when possible.
  * NOVA_NO_TLS      : disable thread_local; all logging uses stack-based builders.
  *                    Unlike the flags above, this is NOT implied by NOVA_NO_STD -
  *                    TLS is a runtime dependency separate from stdlib header
@@ -105,12 +108,13 @@
  * Set by this header based on the flags above and platform detection.
  * Do not define these manually.
  *
- * NOVA_HAS_STD_ATOMIC   : 1 if std::atomic is available, 0 otherwise
- * NOVA_HAS_STD_CHRONO   : 1 if std::chrono is available, 0 otherwise
- * NOVA_HAS_STD_ARRAY    : 1 if std::array is available, 0 otherwise
- * NOVA_HAS_TLS          : 1 if thread_local is available, 0 otherwise
- * NOVA_HAS_THREADING    : 1 if threading primitives are available, 0 otherwise
- * NOVA_HAS_CHARCONV     : 1 if <charconv> (std::to_chars) is available, 0 otherwise
+ * NOVA_HAS_STD_ATOMIC      : 1 if std::atomic is available, 0 otherwise
+ * NOVA_HAS_STD_CHRONO      : 1 if std::chrono is available, 0 otherwise
+ * NOVA_HAS_STD_ARRAY       : 1 if std::array is available, 0 otherwise
+ * NOVA_HAS_STD_STRING_VIEW : 1 if std::string_view is available, 0 otherwise
+ * NOVA_HAS_TLS             : 1 if thread_local is available, 0 otherwise
+ * NOVA_HAS_THREADING       : 1 if threading primitives are available, 0 otherwise
+ * NOVA_HAS_CHARCONV        : 1 if <charconv> (std::to_chars) is available, 0 otherwise
  *
  * Platform markers (set when detected, undefined otherwise):
  * NOVA_PLATFORM_ARM_BAREMETAL, NOVA_PLATFORM_FREERTOS, NOVA_PLATFORM_ZEPHYR,
@@ -229,6 +233,10 @@
 	#ifndef NOVA_NO_ARRAY
 		#define NOVA_NO_ARRAY
 	#endif
+
+	#ifndef NOVA_NO_STRING_VIEW
+		#define NOVA_NO_STRING_VIEW
+	#endif
 #endif
 
 // ============================================================================
@@ -257,6 +265,13 @@
 	#if defined( __has_include )
 		#if ! __has_include( <array> ) && ! defined( NOVA_NO_ARRAY )
 			#define NOVA_NO_ARRAY
+		#endif
+	#endif
+
+	// check for std::string_view availability
+	#if defined( __has_include )
+		#if ! __has_include( <string_view> ) && ! defined( NOVA_NO_STRING_VIEW )
+			#define NOVA_NO_STRING_VIEW
 		#endif
 	#endif
 
@@ -378,6 +393,13 @@
 	#define NOVA_HAS_STD_ARRAY 0
 #endif
 
+// standard library string_view available?
+#if ! defined( NOVA_NO_STRING_VIEW ) && ! defined( NOVA_NO_STD )
+	#define NOVA_HAS_STD_STRING_VIEW 1
+#else
+	#define NOVA_HAS_STD_STRING_VIEW 0
+#endif
+
 // threading support available?
 #if defined( NOVA_RTOS ) || defined( NOVA_PLATFORM_POSIX ) || defined( NOVA_PLATFORM_WINDOWS )
 	#define NOVA_HAS_THREADING 1
@@ -443,6 +465,12 @@
 		#pragma message( "  std::array: available" )
 	#else
 		#pragma message( "  std::array: NOT available (using C array wrapper)" )
+	#endif
+
+	#if NOVA_HAS_STD_STRING_VIEW
+		#pragma message( "  std::string_view: available" )
+	#else
+		#pragma message( "  std::string_view: NOT available (using platform::StringView)" )
 	#endif
 
 	#if NOVA_HAS_TLS

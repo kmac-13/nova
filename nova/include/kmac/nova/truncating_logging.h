@@ -27,10 +27,10 @@
 #include "platform/config.h"
 #include "platform/float_to_chars.h"
 #include "platform/int_to_chars.h"
+#include "platform/string_view.h"
 
 #include <cstddef>
 #include <cstring>
-#include <string_view>
 
 namespace kmac::nova
 {
@@ -194,7 +194,7 @@ private:
 	template< std::size_t N >
 	void append( const char ( &lit )[ N ] ) noexcept;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 
-	void append( const std::string_view& str ) noexcept;
+	void append( const platform::StringView& str ) noexcept;
 
 	inline void append( int value ) noexcept;
 	inline void append( unsigned int value ) noexcept;
@@ -323,7 +323,7 @@ void TruncatingRecordBuilder< BufferSize >::append( const char* str ) noexcept
 	}
 
 	const std::size_t len = std::strlen( str );
-	append( std::string_view( str, len ) );
+	append( platform::StringView( str, len ) );
 }
 
 template< std::size_t BufferSize >
@@ -337,12 +337,12 @@ void TruncatingRecordBuilder< BufferSize >::append( const char ( &lit )[ N ] ) n
 	static_assert( N > 0 );
 	if constexpr ( N > 1 )
 	{
-		append( std::string_view( lit, N - 1 ) );
+		append( platform::StringView( lit, N - 1 ) );
 	}
 }
 
 template< std::size_t BufferSize >
-void TruncatingRecordBuilder< BufferSize >::append( const std::string_view& str ) noexcept
+void TruncatingRecordBuilder< BufferSize >::append( const platform::StringView& str ) noexcept
 {
 	if ( _truncated || str.empty() )
 	{
