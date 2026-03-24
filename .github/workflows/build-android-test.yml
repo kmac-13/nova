@@ -51,9 +51,8 @@ jobs:
       # integration) are excluded pending verification of Android writable
       # storage paths.
       #
-      # adb push creates the destination directory automatically when the
-      # target path ends with '/'; no mkdir needed (Android shell mkdir
-      # does not support -p on API 26).
+      # Each binary is pushed individually to avoid shell line-continuation
+      # issues with the emulator runner's per-line execution model.
       - name: Run tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -62,41 +61,26 @@ jobs:
           target: default
           script: |
             set -e
-
             DEVICE_DIR=/data/local/tmp/nova_tests
 
             echo "--- Pushing test binaries ---"
-            adb push \
-              build/test_nova_core \
-              build/test_nova_record_builders \
-              build/test_nova_logger \
-              build/test_nova_scoped_configurator \
-              build/test_nova_mpsc_queue \
-              build/test_nova_sinks \
-              build/test_nova_formatters \
-              build/test_nova_synchronization \
-              build/test_nova_composite \
-              build/test_nova_memory_pool_async_sink \
-              build/test_flare_scanner \
-              build/test_flare_writers \
-              $DEVICE_DIR/
+            adb push build/test_nova_core                    $DEVICE_DIR/
+            adb push build/test_nova_record_builders         $DEVICE_DIR/
+            adb push build/test_nova_logger                  $DEVICE_DIR/
+            adb push build/test_nova_scoped_configurator     $DEVICE_DIR/
+            adb push build/test_nova_mpsc_queue              $DEVICE_DIR/
+            adb push build/test_nova_sinks                   $DEVICE_DIR/
+            adb push build/test_nova_formatters              $DEVICE_DIR/
+            adb push build/test_nova_synchronization         $DEVICE_DIR/
+            adb push build/test_nova_composite               $DEVICE_DIR/
+            adb push build/test_nova_memory_pool_async_sink  $DEVICE_DIR/
+            adb push build/test_flare_scanner                $DEVICE_DIR/
+            adb push build/test_flare_writers                $DEVICE_DIR/
 
             echo "--- Running tests ---"
             PASS=0
             FAIL=0
-            for test in \
-                test_nova_core \
-                test_nova_record_builders \
-                test_nova_logger \
-                test_nova_scoped_configurator \
-                test_nova_mpsc_queue \
-                test_nova_sinks \
-                test_nova_formatters \
-                test_nova_synchronization \
-                test_nova_composite \
-                test_nova_memory_pool_async_sink \
-                test_flare_scanner \
-                test_flare_writers; do
+            for test in test_nova_core test_nova_record_builders test_nova_logger test_nova_scoped_configurator test_nova_mpsc_queue test_nova_sinks test_nova_formatters test_nova_synchronization test_nova_composite test_nova_memory_pool_async_sink test_flare_scanner test_flare_writers; do
               echo ""
               echo "=== $test ==="
               if adb shell "chmod +x $DEVICE_DIR/$test && $DEVICE_DIR/$test"; then
