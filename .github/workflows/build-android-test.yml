@@ -1,0 +1,91 @@
+name: Build / Android (Test)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Android / x86_64 / Test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify NDK
+        run: |
+          echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
+          cat "$ANDROID_NDK_HOME/source.properties" | grep Pkg.Revision
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      # Build test binaries for x86_64 (runs natively in the emulator without
+      # instruction translation, keeping emulator startup + run time bounded).
+      # c++_static links the STL into each binary so adb push + run works
+      # without needing to manage library paths on the device.
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/android-ndk.cmake \
+            -DANDROID_ABI=x86_64 \
+            -DANDROID_PLATFORM=android-26 \
+            -DANDROID_STL=c++_static \
+            -DNDK_PATH="$ANDROID_NDK_HOME" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DNOVA_BUILD_TESTS=ON \
+            -DNOVA_BUILD_EXTRAS=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: List built test binaries
+        run: find build/tests -maxdepth 1 -type f | sort
+
+      # Start an x86_64 AVD and run the test subset that does not depend on
+      # host-specific file paths.  Tests that use std::filesystem temp dirs
+      # (circular file sink, rolling file sink, flare reader/emergency,
+      # integration) are excluded pending verification of Android writable
+      # storage paths.
+      #
+      # Each binary is pushed to an explicit destination path (not a directory)
+      # to avoid adb failing with "Is a directory" when the destination
+      # directory already exists from a previous run.
+      - name: Run tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          arch: x86_64
+          target: default
+          script: |
+            set -e
+            adb push build/tests/test_nova_core                   /data/local/tmp/test_nova_core
+            adb push build/tests/test_nova_record_builders        /data/local/tmp/test_nova_record_builders
+            adb push build/tests/test_nova_logger                 /data/local/tmp/test_nova_logger
+            adb push build/tests/test_nova_scoped_configurator    /data/local/tmp/test_nova_scoped_configurator
+            adb push build/tests/test_nova_mpsc_queue             /data/local/tmp/test_nova_mpsc_queue
+            adb push build/tests/test_nova_sinks                  /data/local/tmp/test_nova_sinks
+            adb push build/tests/test_nova_formatters             /data/local/tmp/test_nova_formatters
+            adb push build/tests/test_nova_synchronization        /data/local/tmp/test_nova_synchronization
+            adb push build/tests/test_nova_composite              /data/local/tmp/test_nova_composite
+            adb push build/tests/test_nova_memory_pool_async_sink /data/local/tmp/test_nova_memory_pool_async_sink
+            adb push build/tests/test_flare_scanner               /data/local/tmp/test_flare_scanner
+            adb push build/tests/test_flare_writers               /data/local/tmp/test_flare_writers
+            adb shell "chmod +x /data/local/tmp/test_nova_core && /data/local/tmp/test_nova_core"
+            adb shell "chmod +x /data/local/tmp/test_nova_record_builders && /data/local/tmp/test_nova_record_builders"
+            adb shell "chmod +x /data/local/tmp/test_nova_logger && /data/local/tmp/test_nova_logger"
+            adb shell "chmod +x /data/local/tmp/test_nova_scoped_configurator && /data/local/tmp/test_nova_scoped_configurator"
+            adb shell "chmod +x /data/local/tmp/test_nova_mpsc_queue && /data/local/tmp/test_nova_mpsc_queue"
+            adb shell "chmod +x /data/local/tmp/test_nova_sinks && /data/local/tmp/test_nova_sinks"
+            adb shell "chmod +x /data/local/tmp/test_nova_formatters && /data/local/tmp/test_nova_formatters"
+            adb shell "chmod +x /data/local/tmp/test_nova_synchronization && /data/local/tmp/test_nova_synchronization"
+            adb shell "chmod +x /data/local/tmp/test_nova_composite && /data/local/tmp/test_nova_composite"
+            adb shell "chmod +x /data/local/tmp/test_nova_memory_pool_async_sink && /data/local/tmp/test_nova_memory_pool_async_sink"
+            adb shell "chmod +x /data/local/tmp/test_flare_scanner && /data/local/tmp/test_flare_scanner"
+            adb shell "chmod +x /data/local/tmp/test_flare_writers && /data/local/tmp/test_flare_writers"
