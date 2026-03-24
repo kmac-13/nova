@@ -45,14 +45,18 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: List built test binaries
+        run: find build/tests -maxdepth 1 -type f | sort
+
       # Start an x86_64 AVD and run the test subset that does not depend on
       # host-specific file paths.  Tests that use std::filesystem temp dirs
       # (circular file sink, rolling file sink, flare reader/emergency,
       # integration) are excluded pending verification of Android writable
       # storage paths.
       #
-      # Each binary is pushed individually to avoid shell line-continuation
-      # issues with the emulator runner's per-line execution model.
+      # Paths are hardcoded rather than using shell variables because the
+      # emulator runner executes each line of the script in a separate shell
+      # invocation, preventing variable expansion across lines.
       - name: Run tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -61,36 +65,27 @@ jobs:
           target: default
           script: |
             set -e
-            DEVICE_DIR=/data/local/tmp/nova_tests
-
-            echo "--- Pushing test binaries ---"
-            adb push build/tests/test_nova_core                    $DEVICE_DIR/
-            adb push build/tests/test_nova_record_builders         $DEVICE_DIR/
-            adb push build/tests/test_nova_logger                  $DEVICE_DIR/
-            adb push build/tests/test_nova_scoped_configurator     $DEVICE_DIR/
-            adb push build/tests/test_nova_mpsc_queue              $DEVICE_DIR/
-            adb push build/tests/test_nova_sinks                   $DEVICE_DIR/
-            adb push build/tests/test_nova_formatters              $DEVICE_DIR/
-            adb push build/tests/test_nova_synchronization         $DEVICE_DIR/
-            adb push build/tests/test_nova_composite               $DEVICE_DIR/
-            adb push build/tests/test_nova_memory_pool_async_sink  $DEVICE_DIR/
-            adb push build/tests/test_flare_scanner                $DEVICE_DIR/
-            adb push build/tests/test_flare_writers                $DEVICE_DIR/
-
-            echo "--- Running tests ---"
-            PASS=0
-            FAIL=0
-            for test in test_nova_core test_nova_record_builders test_nova_logger test_nova_scoped_configurator test_nova_mpsc_queue test_nova_sinks test_nova_formatters test_nova_synchronization test_nova_composite test_nova_memory_pool_async_sink test_flare_scanner test_flare_writers; do
-              echo ""
-              echo "=== $test ==="
-              if adb shell "chmod +x $DEVICE_DIR/$test && $DEVICE_DIR/$test"; then
-                PASS=$((PASS + 1))
-              else
-                FAIL=$((FAIL + 1))
-                echo "FAILED: $test"
-              fi
-            done
-
-            echo ""
-            echo "Results: $PASS passed, $FAIL failed"
-            [ $FAIL -eq 0 ]
+            adb push build/tests/test_nova_core                   /data/local/tmp/nova_tests/
+            adb push build/tests/test_nova_record_builders        /data/local/tmp/nova_tests/
+            adb push build/tests/test_nova_logger                 /data/local/tmp/nova_tests/
+            adb push build/tests/test_nova_scoped_configurator    /data/local/tmp/nova_tests/
+            adb push build/tests/test_nova_mpsc_queue             /data/local/tmp/nova_tests/
+            adb push build/tests/test_nova_sinks                  /data/local/tmp/nova_tests/
+            adb push build/tests/test_nova_formatters             /data/local/tmp/nova_tests/
+            adb push build/tests/test_nova_synchronization        /data/local/tmp/nova_tests/
+            adb push build/tests/test_nova_composite              /data/local/tmp/nova_tests/
+            adb push build/tests/test_nova_memory_pool_async_sink /data/local/tmp/nova_tests/
+            adb push build/tests/test_flare_scanner               /data/local/tmp/nova_tests/
+            adb push build/tests/test_flare_writers               /data/local/tmp/nova_tests/
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_core                   && adb shell /data/local/tmp/nova_tests/test_nova_core
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_record_builders        && adb shell /data/local/tmp/nova_tests/test_nova_record_builders
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_logger                 && adb shell /data/local/tmp/nova_tests/test_nova_logger
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_scoped_configurator    && adb shell /data/local/tmp/nova_tests/test_nova_scoped_configurator
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_mpsc_queue             && adb shell /data/local/tmp/nova_tests/test_nova_mpsc_queue
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_sinks                  && adb shell /data/local/tmp/nova_tests/test_nova_sinks
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_formatters             && adb shell /data/local/tmp/nova_tests/test_nova_formatters
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_synchronization        && adb shell /data/local/tmp/nova_tests/test_nova_synchronization
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_composite              && adb shell /data/local/tmp/nova_tests/test_nova_composite
+            adb shell chmod +x /data/local/tmp/nova_tests/test_nova_memory_pool_async_sink && adb shell /data/local/tmp/nova_tests/test_nova_memory_pool_async_sink
+            adb shell chmod +x /data/local/tmp/nova_tests/test_flare_scanner               && adb shell /data/local/tmp/nova_tests/test_flare_scanner
+            adb shell chmod +x /data/local/tmp/nova_tests/test_flare_writers               && adb shell /data/local/tmp/nova_tests/test_flare_writers
