@@ -1,0 +1,107 @@
+name: Build / Android (Test)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Android / x86_64 / Test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify NDK
+        run: |
+          echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
+          cat "$ANDROID_NDK_HOME/source.properties" | grep Pkg.Revision
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      # Build test binaries for x86_64 (runs natively in the emulator without
+      # instruction translation, keeping emulator startup + run time bounded).
+      # c++_static links the STL into each binary so adb push + run works
+      # without needing to manage library paths on the device.
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/android-ndk.cmake \
+            -DANDROID_ABI=x86_64 \
+            -DANDROID_PLATFORM=android-26 \
+            -DANDROID_STL=c++_static \
+            -DNDK_PATH="$ANDROID_NDK_HOME" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DNOVA_BUILD_TESTS=ON \
+            -DNOVA_BUILD_EXTRAS=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      # Start an x86_64 AVD and run the test subset that does not depend on
+      # host-specific file paths.  Tests that use std::filesystem temp dirs
+      # (circular file sink, rolling file sink, flare reader/emergency,
+      # integration) are excluded pending verification of Android writable
+      # storage paths.
+      - name: Run tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          arch: x86_64
+          target: default
+          script: |
+            set -e
+
+            DEVICE_DIR=/data/local/tmp/nova_tests
+
+            echo "--- Pushing test binaries ---"
+            adb shell mkdir -p $DEVICE_DIR
+            adb push build/test_nova_core          $DEVICE_DIR/
+            adb push build/test_nova_record_builders $DEVICE_DIR/
+            adb push build/test_nova_logger        $DEVICE_DIR/
+            adb push build/test_nova_scoped_configurator $DEVICE_DIR/
+            adb push build/test_nova_mpsc_queue    $DEVICE_DIR/
+            adb push build/test_nova_sinks         $DEVICE_DIR/
+            adb push build/test_nova_formatters    $DEVICE_DIR/
+            adb push build/test_nova_synchronization $DEVICE_DIR/
+            adb push build/test_nova_composite     $DEVICE_DIR/
+            adb push build/test_nova_memory_pool_async_sink $DEVICE_DIR/
+            adb push build/test_flare_scanner      $DEVICE_DIR/
+            adb push build/test_flare_writers      $DEVICE_DIR/
+
+            echo "--- Running tests ---"
+            PASS=0
+            FAIL=0
+            for test in \
+                test_nova_core \
+                test_nova_record_builders \
+                test_nova_logger \
+                test_nova_scoped_configurator \
+                test_nova_mpsc_queue \
+                test_nova_sinks \
+                test_nova_formatters \
+                test_nova_synchronization \
+                test_nova_composite \
+                test_nova_memory_pool_async_sink \
+                test_flare_scanner \
+                test_flare_writers; do
+              echo ""
+              echo "=== $test ==="
+              if adb shell "chmod +x $DEVICE_DIR/$test && $DEVICE_DIR/$test"; then
+                PASS=$((PASS + 1))
+              else
+                FAIL=$((FAIL + 1))
+                echo "FAILED: $test"
+              fi
+            done
+
+            echo ""
+            echo "Results: $PASS passed, $FAIL failed"
+            [ $FAIL -eq 0 ]

@@ -66,7 +66,14 @@ function( add_nova_gtest test_name test_source )
 	# enable_dfsan( ${test_name} )
 	# enable_libfuzzer( ${test_name} )
 
-	gtest_discover_tests( ${test_name} )
+	if( CMAKE_CROSSCOMPILING )
+		# gtest_discover_tests runs the binary on the host to enumerate tests,
+		# which fails for cross-compiled targets.  gtest_add_tests parses the
+		# source file statically instead — sufficient for CI test registration.
+		gtest_add_tests( TARGET ${test_name} SOURCES ${test_source} )
+	else()
+		gtest_discover_tests( ${test_name} )
+	endif()
 endfunction()
 
 # Enable testing
