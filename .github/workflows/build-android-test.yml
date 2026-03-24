@@ -64,18 +64,18 @@ jobs:
             DEVICE_DIR=/data/local/tmp/nova_tests
 
             echo "--- Pushing test binaries ---"
-            adb push build/test_nova_core                    $DEVICE_DIR/
-            adb push build/test_nova_record_builders         $DEVICE_DIR/
-            adb push build/test_nova_logger                  $DEVICE_DIR/
-            adb push build/test_nova_scoped_configurator     $DEVICE_DIR/
-            adb push build/test_nova_mpsc_queue              $DEVICE_DIR/
-            adb push build/test_nova_sinks                   $DEVICE_DIR/
-            adb push build/test_nova_formatters              $DEVICE_DIR/
-            adb push build/test_nova_synchronization         $DEVICE_DIR/
-            adb push build/test_nova_composite               $DEVICE_DIR/
-            adb push build/test_nova_memory_pool_async_sink  $DEVICE_DIR/
-            adb push build/test_flare_scanner                $DEVICE_DIR/
-            adb push build/test_flare_writers                $DEVICE_DIR/
+            adb push build/tests/test_nova_core                    $DEVICE_DIR/
+            adb push build/tests/test_nova_record_builders         $DEVICE_DIR/
+            adb push build/tests/test_nova_logger                  $DEVICE_DIR/
+            adb push build/tests/test_nova_scoped_configurator     $DEVICE_DIR/
+            adb push build/tests/test_nova_mpsc_queue              $DEVICE_DIR/
+            adb push build/tests/test_nova_sinks                   $DEVICE_DIR/
+            adb push build/tests/test_nova_formatters              $DEVICE_DIR/
+            adb push build/tests/test_nova_synchronization         $DEVICE_DIR/
+            adb push build/tests/test_nova_composite               $DEVICE_DIR/
+            adb push build/tests/test_nova_memory_pool_async_sink  $DEVICE_DIR/
+            adb push build/tests/test_flare_scanner                $DEVICE_DIR/
+            adb push build/tests/test_flare_writers                $DEVICE_DIR/
 
             echo "--- Running tests ---"
             PASS=0
