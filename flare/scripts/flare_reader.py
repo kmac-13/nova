@@ -34,6 +34,8 @@ TLV_PROCESS_ID = 15
 TLV_THREAD_ID = 16
 TLV_MESSAGE_BYTES = 20
 TLV_MESSAGE_TRUNCATED = 21
+TLV_LOAD_BASE_ADDRESS = 30  # runtime load base of main executable (uint64_t)
+TLV_STACK_FRAMES = 31       # packed uint64_t return addresses, innermost first
 TLV_RECORD_END = 0xFFFF
 
 # Record status values
@@ -66,6 +68,8 @@ class FlareRecord:
         self.thread_id = 0
         self.message = ""
         self.message_truncated = False
+        self.load_base_address = 0
+        self.stack_frames = []  # list of int (raw runtime addresses)
 
 def load_tag_dictionary(filepath: str) -> Dict[int, str]:
     """Load tag dictionary from file"""
@@ -128,50 +132,57 @@ def parse_record(data: bytes, offset: int) -> Optional[Tuple[FlareRecord, int]]:
     while offset < record_end:
         if offset + 4 > len(data):
             break
-        
+
         tlv_type, tlv_length = struct.unpack('<HH', data[offset:offset+4])
         offset += 4
-        
+
         if offset + tlv_length > len(data):
             break
-        
+
         value = data[offset:offset+tlv_length]
         offset += tlv_length
-        
+
         # Parse based on type
         if tlv_type == TLV_RECORD_STATUS and tlv_length == 1:
             record.status = value[0]
-        
+
         elif tlv_type == TLV_SEQUENCE_NUMBER and tlv_length == 8:
             record.sequence = struct.unpack('<Q', value)[0]
-        
+
         elif tlv_type == TLV_TIMESTAMP_NS and tlv_length == 8:
             record.timestamp_ns = struct.unpack('<Q', value)[0]
-        
+
         elif tlv_type == TLV_TAG_ID and tlv_length == 8:
             record.tag_id = struct.unpack('<Q', value)[0]
-        
+
         elif tlv_type == TLV_FILE_NAME:
             record.file = value.decode('utf-8', errors='replace')
-        
+
         elif tlv_type == TLV_LINE_NUMBER and tlv_length == 4:
             record.line = struct.unpack('<I', value)[0]
-        
+
         elif tlv_type == TLV_FUNCTION_NAME:
             record.function = value.decode('utf-8', errors='replace')
-        
+
         elif tlv_type == TLV_PROCESS_ID and tlv_length == 4:
             record.process_id = struct.unpack('<I', value)[0]
-        
+
         elif tlv_type == TLV_THREAD_ID and tlv_length == 4:
             record.thread_id = struct.unpack('<I', value)[0]
-        
+
         elif tlv_type == TLV_MESSAGE_BYTES:
             record.message = value.decode('utf-8', errors='replace')
-        
+
         elif tlv_type == TLV_MESSAGE_TRUNCATED and tlv_length == 1:
             record.message_truncated = (value[0] != 0)
-        
+
+        elif tlv_type == TLV_LOAD_BASE_ADDRESS and tlv_length == 8:
+            record.load_base_address = struct.unpack('<Q', value)[0]
+
+        elif tlv_type == TLV_STACK_FRAMES and tlv_length > 0 and tlv_length % 8 == 0:
+            frame_count = tlv_length // 8
+            record.stack_frames = list(struct.unpack(f'<{frame_count}Q', value))
+
         elif tlv_type == TLV_RECORD_END:
             break
     
@@ -210,6 +221,21 @@ def print_record_text(record: FlareRecord, record_num: int):
     msg_suffix = " [TRUNCATED]" if record.message_truncated else ""
     print(f"Message:   {record.message}{msg_suffix}")
 
+    if record.stack_frames:
+        base = record.load_base_address
+        base_str = f"0x{base:016x}" if base else "unknown"
+        print(f"Stack:     {len(record.stack_frames)} frames  (load base: {base_str})")
+        for i, addr in enumerate(record.stack_frames):
+            if base:
+                static_addr = addr - base
+                print(f"  [{i:2d}]  0x{addr:016x}  ->  static 0x{static_addr:016x}")
+            else:
+                print(f"  [{i:2d}]  0x{addr:016x}")
+        if not base:
+            print("  (load base address unavailable; cannot compute static addresses)")
+        else:
+            print("  (pass binary path to addr2line/llvm-symbolizer to resolve symbols)")
+
 def print_record_json(record: FlareRecord) -> dict:
     """Convert record to JSON dict"""
     return {
@@ -225,7 +251,13 @@ def print_record_json(record: FlareRecord) -> dict:
         "line": record.line,
         "function": record.function,
         "message": record.message,
-        "message_truncated": record.message_truncated
+        "message_truncated": record.message_truncated,
+        "load_base_address": f"0x{record.load_base_address:016x}" if record.load_base_address else None,
+        "stack_frames": [f"0x{addr:016x}" for addr in record.stack_frames],
+        "stack_frames_static": [
+            f"0x{(addr - record.load_base_address):016x}"
+            for addr in record.stack_frames
+        ] if record.load_base_address and record.stack_frames else [],
     }
 
 def main():
@@ -233,20 +265,20 @@ def main():
         description='Read and display Flare crash logs',
         epilog='Example: python3 flare_reader.py crash.flare --dict crash.tags'
     )
-    
+
     parser.add_argument(
         'logfile',
         type=str,
         help='Flare crash log file to read'
     )
-    
+
     parser.add_argument(
         '--dict',
         '-d',
         type=str,
         help='Tag dictionary file (generated by flare_dict_gen.py)'
     )
-    
+
     parser.add_argument(
         '--format',
         '-f',
@@ -254,16 +286,16 @@ def main():
         default='text',
         help='Output format (default: text)'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Load tag dictionary if provided
     tag_dict = {}
     if args.dict:
         tag_dict = load_tag_dictionary(args.dict)
         if tag_dict:
             print(f"Loaded {len(tag_dict)} tags from dictionary", file=sys.stderr)
-    
+
     # Read crash log file
     try:
         with open(args.logfile, 'rb') as f:
@@ -274,12 +306,12 @@ def main():
     except IOError as e:
         print(f"Error reading file: {e}", file=sys.stderr)
         sys.exit(1)
-    
+
     # Parse records
     records = []
     offset = 0
     record_num = 0
-    
+
     while offset < len(data):
         # Search for next magic number
         magic_found = False
@@ -288,26 +320,26 @@ def main():
                 offset = i
                 magic_found = True
                 break
-        
+
         if not magic_found:
             break
-        
+
         # Try to parse record
         result = parse_record(data, offset)
         if result is None:
             offset += 1
             continue
-        
+
         record, new_offset = result
-        
+
         # Apply tag dictionary
         if record.tag_id in tag_dict:
             record.tag_name = tag_dict[record.tag_id]
-        
+
         records.append(record)
         offset = new_offset
         record_num += 1
-    
+
     # Output records
     if args.format == 'json':
         output = {

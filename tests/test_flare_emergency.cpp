@@ -52,7 +52,7 @@ TEST_F( FlareEmergency, EmergencySinkConstruction )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	std::fclose( file );
 }
@@ -64,7 +64,7 @@ TEST_F( FlareEmergency, EmergencySinkWriteSingleRecord )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	kmac::nova::Record record {
 		1234567890ULL,
@@ -95,7 +95,7 @@ TEST_F(FlareEmergency, EmergencySinkMultipleRecords)
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	for ( int i = 0; i < 10; ++i )
 	{
@@ -128,7 +128,7 @@ TEST_F( FlareEmergency, EmergencySinkWithLogger )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	kmac::nova::ScopedConfigurator config;
 	config.bind< EmergencyTag >( &sink );
@@ -153,7 +153,7 @@ TEST_F( FlareEmergency, EmergencySinkLargeMessage )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	// create a very large message
 	std::string largeMsg( 10000, 'X' );
@@ -185,7 +185,7 @@ TEST_F( FlareEmergency, EmergencySinkFlushBehavior )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	kmac::nova::Record record {
 		1234567890ULL,
@@ -216,7 +216,7 @@ TEST_F( FlareEmergency, EmergencySinkEmptyMessage )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	kmac::nova::Record record {
 		1234567890ULL,
@@ -246,7 +246,7 @@ TEST_F( FlareEmergency, EmergencySinkNullPointers )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	// test with empty strings (not null pointers, as Record requires valid pointers)
 	kmac::nova::Record record {
@@ -276,7 +276,7 @@ TEST_F( FlareEmergency, EmergencySinkSequentialWrites )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	// write records with different timestamps
 	for ( int i = 0; i < 5; ++i )
@@ -310,7 +310,7 @@ TEST_F( FlareEmergency, EmergencySinkWithProcessInfo )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	kmac::nova::Record record {
 		1234567890ULL,
@@ -340,7 +340,7 @@ TEST_F( FlareEmergency, EmergencySinkWithoutProcessInfo )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	kmac::nova::Record record {
 		1234567890ULL,

@@ -31,13 +31,25 @@ enum class TlvType : uint16_t
 	MessageBytes        = 20,
 	MessageTruncated    = 21,  // indicates message was truncated due to buffer limits
 
+	// crash context (30-39 reserved for crash diagnostics)
+	// LoadBaseAddress: runtime load base of the main executable (uint64_t).
+	// Required to convert stack frame addresses to static addresses for
+	// symbolization when the binary is position-independent (PIE/ASLR).
+	// Captured once at EmergencySink construction, not per-record.
+	// static_addr = frame_addr - load_base_address
+	LoadBaseAddress     = 30,
+
+	// StackFrames: tightly-packed array of uint64_t return addresses,
+	// little-endian, innermost frame first, frame count = tlv_length / 8.
+	StackFrames         = 31,
+
 	// record terminator
 	RecordEnd           = 0xFFFF
 };
 
 /**
  * @brief Record status indicator.
- * 
+ *
  * Helps readers distinguish between complete records, known truncations,
  * and potentially torn writes.
  */
