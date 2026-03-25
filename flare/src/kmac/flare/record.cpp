@@ -21,17 +21,28 @@ void Record::clear() noexcept
 	fileLen = 0;
 	functionLen = 0;
 	messageLen = 0;
+	stackFrameCount = 0;
+	loadBaseAddress = 0;
 }
 
 const char* Record::statusString() const noexcept
 {
 	switch ( RecordStatus( status ) )
 	{
-		case RecordStatus::Complete: return "Complete";
-		case RecordStatus::Truncated: return "Truncated";
-		case RecordStatus::InProgress: return "InProgress (Torn Write)";
-		case RecordStatus::Unknown: return "Unknown";
-		default: return "Invalid";
+	case RecordStatus::Complete:
+		return "Complete";
+
+	case RecordStatus::Truncated:
+		return "Truncated";
+
+	case RecordStatus::InProgress:
+		return "InProgress (Torn Write)";
+
+	case RecordStatus::Unknown:
+		return "Unknown";
+
+	default:
+		return "Invalid";
 	}
 }
 

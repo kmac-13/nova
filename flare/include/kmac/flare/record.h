@@ -24,6 +24,7 @@ namespace kmac::flare
  * - file name: max 256 chars
  * - function name: max 256 chars
  * - message: max 4096 bytes
+ * - stack trace: max 32 frames (raw return addresses)
  */
 struct Record
 {
@@ -31,6 +32,9 @@ struct Record
 	static constexpr std::size_t MAX_FILENAME_LEN = 256;
 	static constexpr std::size_t MAX_FUNCTION_LEN = 256;
 	static constexpr std::size_t MAX_MESSAGE_LEN = 4096;
+
+	// maximum number of stack frames captured per record
+	static constexpr std::size_t MAX_STACK_FRAMES = 32;
 
 	// record metadata
 	std::uint64_t sequenceNumber = 0;  // monotonic sequence for ordering
@@ -60,6 +64,17 @@ struct Record
 	std::size_t fileLen = 0;
 	std::size_t functionLen = 0;
 	std::size_t messageLen = 0;
+
+	// stack trace (raw return addresses, innermost frame first)
+	// only populated when EmergencySink is constructed with captureStackTrace=true
+	std::array< std::uint64_t, MAX_STACK_FRAMES > stackFrames = { };
+	std::size_t stackFrameCount = 0;  // number of valid entries in stackFrames
+
+	// runtime load base address of the main executable, written on every record
+	// use to convert frame addresses to static addresses for addr2line / llvm-symbolizer:
+	//   static_addr = frame_addr - loadBaseAddress
+	// will be 0 on unsupported platforms or non-PIE binaries
+	std::uint64_t loadBaseAddress = 0;
 
 	/**
 	 * @brief Reset record to empty state.

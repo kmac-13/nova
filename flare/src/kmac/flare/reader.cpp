@@ -16,6 +16,8 @@ struct TlvFieldParseHelper
 	void parseFixedField( kmac::flare::TlvType type, const std::uint8_t* value, std::uint16_t length ) noexcept;
 
 	void parseStringField( kmac::flare::TlvType type, const std::uint8_t* value, std::uint16_t length ) noexcept;
+
+	void parseStackFramesField( const std::uint8_t* value, std::uint16_t length ) noexcept;
 };
 
 } // namespace
@@ -83,6 +85,10 @@ bool Reader::parseRecord( const std::uint8_t* data, std::size_t size, Record& ou
 			|| tlvType == TlvType::MessageBytes )
 		{
 			helper.parseStringField( tlvType, value, length );
+		}
+		else if ( tlvType == TlvType::StackFrames )
+		{
+			helper.parseStackFramesField( value, length );
 		}
 		else
 		{
@@ -162,9 +168,37 @@ void TlvFieldParseHelper::parseFixedField( kmac::flare::TlvType type, const std:
 		}
 		break;
 
+	case kmac::flare::TlvType::LoadBaseAddress:
+		if ( length == sizeof( std::uint64_t ) )
+		{
+			std::memcpy( &record.loadBaseAddress, value, sizeof( std::uint64_t ) );
+		}
+		break;
+
 	default:
 		break;
 	}
+}
+
+void TlvFieldParseHelper::parseStackFramesField( const std::uint8_t* value, std::uint16_t length ) noexcept
+{
+	// payload is a packed array of uint64_t addresses, little-endian;
+	// silently ignore malformed lengths (not a multiple of 8)
+	if ( length == 0 || ( length % sizeof( std::uint64_t ) ) != 0 )
+	{
+		return;
+	}
+
+	const std::size_t frameCount = length / sizeof( std::uint64_t );
+	const std::size_t copyCount = frameCount < kmac::flare::Record::MAX_STACK_FRAMES
+		? frameCount
+		: kmac::flare::Record::MAX_STACK_FRAMES;
+
+	for ( std::size_t i = 0; i < copyCount; ++i )
+	{
+		std::memcpy( &record.stackFrames[ i ], value + i * sizeof( std::uint64_t ), sizeof( std::uint64_t ) );
+	}
+	record.stackFrameCount = copyCount;
 }
 
 void TlvFieldParseHelper::parseStringField( kmac::flare::TlvType type, const std::uint8_t* value, std::uint16_t length ) noexcept
@@ -209,4 +243,4 @@ void TlvFieldParseHelper::parseStringField( kmac::flare::TlvType type, const std
 	}
 }
 
-}
+} // namespace
