@@ -7,8 +7,8 @@
 namespace kmac::flare
 {
 
-FdWriter::FdWriter( int fd, FlushMode flushMode ) noexcept
-	: _fd( fd )
+FdWriter::FdWriter( int fileDescriptor, FlushMode flushMode ) noexcept
+	: _fd( fileDescriptor )
 	, _flushMode( flushMode )
 {
 }

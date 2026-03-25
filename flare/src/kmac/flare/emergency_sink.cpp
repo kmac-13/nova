@@ -205,7 +205,7 @@ std::size_t EmergencySinkBase::encodeRecordTlv( const kmac::nova::Record& record
 	// write stack trace if enabled and compile-time support is present
 	if ( _captureStackTrace )
 	{
-		void* frames[ Record::MAX_STACK_FRAMES ];
+		std::array< void*, Record::MAX_STACK_FRAMES > frames{};
 		const std::size_t frameCount = captureStackFrames( std::data( frames ), Record::MAX_STACK_FRAMES );
 		if ( frameCount > 0 )
 		{
@@ -497,7 +497,7 @@ void TlvWriteHelper::writeStackFramesTlv( void* const* frames, std::size_t frame
 		"MAX_STACK_FRAMES too large for uint16_t TLV length field"
 	);
 
-	std::uint64_t addresses[ kmac::flare::Record::MAX_STACK_FRAMES ];
+	std::array< std::uint64_t, kmac::flare::Record::MAX_STACK_FRAMES > addresses{};
 	const std::size_t count = frameCount < kmac::flare::Record::MAX_STACK_FRAMES
 		? frameCount
 		: kmac::flare::Record::MAX_STACK_FRAMES;
@@ -505,7 +505,7 @@ void TlvWriteHelper::writeStackFramesTlv( void* const* frames, std::size_t frame
 	for ( std::size_t i = 0; i < count; ++i )
 	{
 		// NOLINT NOTE: reinterpret_cast required to widen void* to uint64_t for serialisation
-		addresses[ i ] = reinterpret_cast< std::uint64_t >( frames[ i ] ); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+		addresses.at( i ) = reinterpret_cast< std::uint64_t >( frames[ i ] ); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 	}
 
 	const std::uint16_t payloadLen = static_cast< std::uint16_t >( count * sizeof( std::uint64_t ) );

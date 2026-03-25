@@ -196,7 +196,7 @@ void TlvFieldParseHelper::parseStackFramesField( const std::uint8_t* value, std:
 
 	for ( std::size_t i = 0; i < copyCount; ++i )
 	{
-		std::memcpy( &record.stackFrames[ i ], value + i * sizeof( std::uint64_t ), sizeof( std::uint64_t ) );
+		std::memcpy( &record.stackFrames.data()[ i ], value + i * sizeof( std::uint64_t ), sizeof( std::uint64_t ) );
 	}
 	record.stackFrameCount = copyCount;
 }

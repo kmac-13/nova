@@ -77,13 +77,13 @@ public:
 	/**
 	 * @brief Construct FdWriter with a POSIX file descriptor.
 	 *
-	 * @param fd open file descriptor for writing (not owned)
+	 * @param fileDescriptor open file descriptor for writing (not owned)
 	 * @param flushMode controls flush() behaviour (default: Fsync)
 	 *
 	 * @note fd must be open in write mode (O_WRONLY or O_RDWR)
 	 * @note caller is responsible for opening and closing fd
 	 */
-	explicit FdWriter( int fd, FlushMode flushMode = FlushMode::Fsync ) noexcept;
+	explicit FdWriter( int fileDescriptor, FlushMode flushMode = FlushMode::Fsync ) noexcept;
 
 	/**
 	 * @brief Write data via POSIX write().
