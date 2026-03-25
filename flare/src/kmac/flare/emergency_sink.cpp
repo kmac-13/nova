@@ -111,40 +111,15 @@ struct TlvWriteHelper
 namespace kmac::flare
 {
 
-EmergencySink::EmergencySink( IWriter* writer, bool captureProcessInfo, bool captureStackTrace ) noexcept
+EmergencySinkBase::EmergencySinkBase( IWriter* writer, bool captureProcessInfo, bool captureStackTrace ) noexcept
 	: _writer( writer )
-	, _sequenceNumber( 0 )
 	, _loadBaseAddress( captureLoadBaseAddress() )
 	, _captureProcessInfo( captureProcessInfo )
 	, _captureStackTrace( captureStackTrace )
 {
 }
 
-void EmergencySink::process( const kmac::nova::Record& record ) noexcept
-{
-	if ( _writer == nullptr )
-	{
-		return;
-	}
-
-	// encode to stack buffer
-	std::array< char, ENCODING_BUFFER_SIZE > buffer = { };
-	const std::size_t encodedSize = encodeRecordTlv( record, buffer.data(), buffer.size() );
-
-	if ( encodedSize > 0 )
-	{
-		// single atomic write
-		_writer->write( buffer.data(), encodedSize );
-
-		// flush for crash safety
-		_writer->flush();
-
-		// increment sequence number for next record
-		++_sequenceNumber;
-	}
-}
-
-void EmergencySink::flush() noexcept
+void EmergencySinkBase::flush() noexcept
 {
 	if ( _writer != nullptr )
 	{
@@ -152,7 +127,12 @@ void EmergencySink::flush() noexcept
 	}
 }
 
-std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, char* buffer, std::size_t bufferSize ) noexcept
+IWriter* EmergencySinkBase::writer() const noexcept
+{
+	return _writer;
+}
+
+std::size_t EmergencySinkBase::encodeRecordTlv( const kmac::nova::Record& record, char* buffer, std::size_t bufferSize, std::size_t sequenceNumber ) noexcept
 {
 	std::size_t offset = 0;
 	::TlvWriteHelper writeHelper{ buffer, offset, bufferSize };
@@ -183,7 +163,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 	const std::size_t statusOffset = offset - sizeof( status );  // remember where status is
 
 	// write mandatory fields, starting with the sequence number
-	if ( ! writeHelper.writeTlv( TlvType::SequenceNumber, &_sequenceNumber, sizeof( _sequenceNumber ) ) )
+	if ( ! writeHelper.writeTlv( TlvType::SequenceNumber, &sequenceNumber, sizeof( sequenceNumber ) ) )
 	{
 		return 0;
 	}
@@ -269,7 +249,7 @@ std::size_t EmergencySink::encodeRecordTlv( const kmac::nova::Record& record, ch
 	return offset;
 }
 
-std::uint64_t EmergencySink::hashString( const char* str ) noexcept
+std::uint64_t EmergencySinkBase::hashString( const char* str ) noexcept
 {
 	return ::kmac::nova::details::fnv1a( str );
 }
@@ -310,17 +290,18 @@ int phdrCallback( struct dl_phdr_info* info, std::size_t /*size*/, void* data ) 
 }
 } // anonymous namespace
 
-std::uint64_t EmergencySink::captureLoadBaseAddress() noexcept
+#endif  // Android || Linux
+
+std::uint64_t EmergencySinkBase::captureLoadBaseAddress() noexcept
 {
+#if defined( __ANDROID__ ) || defined( __linux__ )
+
 	PhdrCallbackData data{ 0, false };
 	dl_iterate_phdr( phdrCallback, &data );
 	return data.found ? data.baseAddress : 0;
-}
 
 #elif defined( __APPLE__ )
 
-std::uint64_t EmergencySink::captureLoadBaseAddress() noexcept
-{
 	// walk dyld's image list to find the main executable (MH_EXECUTE);
 	// _dyld_get_image_vmaddr_slide() gives the ASLR slide for that image
 	const std::uint32_t imageCount = _dyld_image_count();
@@ -336,12 +317,9 @@ std::uint64_t EmergencySink::captureLoadBaseAddress() noexcept
 		}
 	}
 	return 0;
-}
 
 #elif defined( _WIN32 )
 
-std::uint64_t EmergencySink::captureLoadBaseAddress() noexcept
-{
 	// GetModuleHandle(NULL) returns the base address of the main executable;
 	// no symbol resolution, no heap allocation
 	// NOLINT NOTE: Windows macro
@@ -357,44 +335,35 @@ std::uint64_t EmergencySink::captureLoadBaseAddress() noexcept
 		return 0;
 	}
 	return reinterpret_cast< std::uint64_t >( info.lpBaseOfDll ); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-}
 
 #else
 
-std::uint64_t EmergencySink::captureLoadBaseAddress() noexcept
-{
 	return 0;
-}
 
 #endif
+}
 
 // ============================================================================
 // Stack frame capture
 // ============================================================================
 
+std::size_t EmergencySinkBase::captureStackFrames( void** frames, std::size_t maxFrames ) noexcept
+{
 #if defined( FLARE_BACKTRACE_UNWIND )
 
-std::size_t EmergencySink::captureStackFrames( void** frames, std::size_t maxFrames ) noexcept
-{
 	::UnwindState state{ frames, 0, maxFrames };
 	_Unwind_Backtrace( ::unwindCallback, &state );
 	return state.count;
-}
 
 #elif defined( FLARE_BACKTRACE_EXECINFO )
 
-std::size_t EmergencySink::captureStackFrames( void** frames, std::size_t maxFrames ) noexcept
-{
 	// backtrace() fills the array with return addresses (the cast
 	// is safe since backtrace() returns >= 0 and <= maxFrames)
 	const int count = backtrace( frames, static_cast< int >( maxFrames ) );
 	return static_cast< std::size_t >( count > 0 ? count : 0 );
-}
 
 #elif defined( FLARE_BACKTRACE_WINDOWS )
 
-std::size_t EmergencySink::captureStackFrames( void** frames, std::size_t maxFrames ) noexcept
-{
 	// FramesToSkip=0 starts from this frame; caller can trim frame 0 and 1
 	// (captureStackFrames itself + encodeRecordTlv) in the reader
 	const USHORT count = RtlCaptureStackBackTrace(
@@ -404,16 +373,13 @@ std::size_t EmergencySink::captureStackFrames( void** frames, std::size_t maxFra
 		nullptr
 	);
 	return static_cast< std::size_t >( count );
-}
 
 #else
 
-std::size_t EmergencySink::captureStackFrames( void** /*frames*/, std::size_t /*maxFrames*/ ) noexcept
-{
 	return 0;
-}
 
 #endif
+}
 
 } // namespace kmac::flare
 

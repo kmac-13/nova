@@ -132,7 +132,7 @@ TEST_F( FlareRamWriter, ZeroSizeWrite )
 
 TEST_F( FlareRamWriter, WorksWithEmergencySink )
 {
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 	kmac::nova::ScopedConfigurator<> cfg;
 	cfg.bind< RamTestTag >( &sink );
 
@@ -251,7 +251,7 @@ TEST_F( FlareUartWriter, ShortWritePropagated )
 TEST_F( FlareUartWriter, WorksWithEmergencySink )
 {
 	kmac::flare::UartWriter writer( captureWrite, captureFlush );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 	kmac::nova::ScopedConfigurator<> cfg;
 	cfg.bind< UartTestTag >( &sink );
 

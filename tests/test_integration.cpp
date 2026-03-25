@@ -162,7 +162,7 @@ TEST_F( Integration, DualOutputPipeline )
 	std::FILE* file = std::fopen( flareFile.c_str(), "wb" );
 	EXPECT_TRUE( file != nullptr );
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink flareSink( &writer );
+	kmac::flare::EmergencySink<> flareSink( &writer );
 
 	kmac::nova::extras::CompositeSink compositeSink;
 	compositeSink.add( consoleSink );
@@ -270,7 +270,7 @@ TEST_F( Integration, FormattedAndEmergencyLogging )
 	std::FILE* file = std::fopen( flareFile.c_str(), "wb" );
 	EXPECT_TRUE( file != nullptr );
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink flareSink( &writer );
+	kmac::flare::EmergencySink<> flareSink( &writer );
 
 	kmac::nova::extras::CompositeSink compositeSink;
 	compositeSink.add( formattedSink );
@@ -308,14 +308,14 @@ TEST_F( Integration, ComplexLoggingArchitecture )
 	std::FILE* errorFile = std::fopen( errorFilePath.c_str(), "wb" );
 	EXPECT_TRUE( errorFile != nullptr );
 	kmac::flare::FileWriter errorWriter( errorFile );
-	kmac::flare::EmergencySink errorSink( &errorWriter );
+	kmac::flare::EmergencySink<> errorSink( &errorWriter );
 
 	// app file (emergency format)
 	std::string appFilePath = getTempFilePath( "app.flare" );
 	std::FILE* appFile = std::fopen( appFilePath.c_str(), "wb" );
 	EXPECT_TRUE( appFile != nullptr );
 	kmac::flare::FileWriter appWriter( appFile );
-	kmac::flare::EmergencySink appSink( &appWriter );
+	kmac::flare::EmergencySink<> appSink( &appWriter );
 
 	// error filter (only ERROR tag)
 	kmac::nova::extras::FilterSink errorFilter(
@@ -391,7 +391,7 @@ TEST_F( Integration, RealWorldCrashScenario )
 	std::FILE* file = std::fopen( crashFile.c_str(), "wb" );
 	EXPECT_TRUE( file != nullptr );
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink crashSink( &writer );
+	kmac::flare::EmergencySink<> crashSink( &writer );
 
 	kmac::nova::ScopedConfigurator config;
 	config.bind< ErrorTag >( &crashSink );

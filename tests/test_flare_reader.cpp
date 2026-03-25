@@ -67,7 +67,7 @@ TEST_F( FlareReader, ReaderParseSingleRecord )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 	kmac::nova::Record writeRecord {
 		1704067200000000000ULL,
 		0,
@@ -108,7 +108,7 @@ TEST_F( FlareReader, ReaderParseMultipleRecords )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	for ( int i = 0; i < 5; ++i )
 	{
@@ -160,7 +160,7 @@ TEST_F( FlareReader, ReaderSequenceNumbers )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	for ( int i = 0; i < 10; ++i )
 	{
@@ -206,7 +206,7 @@ TEST_F( FlareReader, ReaderTagHash )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	kmac::nova::Record record1 {
 		100ULL,
@@ -295,7 +295,7 @@ TEST_F( FlareReader, ReaderLargeMessage )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 
 	std::string largeMsg( 10000, 'X' );
 	kmac::nova::Record record {
@@ -335,7 +335,7 @@ TEST_F( FlareReader, ReaderRecordStatus )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 	kmac::nova::Record record {
 		1234ULL,
 		0,
@@ -373,7 +373,7 @@ TEST_F( FlareReader, ReaderProcessInfo )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 	kmac::nova::Record record {
 		1234ULL,
 		0,
@@ -411,7 +411,7 @@ TEST_F( FlareReader, ReaderMultiplePasses )
 	ASSERT_NE( file, nullptr );
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer );
+	kmac::flare::EmergencySink<> sink( &writer );
 	for ( int i = 0; i < 3; ++i )
 	{
 		std::string msg = "pass " + std::to_string( i );

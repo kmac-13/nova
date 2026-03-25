@@ -4,8 +4,10 @@
 
 #include "iwriter.h"
 
+#include <kmac/nova/record.h>
 #include <kmac/nova/sink.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -13,47 +15,33 @@ namespace kmac::flare
 {
 
 /**
- * @brief Crash-safe forensic logging sink for Nova.
+ * @brief Non-templated base for BasicEmergencySink.
  *
- * EmergencySink writes Nova log records to a binary file in TLV format.
- * Designed for crash handlers and emergency logging scenarios where:
- * - heap allocation is unsafe
- * - exceptions cannot be used
- * - partial writes must be tolerated
- * - speed matters more than completeness
+ * EmergencySinkBase holds all state and implements everything that does not
+ * depend on the encoding buffer size: construction, flush(), and the full
+ * TLV encoding logic (encodeRecordTlv).  The only thing left to the derived
+ * template is process(), which allocates the stack buffer and calls
+ * encodeRecordTlv.
  *
- * Key characteristics:
- * - no heap allocation during process()
- * - uses fixed stack buffer (4KB default)
- * - single fwrite() per record (more atomic)
- * - flushes after each record (crash safety)
- * - truncates messages that don't fit in buffer
+ * This class is not intended to be used directly.  Use BasicEmergencySink<N>
+ * or the EmergencySink alias instead.
  *
- * TLV Format:
- * - MAGIC (8 bytes)
- * - size (4 bytes)
- * - TLVs for timestamp, tag, file, line, function, message
- * - END marker
- *
- * Usage:
- *   FILE* emergency = std::fopen( "crash.flare", "wb" );
- *   EmergencySink sink( emergency );
- *   Logger< CrashTag >::bindSink( &sink );
+ * @note EmergencySinkBase must be constructed in a normal (non-signal)
+ * context.  dl_iterate_phdr and equivalent APIs acquire locks that are not
+ * safe to call from a signal handler.  Construct once at startup before
+ * installing signal handlers.
  */
-class EmergencySink final : public kmac::nova::Sink
+class EmergencySinkBase : public kmac::nova::Sink
 {
 private:
-	static constexpr std::size_t ENCODING_BUFFER_SIZE = 4096;
-
 	IWriter* _writer;
-	std::uint64_t _sequenceNumber;   // monotonic sequence counter
 	std::uint64_t _loadBaseAddress;  // captured once at construction; 0 if unavailable
-	bool _captureProcessInfo;        // capture PID (and TID on Linux)
-	bool _captureStackTrace;         // capture raw stack frames via backtrace()
+	bool _captureProcessInfo;        // capture PID (and TID on Linux/Android)
+	bool _captureStackTrace;         // capture raw stack frames
 
 public:
 	/**
-	 * @brief Construct emergency sink.
+	 * @brief Construct emergency sink base.
 	 *
 	 * @param writer output writer (must remain valid during lifetime)
 	 * @param captureProcessInfo if true, capture process ID (and thread ID depending on platform)
@@ -82,46 +70,51 @@ public:
 	 *  - Windows        :  GetModuleInformation() on the main module
 	 *  - other platforms:  0 (TLV written with value 0; reader will warn)
 	 */
-	explicit EmergencySink(
+	explicit EmergencySinkBase(
 		IWriter* writer,
 		bool captureProcessInfo = true,
 		bool captureStackTrace = false
 	) noexcept;
 
 	/**
-	 * @brief Processes a Nova Record.
-	 *
-	 * @param record the Record to process
-	 */
-	void process( const kmac::nova::Record& record ) noexcept override;
-
-	/**
-	 * @brief Flush buffered data to disk.
+	 * @brief Flush buffered data to the writer.
 	 *
 	 * Call this before process termination to ensure all data is written.
 	 */
 	void flush() noexcept;
 
-private:
+protected:
 	/**
-	 * @brief Encode a Nova record into TLV format.
+	 * @brief Get the underlying IWriter.
+	 */
+	IWriter* writer() const noexcept;
+
+	/**
+	 * @brief Encode a Nova record into a caller-supplied TLV buffer.
 	 *
 	 * @param record the Nova record to encode
 	 * @param buffer destination buffer
-	 * @param bufferSize size of destination buffer
+	 * @param bufferSize size of destination buffer in bytes
+	 * @param sequenceNumber monotonic counter for this record
 	 * @return number of bytes written, or 0 on error
+	 *
+	 * @note The caller is responsible for maintaining and incrementing the
+	 * sequenceNumber.  See EmergencySink::_sequenceNumber for an example.
 	 */
 	std::size_t encodeRecordTlv(
 		const kmac::nova::Record& record,
 		char* buffer,
-		std::size_t bufferSize
+		std::size_t bufferSize,
+		std::size_t sequenceNumber
 	) noexcept;
 
+private:
 	/**
 	 * @brief FNV-1a hash for tag strings.
 	 *
 	 * Used to convert tag strings to compact uint64_t IDs.
 	 */
+	// TODO: move to cpp
 	static std::uint64_t hashString( const char* str ) noexcept;
 
 	/**
@@ -133,6 +126,7 @@ private:
 	 * @note Not async-signal-safe, must only be called from a normal context
 	 * (i.e. at construction time, not from a signal handler).
 	 */
+	// TODO: move to cpp
 	static std::uint64_t captureLoadBaseAddress() noexcept;
 
 	/**
@@ -140,13 +134,110 @@ private:
 	 *
 	 * @param frames destination array of raw return addresses
 	 * @param maxFrames capacity of the array
-	 * @return number of frames written (may be 0 on unsupported platforms)
+	 * @return        umber of frames written (may be 0 on unsupported platforms).
 	 *
 	 * @note The unwinding APIs used here are not formally async-signal-safe,
 	 * but are widely used in crash handlers.  Only called when the
 	 * FLARE_ENABLE_STACK_TRACE macro is defined and captureStackTrace=true.
 	 */
+	// TODO: move to cpp
 	static std::size_t captureStackFrames( void** frames, std::size_t maxFrames ) noexcept;
+};
+
+
+/**
+ * @brief Crash-safe forensic logging sink for Nova.
+ *
+ * BasicEmergencySink writes Nova log records to a binary stream in TLV format.
+ * Designed for crash handlers and emergency logging scenarios where:
+ * - heap allocation is unsafe
+ * - exceptions cannot be used
+ * - partial writes must be tolerated
+ * - speed matters more than completeness
+ *
+ * Key characteristics:
+ * - no heap allocation during process()
+ * - uses a fixed stack buffer of BufferSize bytes
+ * - single write() per record (more atomic)
+ * - flushes after each record (crash safety)
+ * - truncates messages that don't fit in the buffer
+ *
+ * @tparam BufferSize size of the per-record encoding buffer in bytes
+ *   The default (4096) comfortably holds typical log messages, source
+ *   location strings, and a full 32-frame stack trace.  Reduce for
+ *   bare-metal targets with limited interrupt-stack space; increase if
+ *   you need longer messages without truncation.
+ *
+ *   Minimum useful size is roughly:
+ *     8  (magic) + 4 (size) + ~60 (fixed TLVs) + message + stack frames
+ *   A static_assert enforces a 256-byte floor.
+ *
+ * TLV Format:
+ * - MAGIC (8 bytes)
+ * - size (4 bytes)
+ * - TLVs for status, sequence, timestamp, tag, file, line, function,
+ *   process info, load base address, stack frames, message
+ * - END marker
+ *
+ * Usage (signal handler):
+ * @code
+ *   // construct once at startup, before installing signal handlers
+ *   int fd = ::open( "crash.flare", O_WRONLY | O_CREAT | O_APPEND, 0644 );
+ *   static kmac::flare::FdWriter writer( fd );
+ *   static kmac::flare::EmergencySink<> sink( &writer, true, true );
+ *   kmac::nova::Logger< CrashTag >::bindSink( &sink );
+ * @endcode
+ *
+ * Bare-metal usage (smaller buffer):
+ * @code
+ *   static std::uint8_t crashBuf[ 2048 ];
+ *   static kmac::flare::RamWriter ramWriter( crashBuf, sizeof( crashBuf ) );
+ *   static kmac::flare::EmergencySink< 512 > sink( &ramWriter );
+ * @endcode
+ */
+template < std::size_t BufferSize = 4096 >
+class EmergencySink final : public EmergencySinkBase
+{
+private:
+	static_assert( BufferSize >= 256, "BufferSize must be at least 256 bytes" );
+
+	std::uint64_t _sequenceNumber = 0;   // monotonic sequence counter
+
+public:
+	using EmergencySinkBase::EmergencySinkBase;
+
+	/**
+	 * @brief Encode and write a Nova record.
+	 *
+	 * Allocates a BufferSize-byte buffer on the stack, encodes the record
+	 * into TLV format, and writes it to the underlying IWriter in a single
+	 * call.
+	 *
+	 * @param record the Record to process
+	 */
+	void process( const kmac::nova::Record& record ) noexcept override
+	{
+		if ( writer() == nullptr )
+		{
+			return;
+		}
+
+		// fixed-size stack buffer, no heap allocation
+		std::array< char, BufferSize > buffer;
+		const std::size_t encodedSize = encodeRecordTlv( record, buffer.data(), buffer.size(), _sequenceNumber );
+
+		if ( encodedSize > 0 )
+		{
+			// single atomic write
+			writer()->write( buffer.data(), encodedSize );
+
+			// flush for crash safety
+			writer()->flush();
+
+			// increment sequence number for next record
+			++_sequenceNumber;
+		}
+	}
 };
 
 } // namespace kmac::flare
