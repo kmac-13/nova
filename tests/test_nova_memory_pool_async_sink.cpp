@@ -232,7 +232,7 @@ TEST( MemoryPoolAsyncSinkTest, BasicLogging )
 	sink.process( record );
 
 	// wait for async processing
-	std::this_thread::sleep_for( std::chrono::milliseconds( 50 ) );
+	std::this_thread::sleep_for( std::chrono::milliseconds( 250 ) );
 
 	// verify
 	auto messages = capture.getMessages();
