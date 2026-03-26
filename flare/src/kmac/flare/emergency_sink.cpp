@@ -254,6 +254,15 @@ std::uint64_t EmergencySinkBase::hashString( const char* str ) noexcept
 	return ::kmac::nova::details::fnv1a( str );
 }
 
+// TODO: consider splitting platform-specific implementations into separate
+// translation units (emergency_sink_posix.cpp, emergency_sink_android.cpp,
+// emergency_sink_windows.cpp, emergency_sink_unsupported.cpp) to simplify
+// per-platform LOC counts and certification audits (DO-178C, IEC 61508,
+// ISO 26262).  The CMakeLists would select the appropriate file at configure
+// time, eliminating the need for the #if blocks below.
+// OR implement each of the methods inside the #elif blocks to simplify
+// review of all the code associated with specific platforms.
+
 // ============================================================================
 // Load base address capture
 // ============================================================================
