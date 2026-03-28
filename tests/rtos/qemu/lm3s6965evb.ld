@@ -14,7 +14,7 @@
  * minimal test binary (FreeRTOS scheduler + one task + Nova stack builder).
  */
 
-_stack_size = 0x800;  // 2K MSP (initial/interrupt) stack
+_stack_size = 0x800;  /* 2K MSP (initial/interrupt) stack */
 
 MEMORY
 {
@@ -26,9 +26,9 @@ ENTRY( Reset_Handler )
 
 SECTIONS
 {
-	// ------------------------------------------------------------------
-	// vector table and code in flash
-	// ------------------------------------------------------------------
+	/* ------------------------------------------------------------------ */
+	/* vector table and code in flash */
+	/* ------------------------------------------------------------------ */
 
 	.isr_vector :
 	{
@@ -55,11 +55,11 @@ SECTIONS
 		_etext = .;
 	} > FLASH
 
-	// ARM unwinding tables (kept for completeness; unused without exceptions)
+	/* ARM unwinding tables (kept for completeness; unused without exceptions) */
 	.ARM.extab : { *(.ARM.extab* .gnu.linkonce.armextab.*) } > FLASH
 	.ARM       : { __exidx_start = .; *(.ARM.exidx*) __exidx_end = .; } > FLASH
 
-	// constructors/destructors (newlib-nano calls __libc_init_array)
+	/* constructors/destructors (newlib-nano calls __libc_init_array) */
 	.preinit_array :
 	{
 		PROVIDE_HIDDEN( __preinit_array_start = . );
@@ -83,9 +83,9 @@ SECTIONS
 		PROVIDE_HIDDEN( __fini_array_end = . );
 	} > FLASH
 
-	// ------------------------------------------------------------------
-	// initialised data: stored in flash (LMA), copied to RAM (VMA)
-	// ------------------------------------------------------------------
+	/* ------------------------------------------------------------------ */
+	/* initialised data: stored in flash (LMA), copied to RAM (VMA) */
+	/* ------------------------------------------------------------------ */
 
 	_sidata = LOADADDR( .data );
 
@@ -99,9 +99,9 @@ SECTIONS
 		_edata = .;
 	} > RAM AT > FLASH
 
-	// ------------------------------------------------------------------
-	// zero-initialised data (BSS) in RAM
-	// ------------------------------------------------------------------
+	/* ------------------------------------------------------------------ */
+	/* zero-initialised data (BSS) in RAM */
+	/* ------------------------------------------------------------------ */
 
 	.bss :
 	{
@@ -116,10 +116,10 @@ SECTIONS
 		__bss_end__ = _ebss;
 	} > RAM
 
-	// ------------------------------------------------------------------
-	// MSP stack reservation at the top of RAM
-	// _estack is entry 0 of the vector table (initial stack pointer)
-	// ------------------------------------------------------------------
+	/* ------------------------------------------------------------------ */
+	/* MSP stack reservation at the top of RAM */
+	/* _estack is entry 0 of the vector table (initial stack pointer) */
+	/* ------------------------------------------------------------------ */
 
 	._user_heap_stack :
 	{
@@ -130,9 +130,9 @@ SECTIONS
 
 	_estack = ORIGIN( RAM ) + LENGTH( RAM );
 
-	// ------------------------------------------------------------------
-	// discard C++ exception handling tables (not needed without -fexceptions)
-	// ------------------------------------------------------------------
+	/* ------------------------------------------------------------------ */
+	/* discard C++ exception handling tables (not needed without -fexceptions) */
+	/* ------------------------------------------------------------------ */
 
 	/DISCARD/ :
 	{
