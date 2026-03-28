@@ -4,7 +4,7 @@
  *
  * Runs on two CI targets:
  *   - POSIX simulator (hosted Linux, native execution, no QEMU)
- *   - ARM Cortex-M3 under qemu-system-arm -machine lm3s6965evb -semihosting
+ *   - ARM Cortex-M3 under qemu-system-arm -machine mps2-an385 -semihosting
  *
  * The test exercises Nova core under NOVA_RTOS conditions (NOVA_NO_TLS
  * implied, so NOVA_LOG falls back to stack-based logging).  It is
@@ -72,20 +72,20 @@ static void failTest( const char* expr, const char* file, int line )
 // clang-format off
 #if defined( __arm__ ) || defined( __ARM_ARCH )
 #define CHECK( expr, n ) \
-do { \
-	if ( ! ( expr ) ) { \
-		semihostingExit( n ); \
-	} \
-} while( 0 )
+	do { \
+		if ( ! ( expr ) ) { \
+			semihostingExit( n ); \
+		} \
+	} while( 0 )
 #else
 #define CHECK( expr, n ) \
-do { \
-	if ( ! ( expr ) ) { \
-		failTest( #expr, __FILE__, __LINE__ ); \
-		printf( "%s\n", g_failMsg ); \
-		_Exit( n ); \
-	} \
-} while( 0 )
+	do { \
+		if ( ! ( expr ) ) { \
+			failTest( #expr, __FILE__, __LINE__ ); \
+			printf( "%s\n", g_failMsg ); \
+			_Exit( n ); \
+		} \
+	} while( 0 )
 #endif
 
 // clang-format on

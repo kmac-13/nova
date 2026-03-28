@@ -16,9 +16,9 @@
  *
  * ARM Cortex-M3 notes:
  *   - configCPU_CLOCK_HZ is unused at runtime under QEMU but required by
- *     some port internals; a representative value is provided
+ *     some port internals; the mps2-an385 value (25 MHz) is provided
  *   - configMAX_SYSCALL_INTERRUPT_PRIORITY must be set for CM3 port
- *   - configPRIO_BITS = 3 matches the lm3s6965evb NVIC (8 priority levels)
+ *   - configPRIO_BITS = 3 matches the mps2-an385 NVIC (8 priority levels)
  */
 
 // ============================================================================
@@ -79,16 +79,16 @@
 // ============================================================================
 
 #if defined( __ARM_ARCH_7M__ ) || defined( __CORTEX_M )
-	// lm3s6965evb CPU clock; unused at runtime under QEMU
-	#define configCPU_CLOCK_HZ ( ( unsigned long ) 50000000 )
+	/* mps2-an385 CPU clock (25 MHz); used to compute SysTick reload value */
+	#define configCPU_CLOCK_HZ ( ( unsigned long ) 25000000 )
 
-	// NVIC priority bits on lm3s6965evb (Cortex-M3 with 3 implemented bits)
+	/* NVIC priority bits on mps2-an385 (Cortex-M3 with 3 implemented bits) */
 	#define configPRIO_BITS 3
 
-	// lowest interrupt priority
+	/* lowest interrupt priority */
 	#define configLIBRARY_LOWEST_INTERRUPT_PRIORITY 0x07
 
-	// highest priority from which FreeRTOS API may be called from an ISR
+	/* highest priority from which FreeRTOS API may be called from an ISR */
 	#define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY 4
 
 	#define configKERNEL_INTERRUPT_PRIORITY \
@@ -96,17 +96,10 @@
 	#define configMAX_SYSCALL_INTERRUPT_PRIORITY \
 		( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << ( 8 - configPRIO_BITS ) )
 
-	// map FreeRTOS fault/assertion handlers to bare-metal names
+	/* map FreeRTOS fault/assertion handlers to bare-metal names */
 	#define vPortSVCHandler SVC_Handler
 	#define xPortPendSVHandler PendSV_Handler
 	#define xPortSysTickHandler SysTick_Handler
-
-	// disable the port's runtime vector table check: it reads VTOR and
-	// asserts SVC/PendSV slots contain the FreeRTOS handlers;
-	// Under QEMU lm3s6965evb the check fires as a false positive due to how
-	// the port compares internal function pointers against the
-	// weak-alias-resolved vector table entries (table is correctly constructed)
-	#define configCHECK_HANDLER_INSTALLATION 0
 #endif
 
 // ============================================================================
@@ -133,7 +126,7 @@
 
 // ============================================================================
 // Assertion
-// Uses printf + _Exit so QEMU semihosting sees the failure message before
+// Uses printf -> _Exit so QEMU semihosting sees the failure message before
 // the process terminates.  On the POSIX port printf is safe here because
 // configASSERT is only invoked during initialisation or from task context,
 // never from an ISR.
@@ -142,15 +135,12 @@
 /* configASSERT is defined as a no-op for this test binary.
  *
  * The CM3 port's xPortStartScheduler() performs a runtime NVIC priority
- * detection: it writes 0xFF to an interrupt priority register, reads it back
- * to count implemented bits, and asserts the result is non-zero.  Under QEMU
- * lm3s6965evb the priority register read returns 0 (QEMU does not fully
- * emulate Cortex-M3 NVIC priority bits), causing configASSERT to fire before
- * the scheduler even starts.
- *
- * Nova's test validates logging correctness, not FreeRTOS internals.
- * Disabling configASSERT lets the scheduler start under QEMU.  The write to
- * fd 2 and _Exit(1) path is preserved as a comment for reference. */
+ * detection: it writes 0xFF to an interrupt priority register and reads it
+ * back to count implemented bits, then asserts the result is non-zero.
+ * lm3s6965evb (the previous QEMU target) returned 0 from that read, causing
+ * a false assert before the scheduler started.  mps2-an385 emulates the NVIC
+ * correctly, but configASSERT remains a no-op here since we are testing Nova
+ * logging correctness, not FreeRTOS internals. */
 #define configASSERT( x ) ( ( void ) ( x ) )
 
 #endif // FREERTOS_CONFIG_H

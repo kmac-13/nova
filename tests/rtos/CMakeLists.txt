@@ -10,8 +10,8 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 # ============================================================================
 #
 # FREERTOS_PORT selects the portable layer.
-#   GCC_POSIX     - hosted Linux simulation (native execution, no QEMU needed)
-#   GCC_ARM_CM3   - Cortex-M3 (matches lm3s6965evb QEMU machine)
+#   GCC_POSIX   - hosted Linux simulation (native execution, no QEMU needed)
+#   GCC_ARM_CM3 - Cortex-M3 (targets mps2-an385 under QEMU)
 #
 # FREERTOS_HEAP selects the heap implementation.
 #   4 - best-fit with coalescing; adequate for the test binary's small
@@ -60,10 +60,13 @@ target_compile_definitions( freertos_config INTERFACE
 # ARM-specific block (configCPU_CLOCK_HZ, NVIC priorities, handler names) is
 # skipped entirely, causing configASSERT failures at scheduler startup.
 if( CMAKE_CROSSCOMPILING )
-	target_compile_options( freertos_config INTERFACE
-		-mcpu=cortex-m3
-		-mthumb
-		-mfloat-abi=soft
+	set( CMAKE_C_FLAGS
+		"${CMAKE_C_FLAGS} -mcpu=cortex-m3 -mthumb -mfloat-abi=soft"
+		CACHE STRING "" FORCE
+	)
+	set( CMAKE_CXX_FLAGS
+		"${CMAKE_CXX_FLAGS} -mcpu=cortex-m3 -mthumb -mfloat-abi=soft"
+		CACHE STRING "" FORCE
 	)
 endif()
 
@@ -92,7 +95,7 @@ set( TEST_SOURCES
 	qemu/semihosting.c
 )
 
-# startup file and linker script are only needed for the ARM cross-compile
+# startup file is only needed for the ARM cross-compile
 if( CMAKE_CROSSCOMPILING )
 	list( APPEND TEST_SOURCES qemu/startup_lm3s6965evb.c )
 endif()
@@ -137,7 +140,7 @@ endif()
 
 if( CMAKE_CROSSCOMPILING )
 	target_link_options( test_nova_rtos PRIVATE
-		-T${CMAKE_CURRENT_SOURCE_DIR}/qemu/lm3s6965evb.ld
+		-T${CMAKE_CURRENT_SOURCE_DIR}/qemu/mps2-an385.ld
 		-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/test_nova_rtos.map
 	)
 
@@ -162,7 +165,7 @@ endif()
 # ============================================================================
 
 if( CMAKE_CROSSCOMPILING )
-	message( STATUS "Nova RTOS test: ARM Cortex-M3 / lm3s6965evb (QEMU)" )
+	message( STATUS "Nova RTOS test: ARM Cortex-M3 / mps2-an385 (QEMU)" )
 else()
 	message( STATUS "Nova RTOS test: POSIX simulator (hosted)" )
 endif()

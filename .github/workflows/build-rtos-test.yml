@@ -38,25 +38,19 @@ jobs:
           # ----------------------------------------------------------------
           # ARM Cortex-M3 - cross-compiled, executed under QEMU
           # ----------------------------------------------------------------
-          # Cross-compiles test_nova_rtos for Cortex-M3 (lm3s6965evb) and
-          # runs it under qemu-system-arm.  This is about as close CI can
-          # get to a real embedded target without hardware.
+          # Cross-compiles test_nova_rtos for Cortex-M3 and runs it under
+          # qemu-system-arm with the mps2-an385 machine.
           #
-          # The lm3s6965evb machine is chosen because:
-          #   - It is QEMU's canonical FreeRTOS demo target (Cortex-M3,
-          #     matches the GCC_ARM_CM3 port)
-          #   - It has no peripheral dependencies that require stub drivers
-          #   - semihosting exit (bkpt #0xAB / SYS_EXIT) is well-supported
-          #     in QEMU's lm3s6965evb model
+          # mps2-an385 is chosen over lm3s6965evb because:
+          #   - It is the machine used by all maintained FreeRTOS QEMU demos
+          #   - Its NVIC emulation is complete enough for the CM3 port's
+          #     startup self-tests (priority register read-back works)
+          #   - lm3s6965evb NVIC returns 0 on priority register read-back,
+          #     triggering a false configASSERT before the scheduler starts
           #
           # Pass/fail is communicated via the semihosting SYS_EXIT call in
           # semihostingExit(), which QEMU translates to a host process exit
           # code that GitHub Actions reads as the step result.
-          #
-          # Timeout: 30 s is generous for a binary that does no I/O and
-          # exits immediately after the test task completes.  A hang (e.g.
-          # scheduler startup failure or infinite loop in Default_Handler)
-          # will be caught by the timeout rather than blocking the runner.
           - name: RTOS / FreeRTOS ARM Cortex-M3 / QEMU / Test
             rtos_cross: true
             install: |
@@ -117,24 +111,25 @@ jobs:
       # Run - ARM Cortex-M3 under QEMU with semihosting
       # ----------------------------------------------------------------
       # Flags:
-      #   -machine lm3s6965evb  : Stellaris LM3S6965 evaluation board
-      #                           (Cortex-M3, matches GCC_ARM_CM3 port)
+      #   -machine mps2-an385   : ARM MPS2 AN385 board (Cortex-M3); used by
+      #                           all maintained FreeRTOS QEMU demos because
+      #                           its NVIC emulation is complete
+      #   -cpu cortex-m3        : explicit CPU selection for mps2-an385
       #   -nographic            : suppress SDL/VGA window (CI has no display)
       #   -semihosting          : enable ARM semihosting so semihostingExit()
       #                           (bkpt #0xAB / SYS_EXIT) translates to a
       #                           host process exit code
       #   -semihosting-config target=native : host intercepts semihosting
       #                           calls directly (as opposed to gdbserver mode)
-      #   -kernel               : ELF binary to load (QEMU reads the ELF
-      #                           headers and loads each section at its VMA,
-      #                           then sets PC = entry point)
+      #   -kernel               : ELF binary to load
       #   timeout 30            : kill QEMU after 30 s if semihostingExit()
       #                           is never reached (guards against hangs)
       - name: Run tests (ARM Cortex-M3 / QEMU)
         if: matrix.rtos_cross
         run: |
           timeout 30 qemu-system-arm \
-            -machine lm3s6965evb \
+            -machine mps2-an385 \
+            -cpu cortex-m3 \
             -nographic \
             -semihosting \
             -semihosting-config target=native \
