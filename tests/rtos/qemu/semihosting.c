@@ -1,5 +1,5 @@
 /*
- * semihosting.c — semihosting exit helper
+ * semihosting.c - semihosting exit helper
  *
  * On ARM targets running under QEMU with -semihosting, semihostingExit()
  * issues an ANGEL_SWI call (SYS_EXIT) that QEMU intercepts and uses as
@@ -11,7 +11,7 @@
  * compiles on both targets.  The test calls exit() directly on POSIX.
  *
  * References:
- *   ARM IHI0031F §8.3 — SYS_EXIT (0x18)
+ *   ARM IHI0031F §8.3 - SYS_EXIT (0x18)
  *   QEMU semihosting: docs/about/deprecated.rst, hw/semihosting/arm-compat-semi.c
  */
 
@@ -26,48 +26,37 @@
 // SYS_EXIT operation code (ARM semihosting spec §8.3)
 #define SEMIHOSTING_SYS_EXIT 0x18UL
 
-// ADP_Stopped_ApplicationExit — normal application exit reason
+// ADP_Stopped_ApplicationExit: normal exit reason, QEMU maps this to host exit(0)
 #define ADP_STOPPED_APPLICATION_EXIT 0x20026UL
-
-typedef struct SemihostExitBlock
-{
-	unsigned long reason;
-	unsigned long exitCode;
-} SemihostExitBlock;
 
 void semihostingExit( int exitCode )
 {
-	// the SYS_EXIT block must be in memory that QEMU can read, and
-	// volatile prevents the compiler from eliding the struct before the
-	// SWI is issued
-	volatile SemihostExitBlock block =
-	{
-		.reason   = ADP_STOPPED_APPLICATION_EXIT,
-		.exitCode = ( unsigned long ) exitCode
-	};
+	// For 32-bit ARM, SYS_EXIT (0x18) takes the reason code directly in r1,
+	// not a pointer to a block.  QEMU maps ADP_Stopped_ApplicationExit to
+	// host exit(0); any other reason code maps to host exit(1).
+	// SYS_EXIT_EXTENDED (0x20) supports arbitrary exit codes via a block,
+	// but requires probing for the extension first.  Since CI only needs
+	// pass/fail, using the two standard reason codes is sufficient.
+	const unsigned long reason = ( exitCode == 0 )
+		? ADP_STOPPED_APPLICATION_EXIT  // -> QEMU host exit(0)
+		: 0x20023UL;                    // ADP_Stopped_RunTimeError -> exit(1)
 
-	// issue ANGEL_SWI (SVC #0xAB on Thumb).  r0 = operation, r1 = &block.
-	// this call does not return under QEMU; the infinite loop is a backstop
-	// for hardware targets where semihosting is not connected
 	__asm__ volatile
 	(
 		"mov r0, %[op]\n"
-		"mov r1, %[blk]\n"
-		"bkpt #0xAB \n"   // ANGEL_SWI Thumb encoding
+		"mov r1, %[rsn]\n"
+		"bkpt #0xAB\n"
 		:
 		: [op]  "r" ( SEMIHOSTING_SYS_EXIT ),
-		  [blk] "r" ( &block )
+		  [rsn] "r" ( reason )
 		: "r0", "r1", "memory"
 	);
 
-	// should not reach here under QEMU; halt on hardware
-	for( ;; )
-	{
-	}
+	for( ;; ) {}
 }
 
 // ============================================================================
-// POSIX stub — normal process exit is used instead
+// POSIX stub - normal process exit is used instead
 // ============================================================================
 
 #else // !__arm__
