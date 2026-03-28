@@ -54,6 +54,19 @@ target_compile_definitions( freertos_config INTERFACE
 	$<$<NOT:$<BOOL:${CMAKE_CROSSCOMPILING}>>:projCOVERAGE_TEST=0>
 )
 
+# Pass CPU flags through freertos_config so the FreeRTOS kernel subproject
+# inherits them.  Without this, FetchContent compiles the kernel without
+# -mcpu=cortex-m3, __ARM_ARCH_7M__ is not defined, and FreeRTOSConfig.h's
+# ARM-specific block (configCPU_CLOCK_HZ, NVIC priorities, handler names) is
+# skipped entirely, causing configASSERT failures at scheduler startup.
+if( CMAKE_CROSSCOMPILING )
+	target_compile_options( freertos_config INTERFACE
+		-mcpu=cortex-m3
+		-mthumb
+		-mfloat-abi=soft
+	)
+endif()
+
 FetchContent_MakeAvailable( freertos_kernel )
 
 # ============================================================================
