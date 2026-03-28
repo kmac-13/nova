@@ -116,6 +116,12 @@ SECTIONS
 		__bss_end__ = _ebss;
 	} > RAM
 
+	/* end marks the first free RAM address after .bss, used by newlib's
+	 * _sbrk() to know where the heap can start.  FreeRTOS heap_4 manages
+	 * its own pool (ucHeap[] in .bss), so _sbrk is never actually called
+	 * at runtime; the symbol just needs to exist to satisfy the link. */
+	PROVIDE( end = _ebss );
+
 	/* ------------------------------------------------------------------ */
 	/* MSP stack reservation at the top of RAM */
 	/* _estack is entry 0 of the vector table (initial stack pointer) */
