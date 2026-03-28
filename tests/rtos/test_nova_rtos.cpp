@@ -58,35 +58,36 @@ static void failTest( const char* expr, const char* file, int line )
 	snprintf( g_failMsg, sizeof( g_failMsg ), "FAIL %s:%d  %s", file, line, expr );
 }
 
-// Both ARM and POSIX exit directly from the task:
-//   ARM   - semihostingExit() issues ANGEL_SWI; QEMU terminates the process
-//   POSIX - _Exit() terminates the process immediately without running atexit
-//           handlers or cancelling pthreads, so the POSIX port's pthread task
-//           wrapper never fires its configASSERT(pdFALSE) guard
+// CHECK( expr, n ) - evaluates expr and exits with code n on failure.
 //
-// vTaskDelete / vTaskSuspend / vTaskEndScheduler are all intentionally avoided:
-// each causes the POSIX port to reach prvWaitForStart's post-task assert via
-// different race paths.  Direct process exit is the only safe termination
-// pattern when the test result is known and no cleanup is required.
+// On ARM, the exit code is passed directly to semihostingExit() so QEMU
+// propagates it as the CI step result, making the failing check immediately
+// visible in the log (e.g. exit code 3 = check 3 failed).
+// On POSIX _Exit() is used with the same code; printf prints the message first.
+//
+// Exit code convention:
+//   0   = all tests passed
+//   1-N = check N failed
+//   99  = vTaskStartScheduler returned unexpectedly
 // clang-format off
 #if defined( __arm__ ) || defined( __ARM_ARCH )
-	#define CHECK( expr ) \
-		do { \
-			if( !( expr ) ) { \
-				failTest( #expr, __FILE__, __LINE__ ); \
-				semihostingExit( 1 ); \
-			} \
-		} while( 0 )
+#define CHECK( expr, n ) \
+do { \
+	if ( ! ( expr ) ) { \
+		semihostingExit( n ); \
+	} \
+} while( 0 )
 #else
-	#define CHECK( expr ) \
-		do { \
-			if( !( expr ) ) { \
-				failTest( #expr, __FILE__, __LINE__ ); \
-				printf( "%s\n", g_failMsg ); \
-				_Exit( 1 ); \
-			} \
-		} while( 0 )
+#define CHECK( expr, n ) \
+do { \
+	if ( ! ( expr ) ) { \
+		failTest( #expr, __FILE__, __LINE__ ); \
+		printf( "%s\n", g_failMsg ); \
+		_Exit( n ); \
+	} \
+} while( 0 )
 #endif
+
 // clang-format on
 
 // ============================================================================
@@ -154,12 +155,12 @@ int main( void )
 	static constexpr uint16_t TASK_STACK_WORDS = 512U;
 
 	xTaskCreate(
-	    testTask,
-	    "NovaTest",
-	    TASK_STACK_WORDS,
-	    nullptr,
-	    tskIDLE_PRIORITY + 1U,
-	    nullptr
+		testTask,
+		"NovaTest",
+		TASK_STACK_WORDS,
+		nullptr,
+		tskIDLE_PRIORITY + 1U,
+		nullptr
 	);
 
 	vTaskStartScheduler();
@@ -172,9 +173,9 @@ int main( void )
 	printf( "FAIL: vTaskStartScheduler returned unexpectedly\n" );
 
 #if defined( __arm__ ) || defined( __ARM_ARCH )
-	semihostingExit( 1 );
+	semihostingExit( 99 );
 #else
-	_Exit( 1 );
+	_Exit( 99 );
 #endif
 
 	return 0;
@@ -225,8 +226,8 @@ static void testTask( void* /*params*/ )
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "hello rtos";
-		CHECK( sink.received() );
-		CHECK( sink.contains( "hello rtos" ) );
+		CHECK( sink.received(), 1 );
+		CHECK( sink.contains( "hello rtos" ), 2 );
 		sink.clear();
 	}
 
@@ -235,7 +236,7 @@ static void testTask( void* /*params*/ )
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "count=" << 42;
-		CHECK( sink.contains( "count=42" ) );
+		CHECK( sink.contains( "count=42" ), 3 );
 		sink.clear();
 	}
 
@@ -244,7 +245,7 @@ static void testTask( void* /*params*/ )
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "neg=" << -7;
-		CHECK( sink.contains( "neg=-7" ) );
+		CHECK( sink.contains( "neg=-7" ), 4 );
 		sink.clear();
 	}
 
@@ -253,9 +254,9 @@ static void testTask( void* /*params*/ )
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "a=" << 1 << " b=" << 2 << " c=" << 3;
-		CHECK( sink.contains( "a=1" ) );
-		CHECK( sink.contains( "b=2" ) );
-		CHECK( sink.contains( "c=3" ) );
+		CHECK( sink.contains( "a=1" ), 5 );
+		CHECK( sink.contains( "b=2" ), 6 );
+		CHECK( sink.contains( "c=3" ), 7 );
 		sink.clear();
 	}
 
@@ -264,13 +265,14 @@ static void testTask( void* /*params*/ )
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "u=" << 255u;
-		CHECK( sink.contains( "u=255" ) );
+		CHECK( sink.contains( "u=255" ), 8 );
 		sink.clear();
 	}
 
-// ------------------------------------------------------------------
-// all tests passed, exit the process directly from task context
-// ------------------------------------------------------------------
+	// ------------------------------------------------------------------
+	// all tests passed, exit the process directly from task context
+	// ------------------------------------------------------------------
+
 #if defined( __arm__ ) || defined( __ARM_ARCH )
 	semihostingExit( 0 );
 #else
