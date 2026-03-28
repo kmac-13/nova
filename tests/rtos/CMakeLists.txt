@@ -101,14 +101,20 @@ target_link_libraries( test_nova_rtos PRIVATE
 # Nova auto-detects FreeRTOS from the INC_FREERTOS_H macro that FreeRTOS.h
 # defines when included, so repeating it here causes a redefinition warning.
 #
-# NOVA_NO_CHARCONV is added for cross-compile builds: arm-none-eabi with
-# newlib-nano does not provide a working std::to_chars, so Nova's fallback
-# implementations in platform/int_to_chars.h and platform/float_to_chars.h
-# are used instead.  On hosted POSIX builds charconv is available and this
-# flag is omitted so the standard path is exercised.
+# The two flags below are added only for cross-compile (ARM) builds:
+#
+# NOVA_NO_CHARCONV: arm-none-eabi with newlib-nano does not provide a working
+#   std::to_chars, so Nova's fallback implementations in platform/int_to_chars.h
+#   and platform/float_to_chars.h are used instead.
+#
+# NOVA_NO_ATOMIC: std::atomic on arm-none-eabi requires libatomic for some
+#   operations, which is not linked here.  The volatile-pointer fallback in
+#   platform/atomic.h is safe for this test: sink binding happens from a single
+#   task before any concurrent access is possible.
 target_compile_definitions( test_nova_rtos PRIVATE
 	NOVA_RTOS
 	$<$<BOOL:${CMAKE_CROSSCOMPILING}>:NOVA_NO_CHARCONV>
+	$<$<BOOL:${CMAKE_CROSSCOMPILING}>:NOVA_NO_ATOMIC>
 )
 
 # ============================================================================
