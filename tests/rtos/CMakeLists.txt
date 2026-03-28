@@ -100,8 +100,15 @@ target_link_libraries( test_nova_rtos PRIVATE
 # (NOVA_NO_TLS implied).  NOVA_PLATFORM_FREERTOS is intentionally omitted:
 # Nova auto-detects FreeRTOS from the INC_FREERTOS_H macro that FreeRTOS.h
 # defines when included, so repeating it here causes a redefinition warning.
+#
+# NOVA_NO_CHARCONV is added for cross-compile builds: arm-none-eabi with
+# newlib-nano does not provide a working std::to_chars, so Nova's fallback
+# implementations in platform/int_to_chars.h and platform/float_to_chars.h
+# are used instead.  On hosted POSIX builds charconv is available and this
+# flag is omitted so the standard path is exercised.
 target_compile_definitions( test_nova_rtos PRIVATE
 	NOVA_RTOS
+	$<$<BOOL:${CMAKE_CROSSCOMPILING}>:NOVA_NO_CHARCONV>
 )
 
 # ============================================================================
