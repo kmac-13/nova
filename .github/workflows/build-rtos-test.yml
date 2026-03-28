@@ -98,7 +98,7 @@ jobs:
           cmake -B build/rtos-test \
             -S tests/rtos \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/arm-none-eabi-cortex-m3.cmake
+            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/cmake/toolchains/arm-none-eabi-cortex-m3.cmake
 
       # ----------------------------------------------------------------
       # Build
