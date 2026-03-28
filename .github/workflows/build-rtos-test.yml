@@ -1,0 +1,136 @@
+name: Build / RTOS (Test)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+
+          # ----------------------------------------------------------------
+          # POSIX simulator - hosted Linux, native execution, no QEMU
+          # ----------------------------------------------------------------
+          # Builds test_nova_rtos against the FreeRTOS GCC_POSIX port and
+          # runs it directly on the GitHub Actions runner.  This exercises
+          # the NOVA_RTOS / NOVA_NO_TLS compilation path and verifies that
+          # Nova core delivers records correctly from a FreeRTOS task context
+          # on a hosted platform.
+          #
+          # The POSIX port runs FreeRTOS tasks as pthreads on the host OS.
+          # It is not a real-time simulator, but it is sufficient to verify
+          # that Nova's stack-based logging path, RamSink delivery, and
+          # ScopedConfigurator teardown all work correctly under a FreeRTOS
+          # scheduler.
+          - name: RTOS / FreeRTOS POSIX / Test
+            rtos_cross: false
+            install: sudo apt-get install -y gcc-13 g++-13
+            cc:  gcc-13
+            cxx: g++-13
+
+          # ----------------------------------------------------------------
+          # ARM Cortex-M3 - cross-compiled, executed under QEMU
+          # ----------------------------------------------------------------
+          # Cross-compiles test_nova_rtos for Cortex-M3 and runs it under
+          # qemu-system-arm with the mps2-an385 machine.
+          #
+          # mps2-an385 is chosen over lm3s6965evb because:
+          #   - It is the machine used by all maintained FreeRTOS QEMU demos
+          #   - Its NVIC emulation is complete enough for the CM3 port's
+          #     startup self-tests (priority register read-back works)
+          #   - lm3s6965evb NVIC returns 0 on priority register read-back,
+          #     triggering a false configASSERT before the scheduler starts
+          #
+          # Pass/fail is communicated via the semihosting SYS_EXIT call in
+          # semihostingExit(), which QEMU translates to a host process exit
+          # code that GitHub Actions reads as the step result.
+          - name: RTOS / FreeRTOS ARM Cortex-M3 / QEMU / Test
+            rtos_cross: true
+            install: |
+              sudo apt-get install -y gcc-arm-none-eabi qemu-system-arm
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install toolchain and dependencies
+        run: |
+          sudo apt-get update -qq
+          ${{ matrix.install }}
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      # ----------------------------------------------------------------
+      # Configure - POSIX (hosted)
+      # ----------------------------------------------------------------
+      - name: Configure (POSIX)
+        if: '!matrix.rtos_cross'
+        run: |
+          cmake -B build/rtos-test \
+            -S tests/rtos \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+
+      # ----------------------------------------------------------------
+      # Configure - ARM Cortex-M3 cross-compile
+      # ----------------------------------------------------------------
+      - name: Configure (ARM Cortex-M3)
+        if: matrix.rtos_cross
+        run: |
+          cmake -B build/rtos-test \
+            -S tests/rtos \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/cmake/toolchains/arm-none-eabi-cortex-m3.cmake
+
+      # ----------------------------------------------------------------
+      # Build
+      # ----------------------------------------------------------------
+      - name: Build
+        run: cmake --build build/rtos-test --parallel
+
+      # ----------------------------------------------------------------
+      # Run - POSIX (direct execution)
+      # ----------------------------------------------------------------
+      - name: Run tests (POSIX)
+        if: '!matrix.rtos_cross'
+        run: ./build/rtos-test/test_nova_rtos
+
+      # ----------------------------------------------------------------
+      # Run - ARM Cortex-M3 under QEMU with semihosting
+      # ----------------------------------------------------------------
+      # Flags:
+      #   -machine mps2-an385   : ARM MPS2 AN385 board (Cortex-M3); used by
+      #                           all maintained FreeRTOS QEMU demos because
+      #                           its NVIC emulation is complete
+      #   -cpu cortex-m3        : explicit CPU selection for mps2-an385
+      #   -nographic            : suppress SDL/VGA window (CI has no display)
+      #   -semihosting          : enable ARM semihosting so semihostingExit()
+      #                           (bkpt #0xAB / SYS_EXIT) translates to a
+      #                           host process exit code
+      #   -semihosting-config target=native : host intercepts semihosting
+      #                           calls directly (as opposed to gdbserver mode)
+      #   -kernel               : ELF binary to load
+      #   timeout 30            : kill QEMU after 30 s if semihostingExit()
+      #                           is never reached (guards against hangs)
+      - name: Run tests (ARM Cortex-M3 / QEMU)
+        if: matrix.rtos_cross
+        run: |
+          timeout 30 qemu-system-arm \
+            -machine mps2-an385 \
+            -cpu cortex-m3 \
+            -nographic \
+            -semihosting \
+            -semihosting-config target=native \
+            -kernel build/rtos-test/test_nova_rtos
