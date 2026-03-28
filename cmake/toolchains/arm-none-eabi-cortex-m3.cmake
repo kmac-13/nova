@@ -52,18 +52,24 @@ set( CPU_FLAGS
 # -----------------------------------------------------------------------------
 set( COMMON_FLAGS
 	${CPU_FLAGS}
-	-fno-exceptions
-	-fno-rtti
 	-ffunction-sections    # allow linker to GC unused functions
 	-fdata-sections        # allow linker to GC unused data
 	-Wall
 	-Wextra
 )
 
+# -fno-exceptions and -fno-rtti are C++ only; applying them to C files
+# produces spurious "valid for C++/D/ObjC++ but not for C" warnings.
+set( CXX_ONLY_FLAGS
+	-fno-exceptions
+	-fno-rtti
+)
+
 string( JOIN " " COMMON_FLAGS_STR ${COMMON_FLAGS} )
+string( JOIN " " CXX_ONLY_FLAGS_STR ${CXX_ONLY_FLAGS} )
 
 set( CMAKE_C_FLAGS_INIT   "${COMMON_FLAGS_STR}" )
-set( CMAKE_CXX_FLAGS_INIT "${COMMON_FLAGS_STR} -std=c++17" )
+set( CMAKE_CXX_FLAGS_INIT "${COMMON_FLAGS_STR} ${CXX_ONLY_FLAGS_STR} -std=c++17" )
 set( CMAKE_ASM_FLAGS_INIT "${COMMON_FLAGS_STR} -x assembler-with-cpp" )
 
 # -----------------------------------------------------------------------------
