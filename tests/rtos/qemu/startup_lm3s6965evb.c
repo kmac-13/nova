@@ -62,6 +62,12 @@ void Reset_Handler( void )
 		*dst++ = 0;
 	}
 
+	// run C++ static constructors (.init_array section);
+	// without this, objects with non-trivial constructors (e.g. std::atomic,
+	// Nova's Logger<Tag>::_sink) are left uninitialised before main() runs
+	extern void __libc_init_array( void );
+	__libc_init_array();
+
 	// call application entry point; should not return
 	( void ) main();
 
@@ -86,7 +92,7 @@ void DebugMon_Handler( void )    __attribute__( ( weak, alias( "Default_Handler"
 void PendSV_Handler( void )      __attribute__( ( weak, alias( "Default_Handler" ) ) );
 void SysTick_Handler( void )     __attribute__( ( weak, alias( "Default_Handler" ) ) );
 
-/* lm3s6965evb peripheral IRQs (slots 16–58) - all defaulted */
+/* lm3s6965evb peripheral IRQs (slots 16-58) - all defaulted */
 void GPIOA_Handler( void )       __attribute__( ( weak, alias( "Default_Handler" ) ) );
 void GPIOB_Handler( void )       __attribute__( ( weak, alias( "Default_Handler" ) ) );
 void GPIOC_Handler( void )       __attribute__( ( weak, alias( "Default_Handler" ) ) );
@@ -149,7 +155,7 @@ const VectorEntry g_vectorTable[] =
 	// entry 1: reset handler
 	Reset_Handler,
 
-	// Cortex-M3 system exceptions (entries 2–15)
+	// Cortex-M3 system exceptions (entries 2-15)
 	NMI_Handler,
 	HardFault_Handler,
 	MemManage_Handler,
@@ -165,7 +171,7 @@ const VectorEntry g_vectorTable[] =
 	PendSV_Handler,
 	SysTick_Handler,
 
-	// lm3s6965evb peripheral IRQs (entries 16–58)
+	// lm3s6965evb peripheral IRQs (entries 16-58)
 	GPIOA_Handler,
 	GPIOB_Handler,
 	GPIOC_Handler,
