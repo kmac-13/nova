@@ -116,13 +116,13 @@ NOVA_LOGGER_TRAITS( RtosTestTag, RTOS_TEST, true, rtosTimestamp );
 class RamSink : public kmac::nova::Sink
 {
 private:
+	static constexpr std::size_t BUF_SIZE = 128;
+
 	char _buf[ BUF_SIZE ] = {};
 	std::size_t _size = 0;
 	std::size_t _count = 0;
 
 public:
-	static constexpr std::size_t BUF_SIZE = 128;
-
 	// Returns true if the last record's message contains the given substring.
 	bool contains( const char* needle ) const noexcept;
 
@@ -196,7 +196,7 @@ bool RamSink::received() const noexcept
 	return _count > 0;
 }
 
-void RamSink::process( const kmac::nova::Record& record ) override
+void RamSink::process( const kmac::nova::Record& record )
 {
 	const std::size_t len = record.messageSize < BUF_SIZE
 		? record.messageSize
