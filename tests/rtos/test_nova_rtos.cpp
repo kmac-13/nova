@@ -173,9 +173,9 @@ int main( void )
 	printf( "FAIL: vTaskStartScheduler returned unexpectedly\n" );
 
 #if defined( __arm__ ) || defined( __ARM_ARCH )
-	semihostingExit( 99 );
+	semihostingExit( -99 );
 #else
-	_Exit( 99 );
+	_Exit( -99 );
 #endif
 
 	return 0;
@@ -222,50 +222,50 @@ static void testTask( void* /*params*/ )
 	config.bind< RtosTestTag >( &sink );
 
 	// ------------------------------------------------------------------
-	// Test 1: basic string delivery
+	// Test 1 & 2: basic string delivery and verification
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "hello rtos";
-		CHECK( sink.received(), 1 );
-		CHECK( sink.contains( "hello rtos" ), 2 );
+		CHECK( sink.received(), -1 );
+		CHECK( sink.contains( "hello rtos" ), -2 );
 		sink.clear();
 	}
 
 	// ------------------------------------------------------------------
-	// Test 2: integer append (exercises NOVA_NO_CHARCONV fallback path)
+	// Test 3: integer append (exercises NOVA_NO_CHARCONV fallback path)
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "count=" << 42;
-		CHECK( sink.contains( "count=42" ), 3 );
+		CHECK( sink.contains( "count=42" ), -3 );
 		sink.clear();
 	}
 
 	// ------------------------------------------------------------------
-	// Test 3: negative integer
+	// Test 4: negative integer
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "neg=" << -7;
-		CHECK( sink.contains( "neg=-7" ), 4 );
+		CHECK( sink.contains( "neg=-7" ), -4 );
 		sink.clear();
 	}
 
 	// ------------------------------------------------------------------
-	// Test 4: multiple appends in one record
+	// Test 5, 6, & 7: multiple appends in one record
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "a=" << 1 << " b=" << 2 << " c=" << 3;
-		CHECK( sink.contains( "a=1" ), 5 );
-		CHECK( sink.contains( "b=2" ), 6 );
-		CHECK( sink.contains( "c=3" ), 7 );
+		CHECK( sink.contains( "a=1" ), -5 );
+		CHECK( sink.contains( "b=2" ), -6 );
+		CHECK( sink.contains( "c=3" ), -7 );
 		sink.clear();
 	}
 
 	// ------------------------------------------------------------------
-	// Test 5: unsigned integer (exercises unsigned path in intToChars)
+	// Test 8: unsigned integer (exercises unsigned path in intToChars)
 	// ------------------------------------------------------------------
 	{
 		NOVA_LOG_STACK( RtosTestTag ) << "u=" << 255u;
-		CHECK( sink.contains( "u=255" ), 8 );
+		CHECK( sink.contains( "u=255" ), -8 );
 		sink.clear();
 	}
 
