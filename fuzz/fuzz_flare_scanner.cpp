@@ -13,6 +13,11 @@
  * validates that guarantee: no crash, no hang, and recordOffset()/recordSize()
  * are always within bounds when scan() returns true.
  *
+ * After each successful scan(), setStartOffset() advances the scanner past the
+ * found record before the next call.  Without this, scan() would re-find the
+ * same magic on every iteration and loop forever.  This matches the documented
+ * usage pattern from scanner.h.
+ *
  * The fuzzer input is passed directly to scan() as the byte buffer.  No
  * preprocessing is done: the fuzzer controls the full byte sequence, including
  * the magic number, size fields, TLV content, and end marker.  A valid-looking
@@ -32,15 +37,19 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
 
 	while ( scanner.scan( data, size ) )
 	{
-		// recordOffset() and recordSize() must be within the input buffer
-		// when scan() returns true - assert catches any bounds violation
-		// (ASan will catch out-of-bounds reads in the scanner itself)
 		const std::size_t offset = scanner.recordOffset();
 		const std::size_t recSize = scanner.recordSize();
 
+		// recordOffset() and recordSize() must be within the input buffer
+		// when scan() returns true - assert catches any bounds violation
+		// (ASan will catch out-of-bounds reads in the scanner itself)
 		assert( offset < size );
 		assert( recSize > 0 );
 		assert( offset + recSize <= size );
+
+		// advance past the found record before the next scan() call;
+		// without this, scan() re-finds the same magic every iteration
+		scanner.setStartOffset( offset + recSize );
 	}
 
 	return 0;
