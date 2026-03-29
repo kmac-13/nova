@@ -352,10 +352,11 @@ void TruncatingRecordBuilder< BufferSize >::append( const platform::StringView& 
 	if ( ! hasSpace( str.length() ) )
 	{
 		// copy what we can, capped at the source length so the compiler can verify
-		// the memcpy doesn't read past the source region; without the min(), the
-		// compiler can lose track of the source bound when this is inlined from
-		// the array-reference append overload, generating -Wstringop-overread warning
-		const std::size_t available = std::min( USABLE_SIZE - _offset, str.length() );
+		// the memcpy doesn't read past the source region; written as an explicit
+		// ternary as std::min is not available due to <algorithm> being absent
+		// under NOVA_NO_STD (bare-metal / freestanding targets)
+		const std::size_t spaceLeft = USABLE_SIZE - _offset;
+		const std::size_t available = spaceLeft < str.length() ? spaceLeft : str.length();
 		std::memcpy( _buffer.data() + _offset, str.data(), available );
 		_offset += available;
 		_truncated = true;
