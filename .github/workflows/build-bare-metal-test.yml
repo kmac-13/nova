@@ -1,0 +1,152 @@
+name: Build / Bare-Metal (Test)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+
+          # ----------------------------------------------------------------
+          # Hosted Linux - native execution, no QEMU
+          # ----------------------------------------------------------------
+          # Builds test_nova_bare_metal with NOVA_BARE_METAL defined using the
+          # native GCC-13 toolchain and runs it directly on the GitHub Actions
+          # runner.
+          #
+          # Purpose: validates the bare-metal compilation paths (NOVA_NO_STD,
+          # NOVA_NO_TLS, NOVA_NO_CHARCONV, NOVA_NO_ATOMIC, NOVA_NO_CHRONO) and
+          # confirms that all 12 runtime checks pass in an environment where the
+          # binary can actually be executed.  This catches preprocessor path
+          # regressions before they reach the ARM cross-compile job.
+          #
+          # NOVA_BARE_METAL is defined inside the test source file (before the
+          # first Nova header) rather than via -D, which is the documented
+          # correct approach for applications that control their own build system.
+          # The hosted toolchain has std::chrono available, but Nova falls back
+          # to the user-provided steadyNanosecs() stub in the test source because
+          # NOVA_BARE_METAL implies NOVA_NO_CHRONO regardless of host capability.
+          - name: Bare-Metal / Hosted / Test
+            bare_metal_cross: false
+            install: sudo apt-get install -y gcc-13 g++-13
+            cc:  gcc-13
+            cxx: g++-13
+
+          # ----------------------------------------------------------------
+          # ARM Cortex-M3 - cross-compiled, executed under QEMU
+          # ----------------------------------------------------------------
+          # Cross-compiles test_nova_bare_metal for Cortex-M3 using
+          # arm-none-eabi-g++ and runs it under qemu-system-arm with the
+          # mps2-an385 machine.
+          #
+          # mps2-an385 is chosen because:
+          #   - It is the machine used by all maintained FreeRTOS QEMU demos
+          #     (and by the RTOS CI job), keeping tooling consistent.
+          #   - Its NVIC emulation is complete enough for the CM3 port's
+          #     startup self-tests (priority register read-back works).
+          #   - lm3s6965evb NVIC returns 0 on priority register read-back;
+          #     for the bare-metal test this would be harmless (no FreeRTOS
+          #     scheduler to trigger configASSERT), but mps2-an385 is still
+          #     preferred for consistency with the RTOS job.
+          #
+          # Purpose: validates that the same test source that passes on the
+          # hosted job also links and runs correctly under a true freestanding
+          # toolchain (arm-none-eabi with newlib-nano).  Catches anything that
+          # compiles on a hosted target but fails under freestanding constraints
+          # (missing libc headers, TLS runtime symbols, libatomic dependency, etc.)
+          #
+          # Pass/fail is communicated via the semihosting SYS_EXIT call in
+          # semihostingExit(), which QEMU translates to a host process exit code
+          # that GitHub Actions reads as the step result.
+          - name: Bare-Metal / ARM Cortex-M3 / QEMU / Test
+            bare_metal_cross: true
+            install: |
+              sudo apt-get install -y gcc-arm-none-eabi qemu-system-arm
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install toolchain and dependencies
+        run: |
+          sudo apt-get update -qq
+          ${{ matrix.install }}
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      # ----------------------------------------------------------------
+      # Configure - hosted (native)
+      # ----------------------------------------------------------------
+      - name: Configure (Hosted)
+        if: '!matrix.bare_metal_cross'
+        run: |
+          cmake -B build/bare-metal-test \
+            -S tests/bare_metal \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+
+      # ----------------------------------------------------------------
+      # Configure - ARM Cortex-M3 cross-compile
+      # ----------------------------------------------------------------
+      - name: Configure (ARM Cortex-M3)
+        if: matrix.bare_metal_cross
+        run: |
+          cmake -B build/bare-metal-test \
+            -S tests/bare_metal \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/cmake/toolchains/arm-none-eabi-cortex-m3.cmake
+
+      # ----------------------------------------------------------------
+      # Build
+      # ----------------------------------------------------------------
+      - name: Build
+        run: cmake --build build/bare-metal-test --parallel
+
+      # ----------------------------------------------------------------
+      # Run - hosted (direct execution)
+      # ----------------------------------------------------------------
+      - name: Run tests (Hosted)
+        if: '!matrix.bare_metal_cross'
+        run: ./build/bare-metal-test/test_nova_bare_metal
+
+      # ----------------------------------------------------------------
+      # Run - ARM Cortex-M3 under QEMU with semihosting
+      # ----------------------------------------------------------------
+      # Flags:
+      #   -machine mps2-an385   : ARM MPS2 AN385 board (Cortex-M3); consistent
+      #                           with the RTOS CI job and all maintained
+      #                           FreeRTOS QEMU demos
+      #   -cpu cortex-m3        : explicit CPU selection for mps2-an385
+      #   -nographic            : suppress SDL/VGA window (CI has no display)
+      #   -semihosting          : enable ARM semihosting so semihostingExit()
+      #                           (bkpt #0xAB / SYS_EXIT) translates to a
+      #                           host process exit code
+      #   -semihosting-config target=native : host intercepts semihosting
+      #                           calls directly (as opposed to gdbserver mode)
+      #   -kernel               : ELF binary to load
+      #   timeout 30            : kill QEMU after 30 s if semihostingExit()
+      #                           is never reached (guards against hangs caused
+      #                           by an unexpected fault landing in Default_Handler)
+      - name: Run tests (ARM Cortex-M3 / QEMU)
+        if: matrix.bare_metal_cross
+        run: |
+          timeout 30 qemu-system-arm \
+            -machine mps2-an385 \
+            -cpu cortex-m3 \
+            -nographic \
+            -semihosting \
+            -semihosting-config target=native \
+            -kernel build/bare-metal-test/test_nova_bare_metal
