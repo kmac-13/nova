@@ -22,6 +22,7 @@ option( NOVA_BUILD_EXTRAS        "Build Nova Extras library"             ON  )
 option( NOVA_BUILD_FLARE         "Build Flare emergency logging library" ON  )
 option( NOVA_BUILD_EXAMPLES      "Build example programs"                OFF )
 option( NOVA_BUILD_TESTS         "Build unit tests"                      OFF )
+option( NOVA_BUILD_FUZZ          "Build LibFuzzer fuzz targets"          OFF )
 option( NOVA_PLATFORM_BARE_METAL "Configure for bare-metal targets"      OFF )
 option( NOVA_PLATFORM_RTOS       "Configure for RTOS targets"            OFF )
 
@@ -255,6 +256,36 @@ else()
 endif()
 
 # ============================================================================
+# Fuzz Targets (Optional)
+# ============================================================================
+
+if( NOVA_BUILD_FUZZ )
+	# fuzz targets require clang++ (LibFuzzer is a clang-only tool)
+	if( NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang" )
+		message( FATAL_ERROR
+			"NOVA_BUILD_FUZZ requires clang++.  "
+			"Set -DCMAKE_CXX_COMPILER=clang++ and -DCMAKE_C_COMPILER=clang." )
+	endif()
+
+	if( NOT NOVA_BUILD_EXTRAS )
+		message( STATUS
+			"  Fuzz: enabling NOVA_BUILD_EXTRAS (required by fuzz_continuation_builder)" )
+		set( NOVA_BUILD_EXTRAS ON CACHE BOOL "Build Nova Extras library" FORCE )
+	endif()
+
+	if( NOT NOVA_BUILD_FLARE )
+		message( STATUS
+			"  Fuzz: enabling NOVA_BUILD_FLARE (required by fuzz_flare_scanner and fuzz_flare_reader)" )
+		set( NOVA_BUILD_FLARE ON CACHE BOOL "Build Flare library" FORCE )
+	endif()
+
+	add_subdirectory( fuzz )
+	message( STATUS "Fuzz targets: Enabled" )
+else()
+	message( STATUS "Fuzz targets: Disabled (set NOVA_BUILD_FUZZ=ON with clang++ to enable)" )
+endif()
+
+# ============================================================================
 # Installation
 # ============================================================================
 
@@ -348,6 +379,7 @@ message( STATUS "" )
 message( STATUS "Optional:" )
 message( STATUS "  Examples:        ${NOVA_BUILD_EXAMPLES}" )
 message( STATUS "  Tests:           ${NOVA_BUILD_TESTS}" )
+message( STATUS "  Fuzz targets:    ${NOVA_BUILD_FUZZ}" )
 message( STATUS "" )
 message( STATUS "Platform:" )
 message( STATUS "  Bare-Metal Mode: ${NOVA_PLATFORM_BARE_METAL}" )
