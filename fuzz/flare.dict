@@ -1,0 +1,31 @@
+# Flare binary format dictionary.
+# Helps the fuzzer discover the magic number and TLV type constants.
+
+# FLARE_MAGIC "KMAC_FLR" little-endian
+"\x52\x4c\x46\x5f\x43\x41\x4d\x4b"
+
+# TLV type constants (uint16_t little-endian)
+"\x01\x00"
+"\x02\x00"
+"\x03\x00"
+"\x04\x00"
+"\x0a\x00"
+"\x0b\x00"
+"\x0c\x00"
+"\x0d\x00"
+"\x0e\x00"
+"\x14\x00"
+"\x15\x00"
+"\x1e\x00"
+"\x1f\x00"
+"\xff\xff"
+
+# RecordStatus values (uint8_t)
+"\x00"
+"\x01"
+"\x02"
+"\x03"
+
+# MAX_RECORD_SIZE boundary (uint32_t little-endian)
+"\x00\x00\x01\x00"
+"\xff\xff\x00\x00"

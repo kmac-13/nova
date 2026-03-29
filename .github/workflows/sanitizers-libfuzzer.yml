@@ -1,100 +1,135 @@
-# LibFuzzer workflow - commented out until fuzz targets are implemented.
-#
-# LibFuzzer requires dedicated fuzz target executables, each providing:
-#
-#   extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
-#   {
-#       // exercise Nova API with fuzzer-supplied bytes
-#       return 0;
-#   }
-#
-# These cannot share a GTest harness since LibFuzzer replaces main().
-# Add fuzz targets under fuzz/ (e.g. fuzz/fuzz_record_builder.cpp) and
-# register them in fuzz/CMakeLists.txt using add_nova_fuzz_target() before
-# enabling this workflow.
-#
-# Suggested fuzz targets:
-#   fuzz_record_builder     - feed arbitrary bytes to TruncatingRecordBuilder
-#   fuzz_continuation_builder - feed arbitrary bytes to ContinuationRecordBuilder
-#   fuzz_iso8601_formatter  - feed arbitrary Records to ISO8601Formatter
-#   fuzz_flare_reader       - feed arbitrary bytes to Flare reader/scanner
-#
-# To run locally:
-#   cmake -B build -DCMAKE_CXX_COMPILER=clang++ \
-#     -DCMAKE_CXX_FLAGS="-fsanitize=fuzzer,address -fno-omit-frame-pointer" \
-#     -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=fuzzer,address" \
-#     -DNOVA_BUILD_FUZZ=ON
-#   cmake --build build
-#   ./build/fuzz/fuzz_record_builder -max_total_time=60
+name: LibFuzzer
 
-# name: LibFuzzer
-#
-# on:
-#   push:
-#     branches: [ main, develop ]
-#   pull_request:
-#     branches: [ main, develop ]
-#   schedule:
-#     # Run nightly for extended fuzzing - increase -max_total_time values below
-#     # to take advantage of the longer CI budget (e.g. 300 instead of 30)
-#     - cron: '0 2 * * *'
-#
-# jobs:
-#   libfuzzer:
-#     name: LibFuzzer - Fuzz testing
-#     runs-on: ubuntu-24.04
-#
-#     steps:
-#       - uses: actions/checkout@v4
-#         with:
-#           submodules: recursive
-#
-#       - name: Install dependencies
-#         run: |
-#           sudo apt-get update
-#           sudo apt-get install -y clang lld cmake build-essential
-#
-#       - name: Configure with LibFuzzer + ASan
-#         run: |
-#           mkdir build
-#           cd build
-#           cmake .. \
-#             -DCMAKE_BUILD_TYPE=Debug \
-#             -DCMAKE_C_COMPILER=clang \
-#             -DCMAKE_CXX_COMPILER=clang++ \
-#             -DCMAKE_CXX_FLAGS="-fsanitize=fuzzer,address -fno-omit-frame-pointer" \
-#             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=fuzzer,address" \
-#             -DNOVA_BUILD_TESTS=OFF \
-#             -DNOVA_BUILD_FUZZ=ON \
-#             -DNOVA_BUILD_EXAMPLES=OFF
-#
-#       - name: Build fuzz targets
-#         run: cmake --build build --config Debug
-#
-#       - name: Run fuzz targets
-#         env:
-#           ASAN_OPTIONS: "abort_on_error=1:detect_leaks=1"
-#         run: |
-#           # Run each fuzz target for a fixed duration.
-#           # -max_total_time limits wall time per target (seconds).
-#           # -max_len limits input size to keep runs fast.
-#           # Corpus directories are created automatically on first run.
-#           ./build/fuzz/fuzz_truncation_builder \
-#             -max_total_time=30 \
-#             -max_len=1024 \
-#             fuzz/corpus/truncation_builder
-#
-#           ./build/fuzz/fuzz_continuation_builder \
-#             -max_total_time=30 \
-#             -max_len=1024 \
-#             fuzz/corpus/continuation_builder
-#
-#           ./build/fuzz/fuzz_iso8601_formatter \
-#             -max_total_time=30 \
-#             -max_len=512 \
-#             fuzz/corpus/iso8601_formatter
-#
-#           ./build/fuzz/fuzz_flare_reader \
-#             -max_total_time=30 \
-#             -max_len=4096 \
-#             fuzz/corpus/flare_reader
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # run nightly for extended fuzzing; increase -max_total_time values below
+    # to take advantage of the longer CI budget (e.g. 300 instead of 30)
+    - cron: '0 2 * * *'
+
+jobs:
+  libfuzzer:
+    name: LibFuzzer - ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ----------------------------------------------------------------
+          # TruncatingRecordBuilder
+          # ----------------------------------------------------------------
+          # Feeds arbitrary bytes into the string and char append paths,
+          # exercising the truncation boundary, the "..." marker, and
+          # commit() delivery.  Uses a 64-byte buffer so truncation is
+          # triggered frequently even with short inputs.
+          - target: fuzz_record_builder
+            corpus: fuzz/corpus/record_builder
+            max_len: 1024
+            dict: ""
+
+          # ----------------------------------------------------------------
+          # ContinuationRecordBuilder
+          # ----------------------------------------------------------------
+          # Same approach as record_builder but targets the continuation
+          # emission path: when the 64-byte buffer fills, commitCurrent()
+          # emits a partial record and resumes into a fresh buffer.  The
+          # seed corpus contains a 200-byte input that forces ~4 continuations.
+          - target: fuzz_continuation_builder
+            corpus: fuzz/corpus/continuation_builder
+            max_len: 1024
+            dict: ""
+
+          # ----------------------------------------------------------------
+          # Flare Scanner
+          # ----------------------------------------------------------------
+          # Feeds arbitrary bytes to Scanner::scan(), targeting magic number
+          # search, record size validation, END marker detection, and
+          # resynchronization after corruption.  Larger max_len because the
+          # scanner processes the full buffer on each call; longer inputs
+          # create more opportunities for the fuzzer to embed multiple
+          # candidate records and exercise the multi-record scan loop.
+          #
+          # A dictionary is provided so the fuzzer can splice the 8-byte
+          # magic token and TLV type constants into mutations immediately
+          # rather than discovering them from scratch through random bytes.
+          - target: fuzz_flare_scanner
+            corpus: fuzz/corpus/flare_scanner
+            max_len: 4096
+            dict: fuzz/flare.dict
+
+          # ----------------------------------------------------------------
+          # Flare Reader
+          # ----------------------------------------------------------------
+          # Feeds arbitrary bytes directly to Reader::parseNext(), bypassing
+          # the scanner to stress the TLV parser in isolation.  Exercises
+          # all TLV type dispatch paths, length field validation, and the
+          # fixed-buffer copy guards for file, function, message, and
+          # stackFrames fields.  Same dictionary as the scanner: the reader
+          # parses the same TLV structure.
+          - target: fuzz_flare_reader
+            corpus: fuzz/corpus/flare_reader
+            max_len: 4096
+            dict: fuzz/flare.dict
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install clang
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DNOVA_BUILD_FUZZ=ON \
+            -DNOVA_BUILD_TESTS=OFF \
+            -DNOVA_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      # ----------------------------------------------------------------
+      # Run fuzz target
+      # ----------------------------------------------------------------
+      # Flags:
+      #   -max_total_time=30   : wall-clock budget per target (seconds);
+      #                          increase for the nightly schedule run
+      #   -max_len             : maximum input size; larger than typical
+      #                          messages for flare targets to allow multi-
+      #                          record inputs through the scanner loop
+      #   -dict                : token dictionary for Flare targets; provides
+      #                          the magic number and TLV type constants so the
+      #                          fuzzer can splice them into mutations without
+      #                          having to rediscover 8-byte sequences from scratch
+      #   -print_final_stats=1 : emit coverage and exec/s summary at end
+      #   -detect_leaks=0      : ASan leak detection is suppressed because
+      #                          LibFuzzer's own allocator triggers false
+      #                          positives on process exit; memory errors
+      #                          within the fuzz target are still caught
+      #   corpus dir           : seed inputs read from here; new interesting
+      #                          inputs written back for future runs
+      - name: Run ${{ matrix.target }}
+        env:
+          ASAN_OPTIONS: "detect_leaks=0:abort_on_error=1:halt_on_error=1"
+        run: |
+          ./build/fuzz/${{ matrix.target }} \
+            -max_total_time=30 \
+            -max_len=${{ matrix.max_len }} \
+            -print_final_stats=1 \
+            ${{ matrix.dict && format('-dict={0}', matrix.dict) || '' }} \
+            ${{ matrix.corpus }}
