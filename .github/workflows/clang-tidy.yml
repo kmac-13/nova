@@ -102,9 +102,18 @@ jobs:
           # subscript with runtime loop indices.  Fixed by using .data()[i] to make the
           # pointer arithmetic explicit, which is accepted by the check.
           #
+          # -- readability-function-cognitive-complexity ---------------------
+          # Threshold is set to explicity to control how tight the cognitive complexity
+          # validation is (15 aligns with SonarSource's original recommendation).
+          # Functions that legitimately exceed this (e.g. enum-based state
+          # machines that cannot be meaningfully decomposed) must carry a
+          # // NOLINT(readability-function-cognitive-complexity) guard with
+          # a justification comment.
+          #
           clang-tidy-18 \
             -p build \
             --warnings-as-errors="*" \
+            --config="{CheckOptions: [{key: readability-function-cognitive-complexity.Threshold, value: '15'}]}" \
             --checks="\
               bugprone-assignment-in-if-condition,\
               bugprone-assert-side-effect,\
