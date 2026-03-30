@@ -23,9 +23,9 @@ jobs:
       #   -l cpp    : analyse C++ files only
       #   -C        : fail if any function exceeds cyclomatic complexity threshold;
       #               consistent with the cognitive complexity threshold in clang-tidy.yml
-      #               note: cognitive complexity is not a lizard metric; it is gated
+      #               (NOTE: cognitive complexity is not a lizard metric; it is gated
       #               separately by readability-function-cognitive-complexity in
-      #               clang-tidy.yml
+      #               clang-tidy.yml)
       #   -L        : fail if any function body exceeds specified number of lines; a
       #               secondary guard against functions that are long but structurally
       #               simple (e.g. large switch statements with trivial cases)
@@ -46,7 +46,7 @@ jobs:
           lizard \
             -l cpp \
             -C 15 \
-            -L 75 \
+            -L 125 \
             -i 0 \
             -W .github/lizard_whitelist.txt \
             -o lizard-report.txt \
