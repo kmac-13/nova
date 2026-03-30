@@ -1,14 +1,3 @@
-# ISO8601 state machine - enum-based format-slow path; complexity is
-# inherent to the character-by-character timestamp parsing logic and
-# cannot be meaningfully decomposed without obscuring the algorithm
-formatSlow
-
-# TLV type dispatch table - each case is a length-validated memcpy for
-# a different fixed-width field type; the width (number of cases) is
-# inherent to the TLV schema and cannot be reduced
-parseFixedField
-
-# IEEE 754 float-to-chars implementation - algorithmic complexity is
-# inherent to correct floating-point decimal conversion; this is a
-# platform fallback for targets without <charconv>
-floatToChars
+kmac::nova::platform::floatToChars # float-to-chars algorithm; complexity inherent to IEEE 754 decimal conversion
+kmac::nova::extras::ISO8601Formatter::formatSlow # ISO8601 state machine; complexity inherent to timestamp parsing
+TlvFieldParseHelper::parseFixedField # TLV type dispatch; complexity inherent to the TLV schema
