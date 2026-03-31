@@ -11,6 +11,18 @@
 #include <string>
 #include <utility>
 
+namespace
+{
+
+// returns false if entryName does not match the pattern "<filename>.<integer>"
+bool parseFileSuffix(
+	const std::string& entryName,
+	const std::string& filename,
+	std::size_t& outIndex
+) noexcept;
+
+} // namespace
+
 namespace kmac::nova::extras
 {
 
@@ -184,6 +196,7 @@ void RollingFileSink::initialize() noexcept
 	openCurrentFile();
 }
 
+
 std::size_t RollingFileSink::findHighestIndex() const noexcept
 {
 	std::size_t highestIndex = 0;
@@ -213,27 +226,12 @@ std::size_t RollingFileSink::findHighestIndex() const noexcept
 				continue;
 			}
 
-			const std::string entryName = entry.path().filename().string();
-
-			if ( entryName.size() > filename.size() + 1
-				&& entryName.substr( 0, filename.size() ) == filename
-				&& entryName[filename.size()] == '.' )
+			std::size_t index = 0;
+			if ( parseFileSuffix( entry.path().filename().string(), filename, index ) )
 			{
-				const std::string suffix = entryName.substr( filename.size() + 1 );
-
-				try
+				if ( index > highestIndex )
 				{
-					const std::size_t index = std::stoull( suffix );
-					if ( index > highestIndex )
-					{
-						highestIndex = index;
-					}
-				}
-				catch ( ... )
-				{
-					// suffix is not a valid integer - skip this file
-					(void) 0;
-
+					highestIndex = index;
 				}
 			}
 		}
@@ -318,3 +316,40 @@ void RollingFileSink::rotate() noexcept
 }
 
 } // namespace kmac::nova::extras
+
+namespace
+{
+
+bool parseFileSuffix(
+	const std::string& entryName,
+	const std::string& filename,
+	std::size_t& outIndex
+) noexcept
+{
+	if ( entryName.size() <= filename.size() + 1 )
+	{
+		return false;
+	}
+
+	if ( entryName.substr( 0, filename.size() ) != filename )
+	{
+		return false;
+	}
+
+	if ( entryName[ filename.size() ] != '.' )
+	{
+		return false;
+	}
+
+	try
+	{
+		outIndex = std::stoull( entryName.substr( filename.size() + 1 ) );
+		return true;
+	}
+	catch ( ... )
+	{
+		return false;
+	}
+}
+
+} // namespace

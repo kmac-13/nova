@@ -59,7 +59,7 @@ class MemoryPool
 
 	// stack allocation safety limits
 	static_assert( Allocator != PoolAllocator::Stack || Capacity <= 256UL * 1024UL,
-		"Stack allocation limited to 256KB for portability" );
+	    "Stack allocation limited to 256KB for portability" );
 
 private:
 	// cache line alignment to avoid false sharing
@@ -234,8 +234,9 @@ std::size_t MemoryPool< Capacity, Allocator >::used() const noexcept
 	return write - read;
 }
 
+// NOLINT NOTE: lock-free ring buffer allocation with wrap-around; nested retry loops are load-bearing and cannot be flattened without introducing incorrect memory ordering
 template< std::size_t Capacity, PoolAllocator Allocator >
-uint8_t* MemoryPool< Capacity, Allocator >::allocate( std::size_t size ) noexcept
+uint8_t* MemoryPool< Capacity, Allocator >::allocate( std::size_t size ) noexcept // NOLINT(readability-function-cognitive-complexity)
 {
 	// align to 8-byte boundary for Record struct alignment
 	size = ( size + 7 ) & ~std::size_t{ 7 };
@@ -350,7 +351,7 @@ auto MemoryPool< Capacity, Allocator >::initializePool() noexcept
 	}
 	else
 	{
-		return StackStorage{}; // Zero-initialized
+		return StackStorage{}; // zero-initialized
 	}
 }
 

@@ -1,0 +1,67 @@
+name: lizard
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lizard:
+    name: lizard - cyclomatic and cognitive complexity
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install lizard
+        run: pip install lizard --break-system-packages
+
+      # ----------------------------------------------------------------
+      # Run lizard
+      # ----------------------------------------------------------------
+      # Flags:
+      #   -l cpp    : analyse C++ files only
+      #   -C        : fail if any function exceeds cyclomatic complexity threshold;
+      #               consistent with the cognitive complexity threshold in clang-tidy.yml
+      #               (NOTE: cognitive complexity is not a lizard metric; it is gated
+      #               separately by readability-function-cognitive-complexity in
+      #               clang-tidy.yml)
+      #   -L        : fail if any function body exceeds specified number of lines; a
+      #               secondary guard against functions that are long but structurally
+      #               simple (e.g. large switch statements with trivial cases)
+      #   -i        : treat any threshold violation as a hard failure (exit non-zero)
+      #   -W        : functions listed in .github/lizard_whitelist.txt are exempt from
+      #               all threshold checks, which are functions that legitimately exceed
+      #               a threshold and cannot be meaningfully decomposed (e.g. enum-based
+      #               state machines); each entry must be a plain function name - one per
+      #               line - with a comment on the same line explaining why the exemption
+      #               is justified
+      #   -o        : write the full per-function table to a file (lizard-report.txt) for
+      #               upload as a CI artifact
+      #
+      # The source paths mirror those used in clang-tidy.yml so both tools
+      # analyse the same file set.
+      - name: Run lizard
+        run: |
+          lizard \
+            -l cpp \
+            -C 15 \
+            -L 125 \
+            -i 0 \
+            -W .github/lizard_whitelist.txt \
+            -o lizard-report.txt \
+            nova/include \
+            nova_extras/include \
+            nova_extras/src \
+            flare/include \
+            flare/src
+
+      # Always upload the report so the full per-function table is available
+      # for review regardless of whether the workflow passed or failed.
+      # Useful for audits and for tracking complexity trends over time.
+      - name: Upload lizard report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lizard-report
+          path: lizard-report.txt

@@ -106,7 +106,8 @@ bool Reader::parseRecord( const std::uint8_t* data, std::size_t size, Record& ou
 namespace
 {
 
-void TlvFieldParseHelper::parseFixedField( kmac::flare::TlvType type, const std::uint8_t* value, std::uint16_t length ) noexcept
+// NOLINT NOTE: TLV type dispatch, each case is a length-validated memcpy for a fixed-width field; the width is inherent to the TLV schema
+void TlvFieldParseHelper::parseFixedField( kmac::flare::TlvType type, const std::uint8_t* value, std::uint16_t length ) noexcept // NOLINT(readability-function-cognitive-complexity)
 {
 	switch ( type )
 	{

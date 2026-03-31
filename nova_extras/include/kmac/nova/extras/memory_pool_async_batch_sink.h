@@ -46,7 +46,7 @@ template<
 class MemoryPoolAsyncBatchSink final : public kmac::nova::Sink
 {
 	static_assert( PoolSize <= std::numeric_limits< IndexType >::max(),
-		"PoolSize exceeds maximum value representable by IndexType" );
+	    "PoolSize exceeds maximum value representable by IndexType" );
 
 private:
 	// entry in the index queue
@@ -177,6 +177,24 @@ private:
 	 * The downstream RollingFileSink will write this directly without re-formatting.
 	 */
 	void flushFormatBuffer() noexcept;
+
+	/**
+	 * @brief Format a single record using the Formatter interface.
+	 *
+	 * Formats in chunks, flushing when the format buffer fills.
+	 *
+	 * @param record record to format
+	 */
+	void formatRecordWithFormatter( const kmac::nova::Record& record ) noexcept;
+
+	/**
+	 * @brief Copy raw message bytes from a record into the format buffer.
+	 *
+	 * Flushes before copying if insufficient space remains.
+	 *
+	 * @param record record whose message is to be copied
+	 */
+	void copyRawMessage( const kmac::nova::Record& record ) noexcept;
 };
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
@@ -341,6 +359,42 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 }
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::formatRecordWithFormatter( const kmac::nova::Record& record ) noexcept
+{
+	_formatter->begin( record );
+
+	bool done = false;
+	while ( ! done )
+	{
+		Buffer buf( _formatBuffer.data() + _formatOffset, FORMAT_BUFFER_SIZE - _formatOffset );
+
+		done = _formatter->format( record, buf );
+		_formatOffset += buf.size();
+
+		if ( ! done )
+		{
+			flushFormatBuffer();
+			// formatter maintains state across chunks; begin() is not called again
+		}
+	}
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::copyRawMessage( const kmac::nova::Record& record ) noexcept
+{
+	if ( _formatOffset + record.messageSize > FORMAT_BUFFER_SIZE )
+	{
+		flushFormatBuffer();
+	}
+
+	if ( record.messageSize <= FORMAT_BUFFER_SIZE - _formatOffset )
+	{
+		std::memcpy( _formatBuffer.data() + _formatOffset, record.message, record.messageSize );
+		_formatOffset += record.messageSize;
+	}
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
 void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::formatBatch( kmac::nova::Record* const* records, std::size_t count ) noexcept
 {
 	_formatOffset = 0;
@@ -349,46 +403,11 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 	{
 		if ( _formatter != nullptr )
 		{
-			// begin formatting this record
-			_formatter->begin( *records[ i ] );
-
-			// format in chunks until complete
-			bool done = false;
-			while ( ! done )
-			{
-				// create Buffer wrapper for remaining space
-				Buffer buf(
-					_formatBuffer.data() + _formatOffset,
-					FORMAT_BUFFER_SIZE - _formatOffset
-				);
-
-				// format into buffer
-				done = _formatter->format( *records[ i ], buf );
-
-				// update offset
-				_formatOffset += buf.size();
-
-				// if buffer is full and not done, flush and retry
-				if ( ! done )
-				{
-					flushFormatBuffer();
-					// NOTE: Formatter needs to maintain state, so we don't call begin() again
-				}
-			}
+			formatRecordWithFormatter( *records[ i ] );
 		}
 		else
 		{
-			// fallback - copy raw message (no formatter)
-			if ( _formatOffset + records[ i ]->messageSize > FORMAT_BUFFER_SIZE )
-			{
-				flushFormatBuffer();
-			}
-
-			if ( records[ i ]->messageSize <= FORMAT_BUFFER_SIZE - _formatOffset )
-			{
-				std::memcpy( _formatBuffer.data() + _formatOffset, records[ i ]->message, records[ i ]->messageSize );
-				_formatOffset += records[ i ]->messageSize;
-			}
+			copyRawMessage( *records[ i ] );
 		}
 	}
 

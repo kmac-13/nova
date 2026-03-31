@@ -13,10 +13,7 @@
 namespace kmac::nova::extras
 {
 
-MultilineFormatter::MultilineFormatter(
-	bool addLineNumbers,
-	bool preserveEmptyLines
-) noexcept
+MultilineFormatter::MultilineFormatter( bool addLineNumbers, bool preserveEmptyLines ) noexcept
 	: _addLineNumbers( addLineNumbers )
 	, _preserveEmptyLines( preserveEmptyLines )
 {
@@ -27,6 +24,46 @@ std::size_t MultilineFormatter::maxChunkSize() const noexcept
 	// worst case: original message size + line number prefix
 	// we'll use a reasonable max line length
 	return 4096 + MAX_LINE_NUMBER_PREFIX;
+}
+
+void MultilineFormatter::formatLineNumberPrefix(
+	Buffer& buffer,
+	std::size_t lineNumber,
+	std::size_t totalLines
+) const noexcept
+{
+	std::array< char, MAX_LINE_NUMBER_PREFIX > prefix{};
+	char* prefixEnd = prefix.data();
+
+	// format: "[N/Total] "
+	*prefixEnd++ = '[';
+
+	// TODO: make a dedicated platforms pass on this code
+
+	// attempt to format the line number into the buffer
+	auto [ ptr1, ec1 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 10, lineNumber );
+	if ( ec1 != std::errc{} )
+	{
+		return;
+	}
+
+	prefixEnd = ptr1;
+	*prefixEnd++ = '/';
+
+	// attemp to format the line count into the buffer
+	auto [ ptr2, ec2 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 3, totalLines );
+	if ( ec2 != std::errc{} )
+	{
+		return;
+	}
+
+	prefixEnd = ptr2;
+	*prefixEnd++ = ']';
+	*prefixEnd++ = ' ';
+
+	// copy the local prefix buffer into the specified buffer
+	const std::size_t prefixLen = prefixEnd - std::data( prefix );
+	(void) buffer.append( std::data( prefix ), prefixLen );
 }
 
 void MultilineFormatter::formatAndWrite(
@@ -59,44 +96,21 @@ void MultilineFormatter::formatAndWrite(
 		current = findNextLine( current, end, lineStart, lineLength );
 
 		// skip empty lines if configured
-		if ( lineLength == 0 && !_preserveEmptyLines )
+		if ( lineLength == 0 && ! _preserveEmptyLines )
 		{
 			continue;
 		}
 
 		++lineNumber;
 
-		// format the line
 		constexpr std::size_t BUFFER_SIZE = 4096;
 		std::array< char, BUFFER_SIZE + 1 > bufferStorage{};  // +1 for null terminator
-		Buffer buffer( bufferStorage.data(), BUFFER_SIZE );   // Reserve last byte for null
+		Buffer buffer( bufferStorage.data(), BUFFER_SIZE );   // reserve last byte for null terminator
 
-		// add line number prefix if enabled
+		// add the line number
 		if ( _addLineNumbers && totalLines > 1 )
 		{
-			std::array< char, MAX_LINE_NUMBER_PREFIX > prefix{};
-			char* prefixEnd = prefix.data();
-
-			// format: "[N/Total] "
-			*prefixEnd++ = '[';
-
-			auto [ ptr1, ec1 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 10, lineNumber );
-			if ( ec1 == std::errc{} )
-			{
-				prefixEnd = ptr1;
-				*prefixEnd++ = '/';
-
-				auto [ ptr2, ec2 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 3, totalLines );
-				if ( ec2 == std::errc{} )
-				{
-					prefixEnd = ptr2;
-					*prefixEnd++ = ']';
-					*prefixEnd++ = ' ';
-
-					const std::size_t prefixLen = prefixEnd - std::data( prefix );
-					(void) buffer.append( std::data( prefix ), prefixLen );
-				}
-			}
+			formatLineNumberPrefix( buffer, lineNumber, totalLines );
 		}
 
 		// add the line content
@@ -108,16 +122,17 @@ void MultilineFormatter::formatAndWrite(
 		// null-terminate the buffer
 		bufferStorage.data()[ buffer.size() ] = '\0';
 
-		// emit record for this line
+		// configure new record for downstream handling with message in buffer
 		kmac::nova::Record lineRecord = record;
 		lineRecord.messageSize = static_cast< std::uint32_t >( buffer.size() );
 		lineRecord.message = buffer.data();
 
 		downstream.process( lineRecord );
 
+		// check if there are additional lines
 		if ( current == nullptr )
 		{
-			break; // no more lines
+			break;
 		}
 	}
 }
