@@ -27,14 +27,14 @@ jobs:
             --inline-suppr \
             --suppress=missingIncludeSystem \
             --suppress=unmatchedSuppression \
-            -I nova/include \
-            -I nova_extras/include \
-            -I flare/include \
-            nova/include \
-            nova_extras/include \
-            nova_extras/src \
-            flare/include \
-            flare/src \
+            -I libs/nova/include \
+            -I libs/nova_extras/include \
+            -I libs/nova_flare/include \
+            libs/nova/include \
+            libs/nova_extras/include \
+            libs/nova_extras/src \
+            libs/nova_flare/include \
+            libs/nova_flare/src \
             2>&1 | tee cppcheck-report.txt
 
       - name: Upload cppcheck report

@@ -28,7 +28,7 @@ jobs:
       - name: Run clang-tidy
         run: |
           # Collect all project source files (exclude third-party / build dirs)
-          find nova/include nova_extras/include nova_extras/src flare/include flare/src \
+          find libs/nova/include libs/nova_extras/include libs/nova_extras/src libs/nova_flare/include libs/nova_flare/src \
             -name "*.cpp" -o -name "*.h" \
             | grep -v "build/" \
             > files.txt

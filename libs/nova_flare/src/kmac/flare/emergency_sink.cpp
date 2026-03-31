@@ -384,6 +384,8 @@ std::size_t EmergencySinkBase::captureStackFrames( void** frames, std::size_t ma
 	return static_cast< std::size_t >( count );
 
 #else
+	(void) frames;
+	(void) maxFrames;
 
 	return 0;
 

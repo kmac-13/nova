@@ -45,9 +45,9 @@ function( add_nova_fuzz_target TARGET_NAME SOURCE )
 	add_executable( ${TARGET_NAME} ${SOURCE} )
 
 	target_include_directories( ${TARGET_NAME} PRIVATE
-		${CMAKE_SOURCE_DIR}/nova/include
-		${CMAKE_SOURCE_DIR}/nova_extras/include
-		${CMAKE_SOURCE_DIR}/flare/include
+		${CMAKE_SOURCE_DIR}/libs/nova/include
+		${CMAKE_SOURCE_DIR}/libs/nova_extras/include
+		${CMAKE_SOURCE_DIR}/libs/nova_flare/include
 	)
 
 	if( ARG_LIBS )
@@ -82,11 +82,11 @@ add_nova_fuzz_target( fuzz_continuation_builder
 # Flare Scanner: exercises magic search, size validation, and resynchronization
 add_nova_fuzz_target( fuzz_flare_scanner
 	fuzz_flare_scanner.cpp
-	LIBS flare
+	LIBS nova_flare
 )
 
 # Flare Reader: exercises TLV parser in isolation with arbitrary byte inputs
 add_nova_fuzz_target( fuzz_flare_reader
 	fuzz_flare_reader.cpp
-	LIBS flare
+	LIBS nova_flare
 )

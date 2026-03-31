@@ -53,7 +53,7 @@ if( DEFINED ENV{NOVA_INCLUDE_DIR} )
 	set( NOVA_INCLUDE_DIR $ENV{ NOVA_INCLUDE_DIR} )
 elseif( NOT DEFINED NOVA_INCLUDE_DIR )
 	# Default: assume Nova is two directories up from examples
-	set( NOVA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../nova/include" )
+	set( NOVA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova/include" )
 endif()
 
 message( STATUS "Nova include directory: ${NOVA_INCLUDE_DIR}" )
@@ -72,7 +72,7 @@ endif()
 if( DEFINED ENV{NOVA_EXTRAS_DIR} )
 	set( NOVA_EXTRAS_DIR $ENV{NOVA_EXTRAS_DIR} )
 elseif( NOT DEFINED NOVA_EXTRAS_DIR )
-	set( NOVA_EXTRAS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../nova_extras" )
+	set( NOVA_EXTRAS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova_extras" )
 endif()
 
 #
@@ -81,7 +81,7 @@ endif()
 if( DEFINED ENV{NOVA_FLARE_DIR} )
 	set( NOVA_FLARE_DIR $ENV{NOVA_FLARE_DIR} )
 elseif( NOT DEFINED NOVA_FLARE_DIR )
-	set( NOVA_FLARE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../flare" )
+	set( NOVA_FLARE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova_flare" )
 endif()
 
 FILE( GLOB NOVA_FILES
