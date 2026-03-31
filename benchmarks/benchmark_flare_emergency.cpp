@@ -73,7 +73,7 @@ static void BM_Flare_EmergencySink_SimpleMessage( benchmark::State& state )
 	}
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer, false );
+	kmac::flare::EmergencySink<> sink( &writer, false );
 
 	kmac::nova::ScopedConfigurator config;
 	config.bind< EmergencyTag >( &sink );
@@ -104,7 +104,7 @@ static void BM_Flare_EmergencySink_WithMetadata( benchmark::State& state )
 	}
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer, true ); // capture process info
+	kmac::flare::EmergencySink<> sink( &writer, true ); // capture process info
 
 	kmac::nova::ScopedConfigurator config;
 	config.bind< EmergencyTag >( &sink );
@@ -139,7 +139,7 @@ static void BM_Flare_MessageSize( benchmark::State& state )
 	}
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer, false );
+	kmac::flare::EmergencySink<> sink( &writer, false );
 
 	kmac::nova::ScopedConfigurator config;
 	config.bind< EmergencyTag >( &sink );
@@ -176,7 +176,7 @@ static void BM_Flare_CrashScenario( benchmark::State& state )
 	}
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer, true );
+	kmac::flare::EmergencySink<> sink( &writer, true );
 
 	kmac::nova::ScopedConfigurator config;
 	config.bind< CrashTag >( &sink );
@@ -210,7 +210,7 @@ static void BM_Flare_MultiThreaded( benchmark::State& state )
 	}
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer, false );
+	kmac::flare::EmergencySink<> sink( &writer, false );
 
 	kmac::nova::ScopedConfigurator config;
 	config.bind< EmergencyTag >( &sink );
@@ -247,7 +247,7 @@ static void BM_Flare_ReadBack( benchmark::State& state )
 		}
 
 		kmac::flare::FileWriter writer( file );
-		kmac::flare::EmergencySink sink( &writer, false );
+		kmac::flare::EmergencySink<> sink( &writer, false );
 
 		kmac::nova::ScopedConfigurator config;
 		config.bind< EmergencyTag >( &sink );
@@ -316,7 +316,7 @@ static void BM_Flare_FlushOverhead( benchmark::State& state )
 	}
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer, false );
+	kmac::flare::EmergencySink<> sink( &writer, false );
 
 	for ( auto _ : state )
 	{
@@ -375,7 +375,7 @@ static void BM_Comparison_FlareEmergency( benchmark::State& state )
 	}
 
 	kmac::flare::FileWriter writer( file );
-	kmac::flare::EmergencySink sink( &writer, false );
+	kmac::flare::EmergencySink<> sink( &writer, false );
 
 	kmac::nova::ScopedConfigurator config;
 	config.bind< EmergencyTag >( &sink );

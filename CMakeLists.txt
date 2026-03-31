@@ -108,15 +108,15 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 # collect all header files for IDE support
 file( GLOB_RECURSE NOVA_CORE_HEADERS
 	RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-	"nova/include/*.h"
-	"nova/include/*.hpp"
+	"libs/nova/include/*.h"
+	"libs/nova/include/platform/*.h"
 )
 
 add_library( nova INTERFACE )
 add_library( Nova::Core ALIAS nova )
 
 target_include_directories( nova INTERFACE
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/nova/include>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/libs/nova/include>
 	$<INSTALL_INTERFACE:include>
 )
 
@@ -141,22 +141,19 @@ message( STATUS "Nova Core: Header-only library configured" )
 if( NOVA_BUILD_EXTRAS )
 	# collect all header files (for IDE support)
 	file( GLOB_RECURSE NOVA_EXTRAS_HEADERS
-		"nova_extras/include/*.h"
-		"nova_extras/include/*.hpp"
+		"libs/nova_extras/include/*.h"
 	)
 
 	# collect all source files
 	file( GLOB_RECURSE NOVA_EXTRAS_SOURCES
-		"nova_extras/src/*.cpp"
-		"nova_extras/src/*.cc"
-		"nova_extras/src/*.cxx"
+		"libs/nova_extras/src/*.cpp"
 	)
 
 	add_library( nova_extras ${NOVA_EXTRAS_SOURCES} ${NOVA_EXTRAS_HEADERS} )
 	add_library( Nova::Extras ALIAS nova_extras )
 
 	target_include_directories( nova_extras PUBLIC
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/nova_extras/include>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/libs/nova_extras/include>
 		$<INSTALL_INTERFACE:include>
 	)
 
@@ -170,7 +167,7 @@ if( NOVA_BUILD_EXTRAS )
 		SOVERSION ${PROJECT_VERSION_MAJOR}
 	)
 
-	message( STATUS "Nova Extras: Library configured with ${CMAKE_CURRENT_LIST_DIR}/nova_extras/src sources" )
+	message( STATUS "Nova Extras: Library configured with ${CMAKE_CURRENT_LIST_DIR}/libs/nova_extras/src sources" )
 else()
 	message( STATUS "Nova Extras: Disabled (set NOVA_BUILD_EXTRAS=ON to enable)" )
 endif()
@@ -182,36 +179,33 @@ endif()
 if( NOVA_BUILD_FLARE )
 	# collect all header files (for IDE support)
 	file( GLOB_RECURSE FLARE_HEADERS
-		"flare/include/*.h"
-		"flare/include/*.hpp"
+		"libs/nova_flare/include/*.h"
 	)
 
 	# collect all source files
 	file( GLOB_RECURSE FLARE_SOURCES
-		"flare/src/*.cpp"
-		"flare/src/*.cc"
-		"flare/src/*.cxx"
+		"libs/nova_flare/src/*.cpp"
 	)
 
-	add_library( flare ${FLARE_SOURCES} ${FLARE_HEADERS} )
-	add_library( Nova::Flare ALIAS flare )
+	add_library( nova_flare ${FLARE_SOURCES} ${FLARE_HEADERS} )
+	add_library( Nova::Flare ALIAS nova_flare )
 
-	target_include_directories( flare PUBLIC
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/flare/include>
+	target_include_directories( nova_flare PUBLIC
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/libs/nova_flare/include>
 		$<INSTALL_INTERFACE:include>
 	)
 
-	target_link_libraries( flare PUBLIC nova )
+	target_link_libraries( nova_flare PUBLIC nova )
 
-	target_compile_features( flare PUBLIC cxx_std_17 )
+	target_compile_features( nova_flare PUBLIC cxx_std_17 )
 
-	set_target_properties( flare PROPERTIES
+	set_target_properties( nova_flare PROPERTIES
 		EXPORT_NAME Flare
 		VERSION ${PROJECT_VERSION}
 		SOVERSION ${PROJECT_VERSION_MAJOR}
 	)
 
-	message( STATUS "Flare: Library configured with ${CMAKE_CURRENT_LIST_DIR}/flare/src sources" )
+	message( STATUS "Flare: Library configured with ${CMAKE_CURRENT_LIST_DIR}/libs/nova_flare/src sources" )
 else()
 	message( STATUS "Flare: Disabled (set NOVA_BUILD_FLARE=ON to enable)" )
 endif()
@@ -293,7 +287,7 @@ include( GNUInstallDirs )
 include( CMakePackageConfigHelpers )
 
 # install Nova core headers
-install( DIRECTORY nova/include/
+install( DIRECTORY libs/nova/include/
 	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 	FILES_MATCHING PATTERN "*.h"
 )
@@ -307,7 +301,7 @@ if( NOVA_BUILD_EXTRAS )
 		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 	)
 
-	install( DIRECTORY nova_extras/include/
+	install( DIRECTORY libs/nova_extras/include/
 		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 		FILES_MATCHING PATTERN "*.h"
 	)
@@ -315,14 +309,14 @@ endif()
 
 # install Flare (if built)
 if( NOVA_BUILD_FLARE )
-	install( TARGETS flare
+	install( TARGETS nova_flare
 		EXPORT NovaTargets
 		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 	)
 
-	install( DIRECTORY flare/include/
+	install( DIRECTORY libs/nova_flare/include/
 		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 		FILES_MATCHING PATTERN "*.h"
 	)

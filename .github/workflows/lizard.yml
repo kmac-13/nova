@@ -50,11 +50,11 @@ jobs:
             -i 0 \
             -W .github/lizard_whitelist.txt \
             -o lizard-report.txt \
-            nova/include \
-            nova_extras/include \
-            nova_extras/src \
-            flare/include \
-            flare/src
+            libs/nova/include \
+            libs/nova_extras/include \
+            libs/nova_extras/src \
+            libs/nova_flare/include \
+            libs/nova_flare/src
 
       # Always upload the report so the full per-function table is available
       # for review regardless of whether the workflow passed or failed.

@@ -31,27 +31,27 @@ endif()
 
 # Add Nova include directories
 include_directories(
-	${CMAKE_SOURCE_DIR}/../nova/include
-	${CMAKE_SOURCE_DIR}/../nova_extras/include
-	${CMAKE_SOURCE_DIR}/../flare/include
+	${CMAKE_SOURCE_DIR}/../libs/nova/include
+	${CMAKE_SOURCE_DIR}/../libs/nova_extras/include
+	${CMAKE_SOURCE_DIR}/../libs/nova_flare/include
 )
 
 # Collect Nova files
 file( GLOB NOVA_SOURCES
-	${CMAKE_SOURCE_DIR}/../nova/include/kmac/nova/*.h
-	${CMAKE_SOURCE_DIR}/../nova/include/kmac/nova/platform/*.h
+	${CMAKE_SOURCE_DIR}/../libs/nova/include/kmac/nova/*.h
+	${CMAKE_SOURCE_DIR}/../libs/nova/include/kmac/nova/platform/*.h
 )
 
 # Collect Nova Extras files
 file( GLOB NOVA_EXTRAS_SOURCES
-	${CMAKE_SOURCE_DIR}/../nova_extras/include/kmac/nova/extras/*.h
-	${CMAKE_SOURCE_DIR}/../nova_extras/src/kmac/nova/extras/*.cpp
+	${CMAKE_SOURCE_DIR}/../libs/nova_extras/include/kmac/nova/extras/*.h
+	${CMAKE_SOURCE_DIR}/../libs/nova_extras/src/kmac/nova/extras/*.cpp
 )
 
 # Collect Flare files
 file( GLOB FLARE_SOURCES
-	${CMAKE_SOURCE_DIR}/../flare/include/kmac/flare/*.h
-	${CMAKE_SOURCE_DIR}/../flare/src/kmac/flare/*.cpp
+	${CMAKE_SOURCE_DIR}/../libs/nova_flare/include/kmac/flare/*.h
+	${CMAKE_SOURCE_DIR}/../libs/nova_flare/src/kmac/flare/*.cpp
 )
 
 # Helper function to create a benchmark executable
