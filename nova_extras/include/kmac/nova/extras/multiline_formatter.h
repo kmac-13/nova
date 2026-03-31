@@ -2,6 +2,7 @@
 #ifndef KMAC_NOVA_EXTRAS_MULTILINE_FORMATTER_H
 #define KMAC_NOVA_EXTRAS_MULTILINE_FORMATTER_H
 
+#include "buffer.h"
 #include "streaming_formatter.h"
 
 #include <cstddef>
@@ -143,6 +144,15 @@ private:
 	 * @return number of lines (including trailing line without newline)
 	 */
 	std::size_t countLines( const char* message, std::size_t messageSize ) const noexcept;
+
+	/**
+	 * @brief Write a "[lineNumber/totalLines] " prefix into buffer.
+	 *
+	 * @param buffer destination buffer
+	 * @param lineNumber current line (1-based)
+	 * @param totalLines total line count
+	 */
+	void formatLineNumberPrefix( Buffer& buffer, std::size_t lineNumber, std::size_t totalLines ) const noexcept;
 
 	/**
 	 * @brief Find the next line in the message.
