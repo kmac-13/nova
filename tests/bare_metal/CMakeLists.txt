@@ -11,7 +11,7 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 
 # Nova core is header-only; add the include directory directly rather than
 # depending on the parent CMakeLists so this project can be built standalone.
-set( NOVA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../nova/include" )
+set( NOVA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../libs/nova/include" )
 if( NOT EXISTS "${NOVA_INCLUDE_DIR}/kmac/nova/nova.h" )
 	message( FATAL_ERROR
 		"Nova core headers not found at ${NOVA_INCLUDE_DIR}.  "
