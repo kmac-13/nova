@@ -28,6 +28,7 @@
 #include <kmac/nova/logger.h>
 #include <kmac/nova/logger_traits.h>
 #include <kmac/nova/record.h>
+#include <kmac/nova/platform/config.h>
 
 #include <sstream>
 #include <string>
@@ -63,22 +64,31 @@ namespace kmac::nova::extras
  *
  * @tparam Tag the logging tag type
  */
-template< typename Tag >
 class StreamingRecordBuilder
 {
 private:
 	std::ostringstream _stream;
 	std::string _message;  ///< owns the message data at commit time
+	bool _committed = false;
 
 	const char* _file = nullptr;
 	const char* _function = nullptr;
 	std::uint32_t _line = 0;
 	std::uint64_t _timestamp = 0;
 
+	const char* _tagName = nullptr;
+	std::uint64_t _tagId = 0;
+
+	using LogFunc = void (*)( const Record& ) noexcept;
+	LogFunc _logFunc = nullptr;
+
 public:
-	explicit StreamingRecordBuilder( const char* file, const char* function, std::uint32_t line );
+	StreamingRecordBuilder() noexcept = default;
 
 	~StreamingRecordBuilder();
+
+	template< typename Tag >
+	StreamingRecordBuilder& setContext( const char* file, const char* function, std::uint32_t line ) noexcept;
 
 	/**
 	 * @brief Stream insertion operator.
@@ -104,44 +114,55 @@ private:
 // StreamingRecordBuilder - implementation
 // ============================================================================
 
-template< typename Tag >
-StreamingRecordBuilder< Tag >::StreamingRecordBuilder( const char* file, const char* function, std::uint32_t line )
-	: _file( file )
-	, _function( function )
-	, _line( line )
-	, _timestamp( kmac::nova::logger_traits< Tag >::timestamp() )
-{
-}
-
-template< typename Tag >
-StreamingRecordBuilder< Tag >::~StreamingRecordBuilder()
+StreamingRecordBuilder::~StreamingRecordBuilder()
 {
 	commit();
 }
 
 template< typename Tag >
+StreamingRecordBuilder& StreamingRecordBuilder::setContext( const char* file, const char* function, std::uint32_t line ) noexcept
+{
+	_file = file;
+	_function = function;
+	_line = line;
+	_timestamp = ::kmac::nova::logger_traits< Tag >::timestamp();
+
+	_tagName = ::kmac::nova::logger_traits< Tag >::tagName;
+	_tagId = ::kmac::nova::logger_traits< Tag >::tagId;
+
+	_logFunc = &::kmac::nova::Logger< Tag >::log;
+
+	return *this;
+}
+
 template< typename T >
-StreamingRecordBuilder< Tag >& StreamingRecordBuilder< Tag >::operator<<( const T& value )
+StreamingRecordBuilder& StreamingRecordBuilder::operator<<( const T& value )
 {
 	_stream << value;
 	return *this;
 }
 
-template< typename Tag >
-std::size_t StreamingRecordBuilder< Tag >::size() const
+std::size_t StreamingRecordBuilder::size() const
 {
 	return _stream.str().size();
 }
 
-template< typename Tag >
-void StreamingRecordBuilder< Tag >::commit()
+void StreamingRecordBuilder::commit()
 {
+	NOVA_ASSERT( _logFunc != nullptr && "commit() called without setContext()" );
+
+	// don't commit if already committed
+	if ( _committed )
+	{
+		return;
+	}
+
 	_message = _stream.str();
 
 	kmac::nova::Record record {
 		_timestamp,
-		kmac::nova::logger_traits< Tag >::tagId,
-		kmac::nova::logger_traits< Tag >::tagName,
+		_tagId,
+		_tagName,
 		_file,
 		_function,
 		_line,
@@ -150,7 +171,8 @@ void StreamingRecordBuilder< Tag >::commit()
 	};
 
 	// record is processed before _message is destroyed, so pointer is valid
-	kmac::nova::Logger< Tag >::log( record );
+	_logFunc( record );
+	_committed = true;
 }
 
 } // namespace kmac::nova::extras
@@ -178,7 +200,7 @@ void StreamingRecordBuilder< Tag >::commit()
 #define NOVA_LOG_STREAM( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
-			::kmac::nova::extras::StreamingRecordBuilder< TagType >( \
+			::kmac::nova::extras::StreamingRecordBuilder().setContext< TagType >( \
 				FILE_NAME, __func__, __LINE__ \
 			)
 
