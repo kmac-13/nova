@@ -159,7 +159,7 @@ void StreamingRecordBuilder::commit()
 
 	_message = _stream.str();
 
-	kmac::nova::Record record {
+	const kmac::nova::Record record {
 		_timestamp,
 		_tagId,
 		_tagName,
