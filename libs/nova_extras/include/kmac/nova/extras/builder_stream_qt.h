@@ -2,6 +2,8 @@
 #ifndef KMAC_NOVA_EXTRAS_BUILDER_STREAM_QT_H
 #define KMAC_NOVA_EXTRAS_BUILDER_STREAM_QT_H
 
+#ifdef QT_VERSION
+
 /**
  * @file builder_stream_qt.h
  * @brief Logging support for Qt types.
@@ -78,7 +80,7 @@
 
 // Expands both TruncatingRecordBuilder and ContinuationRecordBuilder overloads
 // for a given signature and body, avoiding repetition for each supported type.
-#define NOVA_QT_OVERLOADS( Signature, Body ) \
+#define NOVA_QT_OVERLOADS( Signature, Body ) /* NOLINT(cppcoreguidelines-macro-usage, bugprone-macro-parentheses) */ \
 template< std::size_t N > \
 	kmac::nova::TruncatingRecordBuilder< N >& operator<<( \
 		kmac::nova::TruncatingRecordBuilder< N >& builder, Signature ) Body \
@@ -217,5 +219,7 @@ NOVA_QT_OVERLOADS(
 	)
 
 #undef NOVA_QT_OVERLOADS
+
+#endif // QT_VERSION
 
 #endif // KMAC_NOVA_EXTRAS_BUILDER_STREAM_QT_H
