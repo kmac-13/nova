@@ -136,7 +136,7 @@ TEST_F( NovaRecordBuilders, ContinuationBuilderBasic )
 	config.bind< BuilderTag >( &sink );
 
 	{
-		kmac::nova::ContinuationRecordBuilder<> builder;
+		kmac::nova::extras::ContinuationRecordBuilder<> builder;
 		builder.setContext< BuilderTag >( __FILE__, __FUNCTION__, __LINE__ );
 		builder << "Part 1 " << "Part 2";
 		builder.commit();
@@ -153,7 +153,7 @@ TEST_F( NovaRecordBuilders, ContinuationBuilderOverflow )
 	config.bind< BuilderTag >( &sink );
 
 	{
-		kmac::nova::ContinuationRecordBuilder< 32 > builder;
+		kmac::nova::extras::ContinuationRecordBuilder< 32 > builder;
 		builder.setContext< BuilderTag >( __FILE__, __FUNCTION__, __LINE__ );
 		builder
 			<< "This is a very long message that will overflow "
@@ -179,7 +179,7 @@ TEST_F( NovaRecordBuilders, ContinuationBuilderMultipleOverflows )
 	config.bind< BuilderTag >( &sink );
 
 	{
-		kmac::nova::ContinuationRecordBuilder< 16 > builder;
+		kmac::nova::extras::ContinuationRecordBuilder< 16 > builder;
 		builder.setContext< BuilderTag >( __FILE__, __FUNCTION__, __LINE__ );
 
 		// write enough data to cause multiple overflows
@@ -205,7 +205,7 @@ TEST_F( NovaRecordBuilders, BuilderWithoutSink )
 	}
 
 	{
-		kmac::nova::ContinuationRecordBuilder<> builder;
+		kmac::nova::extras::ContinuationRecordBuilder<> builder;
 		builder.setContext< BuilderTag >( __FILE__, __FUNCTION__, __LINE__ );
 		builder << "This also goes nowhere";
 		builder.commit();
@@ -269,7 +269,7 @@ TEST_F( NovaRecordBuilders, ContinuationBuilderRespectsBufferSize )
 	config.bind< BuilderTag >( &sink );
 
 	{
-		kmac::nova::ContinuationRecordBuilder< 64 > builder;
+		kmac::nova::extras::ContinuationRecordBuilder< 64 > builder;
 		builder.setContext< BuilderTag >( __FILE__, __FUNCTION__, __LINE__ );
 
 		// each record should not exceed buffer size
