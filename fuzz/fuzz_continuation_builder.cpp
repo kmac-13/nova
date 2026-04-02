@@ -69,7 +69,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
 	//
 	// a 64-byte buffer ensures continuation records are emitted frequently
 	{
-		kmac::nova::StackContinuationBuilder< FuzzContTag, 64 > builder(
+		kmac::nova::extras::StackContinuationBuilder< FuzzContTag, 64 > builder(
 			__FILE__, __func__, static_cast< std::uint32_t >( __LINE__ ) );
 
 		const size_t mid = size / 2;
