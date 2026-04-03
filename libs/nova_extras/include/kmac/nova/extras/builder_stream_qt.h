@@ -16,14 +16,31 @@
  * - QStringView (covers implicit conversion from QString)
  * - QByteArray
  * - QLatin1StringView (Qt6) / QLatin1String (Qt5)
+ * - QVariant
+ * - QUrl
+ * - QDir
+ * - QFileInfo
+ * - QDateTime, QDate, QTime
  * - QPoint, QPointF
  * - QSize, QSizeF
  * - QRect, QRectF
  *
- * String format:    UTF-8 encoded text
- * QPoint format:    (x, y)
- * QSize format:     WxH
- * QRect format:     (x, y WxH)
+ * String format:      UTF-8 encoded text
+ * QVariant format:    toString() value, or <TypeName> if not string-convertible
+ * QUrl format:        full URL string
+ * QDir format:        absolute path
+ * QFileInfo format:   absolute file path
+ * QDateTime format:   ISO 8601 with milliseconds (e.g. 2024-01-15T13:45:30.123)
+ * QDate format:       ISO 8601 (e.g. 2024-01-15)
+ * QTime format:       ISO 8601 with milliseconds (e.g. 13:45:30.123)
+ * QPoint format:      (x, y)
+ * QSize format:       WxH
+ * QRect format:       (x, y WxH)
+ *
+ * Qt enums registered with Q_ENUM can be logged using the novaQEnum() helper:
+ *
+ *   NOVA_LOG( MyTag ) << novaQEnum( MyClass::SomeValue );
+ *   // output: SomeValue
  *
  * QString is handled implicitly via QStringView - Qt provides an implicit
  * conversion from QString to QStringView, so no separate overload is needed.
@@ -64,11 +81,17 @@
 #include <kmac/nova/extras/continuation_logging.h>
 
 #include <QByteArray>
+#include <QDateTime>
+#include <QDir>
+#include <QFileInfo>
+#include <QMetaEnum>
 #include <QPoint>
 #include <QRect>
 #include <QSize>
 #include <QString>
 #include <QStringView>
+#include <QUrl>
+#include <QVariant>
 
 #if QT_VERSION >= QT_VERSION_CHECK( 5, 10, 0 )
 #include <QLatin1String>
@@ -101,7 +124,7 @@ NOVA_QT_OVERLOADS(
 		const QByteArray utf8 = value.toUtf8();
 		return builder << kmac::nova::platform::StringView( utf8.constData(), static_cast< std::size_t >( utf8.size() ) );
 	}
-	)
+)
 
 // ============================================================================
 // QByteArray
@@ -112,7 +135,7 @@ NOVA_QT_OVERLOADS(
 	{
 		return builder << kmac::nova::platform::StringView( value.constData(), static_cast< std::size_t >( value.size() ) );
 	}
-	)
+)
 
 // ============================================================================
 // QLatin1StringView / QLatin1String
@@ -125,7 +148,7 @@ NOVA_QT_OVERLOADS(
 	{
 		return builder << kmac::nova::platform::StringView( value.data(), static_cast< std::size_t >( value.size() ) );
 	}
-	)
+)
 
 #elif QT_VERSION >= QT_VERSION_CHECK( 5, 10, 0 )
 
@@ -134,7 +157,7 @@ NOVA_QT_OVERLOADS(
 	{
 		return builder << kmac::nova::platform::StringView( value.data(), static_cast< std::size_t >( value.size() ) );
 	}
-	)
+)
 
 #endif
 
@@ -149,7 +172,7 @@ NOVA_QT_OVERLOADS(
 	{
 		return builder << '(' << value.x() << ", " << value.y() << ')';
 	}
-	)
+)
 
 // ============================================================================
 // QPointF
@@ -162,7 +185,7 @@ NOVA_QT_OVERLOADS(
 	{
 		return builder << '(' << value.x() << ", " << value.y() << ')';
 	}
-	)
+)
 
 // ============================================================================
 // QSize
@@ -175,7 +198,7 @@ NOVA_QT_OVERLOADS(
 	{
 		return builder << value.width() << 'x' << value.height();
 	}
-	)
+)
 
 // ============================================================================
 // QSizeF
@@ -188,7 +211,7 @@ NOVA_QT_OVERLOADS(
 	{
 		return builder << value.width() << 'x' << value.height();
 	}
-	)
+)
 
 // ============================================================================
 // QRect
@@ -202,7 +225,7 @@ NOVA_QT_OVERLOADS(
 		return builder << '(' << value.x() << ", " << value.y()
 		<< ' ' << value.width() << 'x' << value.height() << ')';
 	}
-	)
+)
 
 // ============================================================================
 // QRectF
@@ -216,9 +239,140 @@ NOVA_QT_OVERLOADS(
 		return builder << '(' << value.x() << ", " << value.y()
 		<< ' ' << value.width() << 'x' << value.height() << ')';
 	}
-	)
+)
+
+// ============================================================================
+// QVariant
+// ============================================================================
+//
+// Format: toString() value if convertible, otherwise <TypeName>
+
+NOVA_QT_OVERLOADS(
+	const QVariant& value,
+	{
+		const QString str = value.toString();
+#if QT_VERSION >= QT_VERSION_CHECK( 6, 0, 0 )
+		if ( !str.isEmpty() || value.metaType() == QMetaType::fromType< QString >() )
+#else
+		if ( !str.isEmpty() || value.type() == QVariant::String )
+#endif
+		{
+			return builder << QStringView( str );
+		}
+#if QT_VERSION >= QT_VERSION_CHECK( 6, 0, 0 )
+		return builder << '<' << value.metaType().name() << '>';
+#else
+		return builder << '<' << value.typeName() << '>';
+#endif
+	}
+)
+
+// ============================================================================
+// QUrl
+// ============================================================================
+//
+// Format: full URL string
+
+NOVA_QT_OVERLOADS(
+	const QUrl& value,
+	{
+		const QString str = value.toString();
+		return builder << QStringView( str );
+	}
+)
+
+// ============================================================================
+// QDir
+// ============================================================================
+//
+// Format: absolute path
+
+NOVA_QT_OVERLOADS(
+	const QDir& value,
+	{
+		const QString str = value.absolutePath();
+		return builder << QStringView( str );
+	}
+)
+
+// ============================================================================
+// QFileInfo
+// ============================================================================
+//
+// Format: absolute file path
+
+NOVA_QT_OVERLOADS(
+	const QFileInfo& value,
+	{
+		const QString str = value.absoluteFilePath();
+		return builder << QStringView( str );
+	}
+)
+
+// ============================================================================
+// QDateTime
+// ============================================================================
+//
+// Format: ISO 8601 with milliseconds (e.g. 2024-01-15T13:45:30.123)
+
+NOVA_QT_OVERLOADS(
+	const QDateTime& value,
+	{
+		const QString str = value.toString( Qt::ISODateWithMs );
+		return builder << QStringView( str );
+	}
+)
+
+// ============================================================================
+// QDate
+// ============================================================================
+//
+// Format: ISO 8601 (e.g. 2024-01-15)
+
+NOVA_QT_OVERLOADS(
+	const QDate& value,
+	{
+		const QString str = value.toString( Qt::ISODate );
+		return builder << QStringView( str );
+	}
+)
+
+// ============================================================================
+// QTime
+// ============================================================================
+//
+// Format: ISO 8601 with milliseconds (e.g. 13:45:30.123)
+
+NOVA_QT_OVERLOADS(
+	const QTime& value,
+	{
+		const QString str = value.toString( Qt::ISODateWithMs );
+		return builder << QStringView( str );
+	}
+)
 
 #undef NOVA_QT_OVERLOADS
+
+// ============================================================================
+// novaQEnum
+// ============================================================================
+//
+// Helper for logging Qt enums registered with Q_ENUM.  Returns the enum
+// value's key name as a const char*, routing through the builder's existing
+// const char* overload.  Returns nullptr if the value is not registered,
+// which will log nothing.
+//
+// Usage:
+//   NOVA_LOG( MyTag ) << novaQEnum( MyClass::SomeValue );
+//   // output: SomeValue
+//
+// @tparam E enum type registered with Q_ENUM
+
+template< typename E >
+inline const char* novaQEnum( E value )
+{
+	return QMetaEnum::fromType< E >().valueToKey( static_cast< int >( value ) );
+}
 
 #endif // QT_VERSION
 
