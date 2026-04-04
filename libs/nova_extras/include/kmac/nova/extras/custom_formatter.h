@@ -228,19 +228,25 @@ inline std::size_t buildISOTimestamp( char* buf, std::uint64_t timestamp ) noexc
 	out[ 3 ] = char( '0' + ( year % 10 ) );
 	out += 4;
 	*out++ = '-';
-	std::memcpy( out, DIGITS_2[ time.tm_mon + 1 ], 2 ); out += 2;
+	std::memcpy( out, DIGITS_2[ time.tm_mon + 1 ], 2 );
+	out += 2;
 	*out++ = '-';
-	std::memcpy( out, DIGITS_2[ time.tm_mday ], 2 ); out += 2;
+	std::memcpy( out, DIGITS_2[ time.tm_mday ], 2 );
+	out += 2;
 
 	// THH:MM:SS.mmmZ
 	*out++ = 'T';
-	std::memcpy( out, DIGITS_2[ time.tm_hour ], 2 ); out += 2;
+	std::memcpy( out, DIGITS_2[ time.tm_hour ], 2 );
+	out += 2;
 	*out++ = ':';
-	std::memcpy( out, DIGITS_2[ time.tm_min  ], 2 ); out += 2;
+	std::memcpy( out, DIGITS_2[ time.tm_min  ], 2 );
+	out += 2;
 	*out++ = ':';
-	std::memcpy( out, DIGITS_2[ time.tm_sec  ], 2 ); out += 2;
+	std::memcpy( out, DIGITS_2[ time.tm_sec  ], 2 );
+	out += 2;
 	*out++ = '.';
-	std::memcpy( out, DIGITS_3[ millis ], 3 ); out += 3;
+	std::memcpy( out, DIGITS_3[ millis ], 3 );
+	out += 3;
 	*out++ = 'Z';
 
 	return static_cast< std::size_t >( out - buf ); // always ISO_TIMESTAMP_SIZE
@@ -274,6 +280,15 @@ inline std::size_t buildLineNumber( char* buf, std::uint32_t line ) noexcept
 		return 1;
 	}
 	return static_cast< std::size_t >( result.ptr - buf );
+}
+
+inline bool writePartial( Buffer& buffer, const char* src, std::size_t totalLen, std::size_t& contentOffset ) noexcept
+{
+	const std::size_t delta = totalLen - contentOffset;
+	const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
+	(void) buffer.append( src + contentOffset, toWrite );
+	contentOffset += toWrite;
+	return contentOffset >= totalLen;
 }
 
 } // namespace detail
@@ -360,22 +375,14 @@ inline bool writeSpecPhase1(
 	else if constexpr ( Fld == Field::Tag )
 	{
 		const char* src = record.tag ? record.tag : "";
-		const std::size_t delta = cache.tagLen - contentOffset;
-		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-		(void) buffer.append( src + contentOffset, toWrite );
-		contentOffset += toWrite;
-		if ( contentOffset < cache.tagLen )
+		if ( ! detail::writePartial( buffer, src, cache.tagLen, contentOffset ) )
 		{
 			return false;
 		}
 	}
 	else if constexpr ( Fld == Field::Message )
 	{
-		const std::size_t delta = record.messageSize - contentOffset;
-		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-		(void) buffer.append( record.message + contentOffset, toWrite );
-		contentOffset += toWrite;
-		if ( contentOffset < record.messageSize )
+		if ( ! detail::writePartial( buffer, record.message, record.messageSize, contentOffset ) )
 		{
 			return false;
 		}
@@ -383,11 +390,7 @@ inline bool writeSpecPhase1(
 	else if constexpr ( Fld == Field::File )
 	{
 		const char* src = record.file ? record.file : "";
-		const std::size_t delta = cache.fileLen - contentOffset;
-		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-		(void) buffer.append( src + contentOffset, toWrite );
-		contentOffset += toWrite;
-		if ( contentOffset < cache.fileLen )
+		if ( ! detail::writePartial( buffer, src, cache.fileLen, contentOffset ) )
 		{
 			return false;
 		}
@@ -395,33 +398,21 @@ inline bool writeSpecPhase1(
 	else if constexpr ( Fld == Field::Function )
 	{
 		const char* src = record.function ? record.function : "";
-		const std::size_t delta = cache.funcLen - contentOffset;
-		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-		(void) buffer.append( src + contentOffset, toWrite );
-		contentOffset += toWrite;
-		if ( contentOffset < cache.funcLen )
+		if ( ! detail::writePartial( buffer, src, cache.funcLen, contentOffset ) )
 		{
 			return false;
 		}
 	}
 	else if constexpr ( Fld == Field::Line )
 	{
-		const std::size_t delta = cache.lineLen - contentOffset;
-		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-		(void) buffer.append( cache.lineBuf.data() + contentOffset, toWrite );
-		contentOffset += toWrite;
-		if ( contentOffset < cache.lineLen )
+		if ( ! detail::writePartial( buffer, cache.lineBuf.data(), cache.lineLen, contentOffset ) )
 		{
 			return false;
 		}
 	}
 	else if constexpr ( Fld == Field::TimestampRaw || Fld == Field::TimestampISO )
 	{
-		const std::size_t delta = cache.timestampLen - contentOffset;
-		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-		(void) buffer.append( cache.timestampBuf.data() + contentOffset, toWrite );
-		contentOffset += toWrite;
-		if ( contentOffset < cache.timestampLen )
+		if ( ! detail::writePartial( buffer, cache.timestampBuf.data(), cache.timestampLen, contentOffset ) )
 		{
 			return false;
 		}
