@@ -24,7 +24,7 @@ namespace kmac::nova::extras
  * Field::None emits only the surrounding Open/Close delimiters (no field
  * content), which is useful for inserting literal punctuation.
  */
-enum class Field
+enum class Field : std::uint8_t
 {
 	None,          ///< emit Open/Close only (no field content)
 	Tag,           ///< record.tag (null-safe)
@@ -65,7 +65,7 @@ namespace detail
 {
 
 // lookup table for 2-digit strings "00".."99", shared with ISO8601Formatter
-static constexpr const char DIGITS_2[ 100 ][ 3 ] = {
+static constexpr const char DIGITS_2[ 100 ][ 3 ] = {  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 	"00", "01", "02", "03", "04", "05", "06", "07", "08", "09",
 	"10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
 	"20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
@@ -79,7 +79,7 @@ static constexpr const char DIGITS_2[ 100 ][ 3 ] = {
 };
 
 // lookup table for 3-digit strings "000".."999"
-static constexpr const char DIGITS_3[ 1000 ][ 4 ] = {
+static constexpr const char DIGITS_3[ 1000 ][ 4 ] = {  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 	"000", "001", "002", "003", "004", "005", "006", "007", "008", "009",
 	"010", "011", "012", "013", "014", "015", "016", "017", "018", "019",
 	"020", "021", "022", "023", "024", "025", "026", "027", "028", "029",
@@ -196,11 +196,14 @@ static constexpr std::size_t RAW_TIMESTAMP_SIZE = 20;
 // maximum size of a uint32 line-number decimal string (10 digits)
 static constexpr std::size_t LINE_NUMBER_SIZE = 10;
 
-// ---------------------------------------------------------------------------
-// buildISOTimestamp: fills buf[0..ISO_TIMESTAMP_SIZE) with a UTC ISO 8601
-// timestamp derived from a nanosecond epoch value, and returns the number
-// of bytes written (always ISO_TIMESTAMP_SIZE).
-// ---------------------------------------------------------------------------
+/**
+ * @brief Fills buf[0..ISO_TIMESTAMP_SIZE) with a UTC ISO 8601 timestamp derived
+ * from a nanosecond epoch value, and returns the number of bytes written
+ * (always ISO_TIMESTAMP_SIZE).
+ *
+ * @return ISO_TIMESTAMP_SIZE
+ */
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay, cppcoreguidelines-pro-bounds-constant-array-index)
 inline std::size_t buildISOTimestamp( char* buf, std::uint64_t timestamp ) noexcept
 {
 	const std::uint64_t seconds = timestamp / 1'000'000'000ULL;
@@ -242,6 +245,7 @@ inline std::size_t buildISOTimestamp( char* buf, std::uint64_t timestamp ) noexc
 
 	return static_cast< std::size_t >( out - buf ); // always ISO_TIMESTAMP_SIZE
 }
+// NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay, cppcoreguidelines-pro-bounds-constant-array-index)
 
 // ---------------------------------------------------------------------------
 // buildRawTimestamp: decimal nanosecond string in buf, returns length
@@ -285,13 +289,15 @@ inline std::size_t buildLineNumber( char* buf, std::uint32_t line ) noexcept
 struct FieldCache
 {
 	// ISO or raw timestamp
-	kmac::nova::platform::Array< char, ( detail::ISO_TIMESTAMP_SIZE > detail::RAW_TIMESTAMP_SIZE
-		? detail::ISO_TIMESTAMP_SIZE
-		: detail::RAW_TIMESTAMP_SIZE ) > timestampBuf;
+	kmac::nova::platform::Array< char,
+		( detail::ISO_TIMESTAMP_SIZE > detail::RAW_TIMESTAMP_SIZE
+			? detail::ISO_TIMESTAMP_SIZE
+			: detail::RAW_TIMESTAMP_SIZE )
+		> timestampBuf = {};
 	std::size_t timestampLen = 0;
 
 	// line number decimal string
-	kmac::nova::platform::Array< char, detail::LINE_NUMBER_SIZE > lineBuf;
+	kmac::nova::platform::Array< char, detail::LINE_NUMBER_SIZE > lineBuf = {};
 	std::size_t lineLen = 0;
 
 	// cached string lengths (avoids repeated strlen in format())
