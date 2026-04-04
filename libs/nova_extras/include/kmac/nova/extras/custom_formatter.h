@@ -331,6 +331,117 @@ struct ResumeState
 	std::size_t contentOffset = 0;
 };
 
+template< char Open >
+inline bool writeSpecPhase0( Buffer& buffer, std::size_t& contentOffset ) noexcept
+{
+	if constexpr ( Open != '\0' )
+	{
+		if ( ! buffer.appendChar( Open ) )
+		{
+			return false;
+		}
+	}
+	contentOffset = 0;
+	return true;
+}
+
+template< Field Fld >
+inline bool writeSpecPhase1(
+	const kmac::nova::Record& record,
+	const FieldCache& cache,
+	Buffer& buffer,
+	std::size_t& contentOffset
+) noexcept
+{
+	if constexpr ( Fld == Field::None )
+	{
+		// nothing to emit, fall through immediately
+	}
+	else if constexpr ( Fld == Field::Tag )
+	{
+		const char* src = record.tag ? record.tag : "";
+		const std::size_t delta = cache.tagLen - contentOffset;
+		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
+		(void) buffer.append( src + contentOffset, toWrite );
+		contentOffset += toWrite;
+		if ( contentOffset < cache.tagLen )
+		{
+			return false;
+		}
+	}
+	else if constexpr ( Fld == Field::Message )
+	{
+		const std::size_t delta = record.messageSize - contentOffset;
+		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
+		(void) buffer.append( record.message + contentOffset, toWrite );
+		contentOffset += toWrite;
+		if ( contentOffset < record.messageSize )
+		{
+			return false;
+		}
+	}
+	else if constexpr ( Fld == Field::File )
+	{
+		const char* src = record.file ? record.file : "";
+		const std::size_t delta = cache.fileLen - contentOffset;
+		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
+		(void) buffer.append( src + contentOffset, toWrite );
+		contentOffset += toWrite;
+		if ( contentOffset < cache.fileLen )
+		{
+			return false;
+		}
+	}
+	else if constexpr ( Fld == Field::Function )
+	{
+		const char* src = record.function ? record.function : "";
+		const std::size_t delta = cache.funcLen - contentOffset;
+		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
+		(void) buffer.append( src + contentOffset, toWrite );
+		contentOffset += toWrite;
+		if ( contentOffset < cache.funcLen )
+		{
+			return false;
+		}
+	}
+	else if constexpr ( Fld == Field::Line )
+	{
+		const std::size_t delta = cache.lineLen - contentOffset;
+		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
+		(void) buffer.append( cache.lineBuf.data() + contentOffset, toWrite );
+		contentOffset += toWrite;
+		if ( contentOffset < cache.lineLen )
+		{
+			return false;
+		}
+	}
+	else if constexpr ( Fld == Field::TimestampRaw || Fld == Field::TimestampISO )
+	{
+		const std::size_t delta = cache.timestampLen - contentOffset;
+		const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
+		(void) buffer.append( cache.timestampBuf.data() + contentOffset, toWrite );
+		contentOffset += toWrite;
+		if ( contentOffset < cache.timestampLen )
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+template< char Close >
+inline bool writeSpecPhase2( Buffer& buffer ) noexcept
+{
+	if constexpr ( Close != '\0' )
+	{
+		if ( ! buffer.appendChar( Close ) )
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 /**
  * @brief Attempts to write one FieldSpec into buffer, resuming from state as needed.
  *
@@ -351,15 +462,11 @@ inline bool writeSpec(
 	// phase 0: Open delimiter
 	if ( phase == 0 )
 	{
-		if constexpr ( Open != '\0' )
+		if ( ! writeSpecPhase0< Open >( buffer, contentOffset ) )
 		{
-			if ( ! buffer.appendChar( Open ) )
-			{
-				return false;
-			}
+			return false;
 		}
 		phase = 1;
-		contentOffset = 0;
 	}
 
 	// phase 1: Field content
@@ -371,78 +478,9 @@ inline bool writeSpec(
 	// resumable across buffer boundaries
 	if ( phase == 1 )
 	{
-		if constexpr ( Fld == Field::None )
+		if ( ! writeSpecPhase1< Fld >( record, cache, buffer, contentOffset ) )
 		{
-			// nothing to emit, fall through immediately
-		}
-		else if constexpr ( Fld == Field::Tag )
-		{
-			const char* src = record.tag ? record.tag : "";
-			const std::size_t delta = cache.tagLen - contentOffset;
-			const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-			(void) buffer.append( src + contentOffset, toWrite );
-			contentOffset += toWrite;
-			if ( contentOffset < cache.tagLen )
-			{
-				return false;
-			}
-		}
-		else if constexpr ( Fld == Field::Message )
-		{
-			const std::size_t delta = record.messageSize - contentOffset;
-			const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-			(void) buffer.append( record.message + contentOffset, toWrite );
-			contentOffset += toWrite;
-			if ( contentOffset < record.messageSize )
-			{
-				return false;
-			}
-		}
-		else if constexpr ( Fld == Field::File )
-		{
-			const char* src = record.file ? record.file : "";
-			const std::size_t delta = cache.fileLen - contentOffset;
-			const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-			(void) buffer.append( src + contentOffset, toWrite );
-			contentOffset += toWrite;
-			if ( contentOffset < cache.fileLen )
-			{
-				return false;
-			}
-		}
-		else if constexpr ( Fld == Field::Function )
-		{
-			const char* src = record.function ? record.function : "";
-			const std::size_t delta = cache.funcLen - contentOffset;
-			const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-			(void) buffer.append( src + contentOffset, toWrite );
-			contentOffset += toWrite;
-			if ( contentOffset < cache.funcLen )
-			{
-				return false;
-			}
-		}
-		else if constexpr ( Fld == Field::Line )
-		{
-			const std::size_t delta = cache.lineLen - contentOffset;
-			const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-			(void) buffer.append( cache.lineBuf.data() + contentOffset, toWrite );
-			contentOffset += toWrite;
-			if ( contentOffset < cache.lineLen )
-			{
-				return false;
-			}
-		}
-		else if constexpr ( Fld == Field::TimestampRaw || Fld == Field::TimestampISO )
-		{
-			const std::size_t delta = cache.timestampLen - contentOffset;
-			const std::size_t toWrite = delta < buffer.remaining() ? delta : buffer.remaining();
-			(void) buffer.append( cache.timestampBuf.data() + contentOffset, toWrite );
-			contentOffset += toWrite;
-			if ( contentOffset < cache.timestampLen )
-			{
-				return false;
-			}
+			return false;
 		}
 		phase = 2;
 	}
@@ -450,12 +488,9 @@ inline bool writeSpec(
 	// phase 2: Close delimiter
 	if ( phase == 2 )
 	{
-		if constexpr ( Close != '\0' )
+		if ( ! writeSpecPhase2< Close >( buffer ) )
 		{
-			if ( ! buffer.appendChar( Close ) )
-			{
-				return false;
-			}
+			return false;
 		}
 
 		// mark complete
