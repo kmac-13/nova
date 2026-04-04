@@ -84,6 +84,7 @@ add_nova_gtest( test_nova_scoped_configurator test_nova_scoped_configurator.cpp 
 add_nova_gtest( test_nova_mpsc_queue test_nova_mpsc_queue.cpp )
 add_nova_gtest( test_nova_sinks test_nova_sinks.cpp )
 add_nova_gtest( test_nova_formatters test_nova_formatters.cpp )
+add_nova_gtest( test_nova_custom_formatter test_nova_custom_formatter.cpp )
 add_nova_gtest( test_nova_synchronization test_nova_synchronization.cpp )
 add_nova_gtest( test_nova_composite test_nova_composite.cpp )
 add_nova_gtest( test_nova_memory_pool_async_sink test_nova_memory_pool_async_sink.cpp )
