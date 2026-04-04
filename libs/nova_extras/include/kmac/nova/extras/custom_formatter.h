@@ -361,7 +361,7 @@ inline bool writeSpecPhase0( Buffer& buffer, std::size_t& contentOffset ) noexce
 }
 
 template< Field Fld >
-inline bool writeSpecPhase1(
+inline bool writeSpecPhase1(  // NOLINT(readability-function-cognitive-complexity)
 	const kmac::nova::Record& record,
 	const FieldCache& cache,
 	Buffer& buffer,

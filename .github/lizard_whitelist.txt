@@ -1,3 +1,4 @@
 kmac::nova::platform::floatToChars # float-to-chars algorithm; complexity inherent to IEEE 754 decimal conversion
 kmac::nova::extras::ISO8601Formatter::formatSlow # ISO8601 state machine; complexity inherent to timestamp parsing
+kmac::nova::extras::writeSpecPhase1 # if constexpr dispatch over Field enum; complexity is compile-time branching, not runtime
 TlvFieldParseHelper::parseFixedField # TLV type dispatch; complexity inherent to the TLV schema
