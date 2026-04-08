@@ -80,6 +80,7 @@
 #include <kmac/nova/record.h>
 #include <kmac/nova/sink.h>
 #include <kmac/nova/platform/array.h>
+#include <kmac/nova/platform/config.h>
 
 #include <syslog.h>
 
@@ -152,6 +153,7 @@ SyslogSink< BufferSize >::SyslogSink( PriorityFunc priorityFunc ) noexcept
 	: _priorityFunc( priorityFunc )
 	, _fixedPriority( 0 )
 {
+	NOVA_ASSERT( priorityFunc != nullptr && "SyslogSink: priorityFunc must not be null" );
 }
 
 template< std::size_t BufferSize >
@@ -162,7 +164,6 @@ void SyslogSink< BufferSize >::process( const kmac::nova::Record& record ) noexc
 		: _fixedPriority;
 
 	// copy record.message into local buffer to ensure message is null-terminated
-
 	kmac::nova::platform::Array< char, BufferSize > buf {};
 	const std::size_t len = record.messageSize < BufferSize - 1 ? record.messageSize : BufferSize - 1;
 	std::memcpy( buf.data(), record.message, len );
