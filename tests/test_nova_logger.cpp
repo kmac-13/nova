@@ -29,7 +29,7 @@ public:
 	std::vector< kmac::nova::Record > records;
 	std::vector< std::string > storage;
 
-	void process( const kmac::nova::Record& record ) override
+	void process( const kmac::nova::Record& record ) noexcept override
 	{
 		// store the message string
 		storage.emplace_back( record.message, record.messageSize );

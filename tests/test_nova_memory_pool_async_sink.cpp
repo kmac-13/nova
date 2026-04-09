@@ -23,7 +23,7 @@ private:
 	std::vector< std::string > _messages;
 
 public:
-	void process( const kmac::nova::Record& record ) override
+	void process( const kmac::nova::Record& record ) noexcept override
 	{
 		std::lock_guard< std::mutex > lock( _mutex );
 		_messages.emplace_back( record.message, record.messageSize );

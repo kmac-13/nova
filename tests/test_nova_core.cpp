@@ -36,7 +36,7 @@ public:
 
 	std::vector< CapturedRecord > records;
 
-	void process( const kmac::nova::Record& record ) override
+	void process( const kmac::nova::Record& record ) noexcept override
 	{
 		CapturedRecord captured;
 		captured.tag = std::string( record.tag );

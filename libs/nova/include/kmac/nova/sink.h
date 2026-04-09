@@ -62,7 +62,7 @@ public:
 	 * @note do not store pointers from record
 	 * @note message might not be null-terminated
 	 */
-	virtual void process( const Record& record ) = 0;
+	virtual void process( const Record& record ) noexcept = 0;
 };
 
 } // namespace kmac::nova
