@@ -6,8 +6,8 @@
 
 #include <kmac/nova/record.h>
 #include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -223,7 +223,7 @@ public:
 		}
 
 		// fixed-size stack buffer, no heap allocation
-		std::array< char, BufferSize > buffer;
+		kmac::nova::platform::Array< char, BufferSize > buffer {};
 		const std::size_t encodedSize = encodeRecordTlv( record, buffer.data(), buffer.size(), _sequenceNumber );
 
 		if ( encodedSize > 0 )
