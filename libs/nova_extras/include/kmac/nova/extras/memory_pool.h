@@ -2,7 +2,8 @@
 #ifndef KMAC_NOVA_EXTRAS_MEMORY_POOL_H
 #define KMAC_NOVA_EXTRAS_MEMORY_POOL_H
 
-#include <array>
+#include <kmac/nova/platform/array.h>
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -69,7 +70,7 @@ private:
 	// conditional storage based on allocator type
 	// NOLINT NOTE: array unique_ptr is the correct idiom for heap-allocated runtime-sized buffers; std::array requires stack allocation
 	using HeapStorage = std::unique_ptr< uint8_t[] >;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
-	using StackStorage = std::array< uint8_t, Capacity >;
+	using StackStorage = kmac::nova::platform::Array< uint8_t, Capacity >;
 
 	std::conditional_t< Allocator == PoolAllocator::Heap, HeapStorage, StackStorage > _pool;
 

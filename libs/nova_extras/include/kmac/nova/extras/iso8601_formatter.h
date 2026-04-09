@@ -5,7 +5,8 @@
 #include "formatter.h"
 #include "buffer.h"
 
-#include <array>
+#include <kmac/nova/platform/array.h>
+
 #include <cstdint>
 #include <ctime>
 
@@ -77,12 +78,12 @@ private:
 	std::size_t _offset = 0;     ///< byte offset within the field currently being written
 
 	// pre-formatted timestamp built once in begin() and reused across format() calls
-	std::array< char, 32 > _timestampBuf{};  ///< "YYYY-MM-DDTHH:MM:SS.mmmZ " (25 bytes used)
-	std::size_t _timestampLen = 0;           ///< actual byte count in _timestampBuf
+	platform::Array< char, 32 > _timestampBuf { };  ///< "YYYY-MM-DDTHH:MM:SS.mmmZ " (25 bytes used)
+	std::size_t _timestampLen = 0;                  ///< actual byte count in _timestampBuf
 
 	// pre-formatted line number built once in begin(); includes a trailing space
 	// so Stage::LineWithSpace writes "42 " as a single append
-	std::array< char, 16 > _lineBuf{};
+	platform::Array< char, 16 > _lineBuf { };
 	std::size_t _lineLen = 0;
 
 	// string lengths cached in begin() to avoid repeated strlen() in format()

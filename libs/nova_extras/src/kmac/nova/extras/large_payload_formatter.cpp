@@ -1,11 +1,12 @@
 #include "kmac/nova/extras/large_payload_formatter.h"
 
-#include "kmac/nova/record.h"
-#include "kmac/nova/sink.h"
 #include "kmac/nova/extras/truncating_buffer.h"
 
+#include <kmac/nova/record.h>
+#include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
+
 #include <cstring>
-#include <array>
 
 namespace kmac::nova::extras
 {
@@ -29,9 +30,9 @@ void LargePayloadFormatter::formatAndWrite(
 	kmac::nova::Sink& downstream
 ) noexcept
 {
-	// use std::array instead of VLA
+	// use an array instead of VLA (variable length array)
 	constexpr std::size_t CHUNK_SIZE = 1024;
-	std::array< char, CHUNK_SIZE + 1 > bufferStorage{};         // +1 for null terminator
+	kmac::nova::platform::Array< char, CHUNK_SIZE + 1 > bufferStorage {};  // +1 for null terminator
 	TruncatingBuffer buff( bufferStorage.data(), CHUNK_SIZE );  // reserve last byte for null
 
 	// first chunk: header

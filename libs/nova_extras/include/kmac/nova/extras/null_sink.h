@@ -2,7 +2,7 @@
 #ifndef KMAC_NOVA_EXTRAS_NULL_SINK_H
 #define KMAC_NOVA_EXTRAS_NULL_SINK_H
 
-#include "kmac/nova/sink.h"
+#include <kmac/nova/sink.h>
 
 namespace kmac::nova
 {

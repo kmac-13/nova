@@ -58,8 +58,9 @@
  *   }
  */
 
+#include "kmac/nova/extras/continuation_logging.h"
+
 #include <kmac/nova/truncating_logging.h>
-#include <kmac/nova/extras/continuation_logging.h>
 
 #include <array>
 #include <list>

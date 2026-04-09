@@ -1,7 +1,7 @@
 #include "kmac/nova/extras/spinlock_sink.h"
 
-#include "kmac/nova/record.h"
-#include "kmac/nova/sink.h"
+#include <kmac/nova/record.h>
+#include <kmac/nova/sink.h>
 
 #include <atomic>
 

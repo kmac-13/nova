@@ -32,7 +32,7 @@
  *   algorithm( nullBuilder );  // zero overhead
  */
 
-#include <kmac/nova/nova.h>
+// #include <kmac/nova/nova.h>
 
 namespace kmac::nova::extras
 {

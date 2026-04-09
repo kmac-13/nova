@@ -1,8 +1,8 @@
 #include "kmac/nova/extras/synchronized_composite_sink.h"
 
-#include "kmac/nova/record.h"
-#include "kmac/nova/sink.h"
-#include "kmac/nova/extras/composite_sink.h"
+#include <kmac/nova/record.h>
+#include <kmac/nova/sink.h>
+#include <kmac/nova/extras/composite_sink.h>
 
 #include <mutex>
 

@@ -2,7 +2,7 @@
 #ifndef KMAC_NOVA_EXTRAS_SYNCHRONIZED_SINK_H
 #define KMAC_NOVA_EXTRAS_SYNCHRONIZED_SINK_H
 
-#include "kmac/nova/sink.h"
+#include <kmac/nova/sink.h>
 
 #include <mutex>
 

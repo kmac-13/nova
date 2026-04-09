@@ -5,8 +5,9 @@
 #include "memory_pool.h"
 #include "mpsc_queue.h"
 
-#include "kmac/nova/record.h"
-#include "kmac/nova/sink.h"
+#include <kmac/nova/record.h>
+#include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
 
 #include <atomic>
 #include <cstring>
@@ -348,7 +349,7 @@ template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexTy
 void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::processLoop() noexcept
 {
 	constexpr std::size_t BATCH_SIZE = 64;
-	std::array< EntryIndex< IndexType >, BATCH_SIZE > indexBatch{};
+	kmac::nova::platform::Array< EntryIndex< IndexType >, BATCH_SIZE > indexBatch {};
 
 	while ( true )
 	{

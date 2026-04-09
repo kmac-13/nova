@@ -1,6 +1,6 @@
 #include "kmac/nova/extras/iso8601_formatter.h"
 
-#include "kmac/nova/record.h"
+#include <kmac/nova/record.h>
 
 #include <cstring>
 
@@ -146,7 +146,7 @@ void ISO8601Formatter::begin( const kmac::nova::Record& record ) noexcept
 	// pre-format line number
 	_lineLen = 0;
 	unsigned int line = record.line;
-	std::array< char, 16 > tmp{};
+	kmac::nova::platform::Array< char, 16 > tmp {};
 	int idx = 0;
 	do
 	{
@@ -238,7 +238,7 @@ bool ISO8601Formatter::tryFormatFast( const kmac::nova::Record& record, Buffer& 
 
 	// fast path: format into temp buffer, then single memcpy to destination,
 	// which eliminates all the Buffer::append() overhead and boundary checks
-	std::array< char, 512 > tempBuff{};
+	kmac::nova::platform::Array< char, 512 > tempBuff {};
 	char* dest = tempBuff.data();
 
 	// timestamp

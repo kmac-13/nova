@@ -1,6 +1,6 @@
 #include "kmac/nova/extras/synchronized_sink.h"
 
-#include "kmac/nova/sink.h"
+#include <kmac/nova/sink.h>
 
 #include <mutex>
 

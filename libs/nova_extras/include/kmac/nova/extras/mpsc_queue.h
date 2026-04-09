@@ -2,9 +2,9 @@
 #ifndef KMAC_NOVA_EXTRAS_MPSC_QUEUE_H
 #define KMAC_NOVA_EXTRAS_MPSC_QUEUE_H
 
-#include "kmac/nova/immovable.h"
+#include <kmac/nova/immovable.h>
+#include <kmac/nova/platform/array.h>
 
-#include <array>
 #include <atomic>
 #include <cstddef>
 
@@ -40,7 +40,7 @@ private:
 	alignas( CACHE_LINE_SIZE ) std::atomic< std::size_t > _head{ 0 };
 	alignas( CACHE_LINE_SIZE ) std::atomic< std::size_t > _tail{ 0 };
 
-	std::array< Slot, Capacity > _slots{};
+	kmac::nova::platform::Array< Slot, Capacity > _slots {};
 
 public:
 	MPSCQueue() noexcept;

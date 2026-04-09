@@ -1,11 +1,12 @@
 #include "kmac/nova/extras/multiline_formatter.h"
 
-#include "kmac/nova/record.h"
-#include "kmac/nova/sink.h"
 #include "kmac/nova/extras/buffer.h"
 
-#include <array>
-#include <charconv>
+#include <kmac/nova/record.h>
+#include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
+#include <kmac/nova/platform/int_to_chars.h>
+
 #include <cstring>
 #include <iterator>
 #include <system_error>
@@ -32,32 +33,30 @@ void MultilineFormatter::formatLineNumberPrefix(
 	std::size_t totalLines
 ) const noexcept
 {
-	std::array< char, MAX_LINE_NUMBER_PREFIX > prefix{};
+	kmac::nova::platform::Array< char, MAX_LINE_NUMBER_PREFIX > prefix {};
 	char* prefixEnd = prefix.data();
 
 	// format: "[N/Total] "
 	*prefixEnd++ = '[';
 
-	// TODO: make a dedicated platforms pass on this code
-
 	// attempt to format the line number into the buffer
-	auto [ ptr1, ec1 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 10, lineNumber );
-	if ( ec1 != std::errc{} )
+	const auto result1 = kmac::nova::platform::intToChars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 10, lineNumber );
+	if ( ! result1.ok )
 	{
 		return;
 	}
 
-	prefixEnd = ptr1;
+	prefixEnd = result1.ptr;
 	*prefixEnd++ = '/';
 
 	// attemp to format the line count into the buffer
-	auto [ ptr2, ec2 ] = std::to_chars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 3, totalLines );
-	if ( ec2 != std::errc{} )
+	const auto result2 = kmac::nova::platform::intToChars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 3, totalLines );
+	if ( ! result2.ok )
 	{
 		return;
 	}
 
-	prefixEnd = ptr2;
+	prefixEnd = result2.ptr;
 	*prefixEnd++ = ']';
 	*prefixEnd++ = ' ';
 
@@ -104,7 +103,7 @@ void MultilineFormatter::formatAndWrite(
 		++lineNumber;
 
 		constexpr std::size_t BUFFER_SIZE = 4096;
-		std::array< char, BUFFER_SIZE + 1 > bufferStorage{};  // +1 for null terminator
+		kmac::nova::platform::Array< char, BUFFER_SIZE + 1 > bufferStorage {};  // +1 for null terminator
 		Buffer buffer( bufferStorage.data(), BUFFER_SIZE );   // reserve last byte for null terminator
 
 		// add the line number

@@ -143,9 +143,9 @@
  * alternatives with more deterministic behavior.
  */
 
-#include "kmac/nova/sink.h"
+#include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
 
-#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <functional>
@@ -245,7 +245,7 @@ private:
 
 	Formatter* _formatter = nullptr;
 
-	std::array< char, WRITE_BUFFER_SIZE > _writeBuffer = { };
+	kmac::nova::platform::Array< char, WRITE_BUFFER_SIZE > _writeBuffer { };
 	std::size_t _bufferOffset = 0;
 	std::size_t _remaining = 0;
 

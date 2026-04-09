@@ -1,6 +1,6 @@
 #include "kmac/nova/extras/ostream_sink.h"
 
-#include "kmac/nova/record.h"
+#include <kmac/nova/record.h>
 
 #include <ostream>
 

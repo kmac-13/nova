@@ -7,8 +7,9 @@
 #include "memory_pool.h"
 #include "mpsc_queue.h"
 
-#include "kmac/nova/record.h"
-#include "kmac/nova/sink.h"
+#include <kmac/nova/record.h>
+#include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
 
 #include <atomic>
 #include <condition_variable>
@@ -69,7 +70,7 @@ private:
 
 	// fixed-size formatting buffer (256KB for batch formatting)
 	static constexpr std::size_t FORMAT_BUFFER_SIZE = 256UL * 1024UL;
-	std::array< char, FORMAT_BUFFER_SIZE > _formatBuffer = { };
+	kmac::nova::platform::Array< char, FORMAT_BUFFER_SIZE > _formatBuffer { };
 	std::size_t _formatOffset = 0;
 
 	// consumer thread
@@ -310,8 +311,8 @@ template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexTy
 void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::processLoop() noexcept
 {
 	constexpr std::size_t BATCH_SIZE = 64;
-	std::array< EntryIndex, BATCH_SIZE > indexBatch = { };
-	std::array< kmac::nova::Record*, BATCH_SIZE > recordBatch = { };
+	kmac::nova::platform::Array< EntryIndex, BATCH_SIZE > indexBatch { };
+	kmac::nova::platform::Array< kmac::nova::Record*, BATCH_SIZE > recordBatch { };
 
 	while ( true )
 	{
