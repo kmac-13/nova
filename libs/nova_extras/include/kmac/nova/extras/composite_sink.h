@@ -19,7 +19,7 @@
  * For safety-critical systems, consider BoundedCompositeSink<N> or FixedCompositeSink.
  * BoundedCompositeSink has:
  * - fixed capacity N (compile-time limit)
- * - no heap allocation (uses std::array)
+ * - no heap allocation (uses platform::Array)
  * - explicit capacity checks (add() returns bool)
  * - deterministic behavior
  *
@@ -44,7 +44,7 @@
  * @see FixedCompositeSink for safety-critical alternative
  */
 
-#include "kmac/nova/sink.h"
+#include <kmac/nova/sink.h>
 
 #include <vector>
 

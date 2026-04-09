@@ -2,12 +2,13 @@
 #ifndef KMAC_NOVA_EXTRAS_FORMATTING_FILE_SINK_H
 #define KMAC_NOVA_EXTRAS_FORMATTING_FILE_SINK_H
 
-#include "kmac/nova/record.h"
-#include "kmac/nova/sink.h"
-#include "kmac/nova/extras/buffer.h"
-#include "kmac/nova/extras/formatter.h"
+#include "buffer.h"
+#include "formatter.h"
 
-#include <array>
+#include <kmac/nova/record.h>
+#include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
+
 #include <cstdio>
 
 namespace kmac::nova::extras
@@ -75,7 +76,7 @@ private:
 	Formatter* _formatter = nullptr;  ///< formatter (optional, not owned)
 
 	// fixed-size formatting buffer
-	std::array< char, BufferSize > _formatBuffer = { };
+	platform::Array< char, BufferSize > _formatBuffer { };
 	std::size_t _formatOffset = 0;
 
 public:

@@ -2,9 +2,9 @@
 #ifndef KMAC_NOVA_EXTRAS_CIRCULAR_FILE_SINK_H
 #define KMAC_NOVA_EXTRAS_CIRCULAR_FILE_SINK_H
 
-#include "kmac/nova/sink.h"
+#include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
 
-#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <string>
@@ -123,7 +123,7 @@ private:
 
 	Formatter* _formatter = nullptr;
 
-	std::array< char, WRITE_BUFFER_SIZE > _writeBuffer{};
+	platform::Array< char, WRITE_BUFFER_SIZE > _writeBuffer {};
 	std::size_t _bufferOffset = 0;
 
 	using ProcessFunc = void ( CircularFileSink::* )( const kmac::nova::Record& );

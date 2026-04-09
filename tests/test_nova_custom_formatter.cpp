@@ -29,7 +29,6 @@
 #include <cstring>
 #include <sstream>
 #include <string>
-#include <string_view>
 
 using namespace kmac::nova::extras;
 

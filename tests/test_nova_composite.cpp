@@ -28,7 +28,7 @@ class CounterSink : public kmac::nova::Sink
 public:
 	std::atomic< size_t > count { 0 };
 
-	void process( const kmac::nova::Record& ) override
+	void process( const kmac::nova::Record& ) noexcept override
 	{
 		++count;
 	}

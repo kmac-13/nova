@@ -24,7 +24,7 @@
 // test tag
 struct ReaderTag { };
 std::uint64_t timestamp() noexcept { return 9999999ULL; }
-NOVA_LOGGER_TRAITS( ReaderTag, READER, true, timestamp );
+NOVA_LOGGER_TRAITS( ReaderTag, READER, true, ::timestamp );
 
 
 class FlareReader : public ::testing::Test

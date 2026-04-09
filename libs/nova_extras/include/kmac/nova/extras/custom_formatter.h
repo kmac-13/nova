@@ -5,9 +5,9 @@
 #include "buffer.h"
 #include "formatter.h"
 
-#include "kmac/nova/record.h"
-#include "kmac/nova/platform/array.h"
-#include "kmac/nova/platform/int_to_chars.h"
+#include <kmac/nova/record.h>
+#include <kmac/nova/platform/array.h>
+#include <kmac/nova/platform/int_to_chars.h>
 
 #include <cassert>
 #include <cstddef>

@@ -2,9 +2,9 @@
 #ifndef KMAC_NOVA_EXTRAS_BOUNDED_COMPOSITE_SINK_H
 #define KMAC_NOVA_EXTRAS_BOUNDED_COMPOSITE_SINK_H
 
-#include "kmac/nova/sink.h"
+#include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
 
-#include <array>
 #include <cstddef>
 
 // namespace kmac::nova
@@ -85,8 +85,8 @@ template< std::size_t MaxSinks >
 class BoundedCompositeSink final : public kmac::nova::Sink
 {
 private:
-	std::array< kmac::nova::Sink*, MaxSinks > _sinks { };  ///< fixed array of child sinks
-	std::size_t _count = 0;                                ///< current number of sinks
+	platform::Array< kmac::nova::Sink*, MaxSinks > _sinks { };  ///< fixed array of child sinks
+	std::size_t _count = 0;                                     ///< current number of sinks
 
 public:
 	/**

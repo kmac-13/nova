@@ -2,8 +2,8 @@
 #ifndef KMAC_NOVA_EXTRAS_FILTER_SINK_H
 #define KMAC_NOVA_EXTRAS_FILTER_SINK_H
 
-#include "kmac/nova/sink.h"
-#include "kmac/nova/record.h"
+#include <kmac/nova/sink.h>
+#include <kmac/nova/record.h>
 
 namespace kmac::nova::extras
 {

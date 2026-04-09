@@ -5,8 +5,8 @@
 
 #include <kmac/nova/details.h>
 #include <kmac/nova/record.h>
+#include <kmac/nova/platform/array.h>
 
-#include <array>
 #include <cstring>
 #include <stdint.h>
 
@@ -205,7 +205,7 @@ std::size_t EmergencySinkBase::encodeRecordTlv( const kmac::nova::Record& record
 	// write stack trace if enabled and compile-time support is present
 	if ( _captureStackTrace )
 	{
-		std::array< void*, Record::MAX_STACK_FRAMES > frames{};
+		kmac::nova::platform::Array< void*, Record::MAX_STACK_FRAMES > frames {};
 		const std::size_t frameCount = captureStackFrames( std::data( frames ), Record::MAX_STACK_FRAMES );
 		if ( frameCount > 0 )
 		{
@@ -508,7 +508,7 @@ void TlvWriteHelper::writeStackFramesTlv( void* const* frames, std::size_t frame
 		"MAX_STACK_FRAMES too large for uint16_t TLV length field"
 	);
 
-	std::array< std::uint64_t, kmac::flare::Record::MAX_STACK_FRAMES > addresses{};
+	kmac::nova::platform::Array< std::uint64_t, kmac::flare::Record::MAX_STACK_FRAMES > addresses {};
 	const std::size_t count = frameCount < kmac::flare::Record::MAX_STACK_FRAMES
 		? frameCount
 		: kmac::flare::Record::MAX_STACK_FRAMES;

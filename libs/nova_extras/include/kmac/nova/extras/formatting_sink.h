@@ -2,12 +2,13 @@
 #ifndef KMAC_NOVA_EXTRAS_FORMATTING_SINK_H
 #define KMAC_NOVA_EXTRAS_FORMATTING_SINK_H
 
-#include "kmac/nova/record.h"
-#include "kmac/nova/sink.h"
-#include "kmac/nova/extras/buffer.h"
-#include "kmac/nova/extras/formatter.h"
+#include "buffer.h"
+#include "formatter.h"
 
-#include <array>
+#include <kmac/nova/record.h>
+#include <kmac/nova/sink.h>
+#include <kmac/nova/platform/array.h>
+
 #include <cstddef>
 
 namespace kmac::nova::extras
@@ -57,7 +58,7 @@ class FormattingSink final : public kmac::nova::Sink
 private:
 	kmac::nova::Sink* _downstream = nullptr;   ///< downstream sink (not owned)
 	Formatter* _formatter = nullptr;           ///< formatter (not owned)
-	std::array< char, BufferSize > _formatBuffer = { };
+	platform::Array< char, BufferSize > _formatBuffer { };
 
 public:
 	/**

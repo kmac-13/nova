@@ -2,7 +2,7 @@
 #ifndef KMAC_NOVA_EXTRAS_HIERARCHICAL_TAG_H
 #define KMAC_NOVA_EXTRAS_HIERARCHICAL_TAG_H
 
-#include "kmac/nova/logger_traits.h"
+#include <kmac/nova/logger_traits.h>
 
 #include <cstring>
 

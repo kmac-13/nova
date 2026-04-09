@@ -53,9 +53,9 @@
 // we redirect it to the same CHECK mechanism used for all other failures
 #define NOVA_ASSERT( x ) ( ( void ) 0 )
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
-#include "kmac/nova/sink.h"
+#include <kmac/nova/nova.h>
+#include <kmac/nova/scoped_configurator.h>
+#include <kmac/nova/sink.h>
 
 #include "qemu/semihosting.h"
 
@@ -172,7 +172,7 @@ public:
 
 	bool received() const noexcept;
 
-	void process( const kmac::nova::Record& record ) override;
+	void process( const kmac::nova::Record& record ) noexcept override;
 
 	void clear() noexcept;
 };
@@ -314,7 +314,7 @@ bool RamSink::received() const noexcept
 	return _count > 0;
 }
 
-void RamSink::process( const kmac::nova::Record& record )
+void RamSink::process( const kmac::nova::Record& record ) noexcept
 {
 	const std::size_t len = record.messageSize < BUF_SIZE
 		? record.messageSize

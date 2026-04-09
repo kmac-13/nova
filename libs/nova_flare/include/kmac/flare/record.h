@@ -2,7 +2,8 @@
 #ifndef KMAC_FLARE_RECORD_H
 #define KMAC_FLARE_RECORD_H
 
-#include <array>
+#include <kmac/nova/platform/array.h>
+
 #include <cstdint>
 #include <cstddef>
 
@@ -56,9 +57,9 @@ struct Record
 	// message flags
 	bool messageTruncated = false;  // true if message was truncated
 
-	std::array< char, MAX_FILENAME_LEN > file = { };
-	std::array< char, MAX_FUNCTION_LEN > function = { };
-	std::array< char, MAX_MESSAGE_LEN > message = { };
+	kmac::nova::platform::Array< char, MAX_FILENAME_LEN > file { };
+	kmac::nova::platform::Array< char, MAX_FUNCTION_LEN > function { };
+	kmac::nova::platform::Array< char, MAX_MESSAGE_LEN > message { };
 
 	// actual lengths (may be less than buffer size)
 	std::size_t fileLen = 0;
@@ -67,7 +68,7 @@ struct Record
 
 	// stack trace (raw return addresses, innermost frame first)
 	// only populated when EmergencySink is constructed with captureStackTrace=true
-	std::array< std::uint64_t, MAX_STACK_FRAMES > stackFrames = { };
+	kmac::nova::platform::Array< std::uint64_t, MAX_STACK_FRAMES > stackFrames { };
 	std::size_t stackFrameCount = 0;  // number of valid entries in stackFrames
 
 	// runtime load base address of the main executable, written on every record

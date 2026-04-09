@@ -2,8 +2,8 @@
 #ifndef KMAC_NOVA_EXTRAS_OSTREAM_SINK_H
 #define KMAC_NOVA_EXTRAS_OSTREAM_SINK_H
 
-#include "kmac/nova/sink.h"
-#include "kmac/nova/record.h"
+#include <kmac/nova/record.h>
+#include <kmac/nova/sink.h>
 
 #include <ostream>
 

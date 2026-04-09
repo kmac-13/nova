@@ -35,9 +35,9 @@
 #include "task.h"
 
 /* Nova core */
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
-#include "kmac/nova/sink.h"
+#include <kmac/nova/nova.h>
+#include <kmac/nova/scoped_configurator.h>
+#include <kmac/nova/sink.h>
 
 /* Semihosting exit (ARM) / no-op stub (POSIX) */
 #include "qemu/semihosting.h"
@@ -132,7 +132,7 @@ public:
 	// Returns true if any record has been delivered.
 	bool received() const noexcept;
 
-	void process( const kmac::nova::Record& record ) override;
+	void process( const kmac::nova::Record& record ) noexcept override;
 
 	void clear() noexcept;
 };
@@ -197,7 +197,7 @@ bool RamSink::received() const noexcept
 	return _count > 0;
 }
 
-void RamSink::process( const kmac::nova::Record& record )
+void RamSink::process( const kmac::nova::Record& record ) noexcept
 {
 	const std::size_t len = record.messageSize < BUF_SIZE
 		? record.messageSize

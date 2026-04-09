@@ -2,9 +2,9 @@
 #ifndef KMAC_NOVA_EXTRAS_FIXED_COMPOSITE_SINK_H
 #define KMAC_NOVA_EXTRAS_FIXED_COMPOSITE_SINK_H
 
-#include <cstddef>
+#include <kmac/nova/sink.h>
 
-#include "kmac/nova/sink.h"
+#include <cstddef>
 
 namespace kmac::nova
 {
@@ -21,7 +21,7 @@ namespace kmac::nova::extras
  *
  * FixedCompositeSink takes a pointer to an array of Sink pointers and a count,
  * then forwards all log records to each sink in the array.  Unlike CompositeSink
- * (which uses std::vector) or BoundedCompositeSink (which uses std::array),
+ * (which uses std::vector) or BoundedCompositeSink (which uses platform::Array),
  * this sink wraps an externally-managed array.
  *
  * Use cases:
@@ -70,8 +70,8 @@ namespace kmac::nova::extras
  *
  *   NOVA_LOG_TRUNC(InfoTag) << "Logged to both";
  *
- * With std::array:
- *   std::array<Sink*, 3> sinks = { &sink1, &sink2, &sink3 };
+ * With platform::Array:
+ *   platform::Array<Sink*, 3> sinks = { &sink1, &sink2, &sink3 };
  *   FixedCompositeSink multi(sinks.data(), sinks.size());
  */
 class FixedCompositeSink final : public kmac::nova::Sink
