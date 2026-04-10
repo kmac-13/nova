@@ -50,6 +50,8 @@ class MemoryPoolAsyncBatchSink final : public kmac::nova::Sink
 	    "PoolSize exceeds maximum value representable by IndexType" );
 
 private:
+	static constexpr std::size_t BATCH_SIZE = 64;
+
 	// entry in the index queue
 	struct EntryIndex
 	{
@@ -194,6 +196,17 @@ private:
 	 * @brief Background thread processing loop.
 	 */
 	void processLoop() noexcept;
+
+	/**
+	 * @brief Resolve, format, and release a batch of index queue entries.
+	 *
+	 * @param indexBatch array of index entries popped from the queue
+	 * @param batchSize number of valid entries in indexBatch
+	 */
+	void processBatchEntries(
+		const kmac::nova::platform::Array< EntryIndex, BATCH_SIZE >& indexBatch,
+		std::size_t batchSize
+	) noexcept;
 
 	/**
 	 * @brief Format batch of records using streaming Formatter interface.
@@ -349,7 +362,6 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 	}
 
 	// drain the queue and the pool without processing
-	constexpr std::size_t BATCH_SIZE = 64;
 	kmac::nova::platform::Array< EntryIndex, BATCH_SIZE > indexBatch{};
 	std::size_t batchSize = 0;
 
@@ -410,9 +422,7 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
 void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::processLoop() noexcept
 {
-	constexpr std::size_t BATCH_SIZE = 64;
 	kmac::nova::platform::Array< EntryIndex, BATCH_SIZE > indexBatch { };
-	kmac::nova::platform::Array< kmac::nova::Record*, BATCH_SIZE > recordBatch { };
 
 	while ( true )
 	{
@@ -430,23 +440,7 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 		// process each entry in batch
 		if ( batchSize > 0 )
 		{
-			// get record pointers
-			for ( std::size_t i = 0; i < batchSize; ++i )
-			{
-				uint8_t* entryPtr = _pool.offsetToPointer( indexBatch.data()[ i ].offset );
-				// NOLINT NOTE: retrieving Record from pool buffer; same justification as process()
-				recordBatch.data()[ i ] = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-			}
-
-			// format and send batch
-			formatBatch( recordBatch.data(), batchSize );
-
-			// release pool entries
-			for ( std::size_t i = 0; i < batchSize; ++i )
-			{
-				std::size_t entrySize = sizeof( kmac::nova::Record ) + recordBatch.data()[ i ]->messageSize;
-				_pool.release( entrySize );
-			}
+			processBatchEntries( indexBatch, batchSize );
 
 			// update processed count
 			_processed.fetch_add( batchSize, std::memory_order_relaxed );
@@ -466,6 +460,33 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 					|| _shutdownDiscard.load( std::memory_order_acquire );
 			} );
 		}
+	}
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::processBatchEntries(
+	const kmac::nova::platform::Array< EntryIndex, BATCH_SIZE >& indexBatch,
+	std::size_t batchSize
+) noexcept
+{
+	kmac::nova::platform::Array< kmac::nova::Record*, BATCH_SIZE > recordBatch { };
+
+	// get record pointers
+	for ( std::size_t i = 0; i < batchSize; ++i )
+	{
+		uint8_t* entryPtr = _pool.offsetToPointer( indexBatch.data()[ i ].offset );
+		// NOLINT NOTE: retrieving Record from pool buffer; same justification as process()
+		recordBatch.data()[ i ] = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+	}
+
+	// format and send batch
+	formatBatch( recordBatch.data(), batchSize );
+
+	// release pool entries
+	for ( std::size_t i = 0; i < batchSize; ++i )
+	{
+		std::size_t entrySize = sizeof( kmac::nova::Record ) + recordBatch.data()[ i ]->messageSize;
+		_pool.release( entrySize );
 	}
 }
 
