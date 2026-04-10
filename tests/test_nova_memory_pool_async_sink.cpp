@@ -646,8 +646,31 @@ TEST( MemoryPoolAsyncSinkTest, NeverStarted )
 
 TEST( MemoryPoolAsyncSinkTest, StopAndDiscardDropsQueue )
 {
-	CaptureSink capture;
-	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
+	// block the worker so all 20 messages are guaranteed to be in the queue
+	// when stopAndDiscard() is called
+	std::mutex blockMutex;
+	std::condition_variable blockCv;
+	bool unblock = false;
+
+	class BlockingSink : public kmac::nova::Sink
+	{
+	public:
+		std::mutex& mutex;
+		std::condition_variable& cv;
+		bool& unblock;
+
+		BlockingSink( std::mutex& m, std::condition_variable& c, bool& u )
+			: mutex( m ), cv( c ), unblock( u ) {}
+
+		void process( const kmac::nova::Record& ) noexcept override
+		{
+			std::unique_lock< std::mutex > lock( mutex );
+			cv.wait( lock, [ this ] { return unblock; } );
+		}
+	};
+
+	BlockingSink blocker( blockMutex, blockCv, unblock );
+	kmac::nova::extras::MemoryPoolAsyncSink<> sink( blocker );
 
 	sink.start();
 
@@ -668,11 +691,18 @@ TEST( MemoryPoolAsyncSinkTest, StopAndDiscardDropsQueue )
 		sink.process( record );
 	}
 
+	// worker is blocked - discard all queued messages without forwarding them
 	sink.stopAndDiscard();
 
-	// some messages may have been processed before the discard signal arrived,
-	// but not all 20 should have been forwarded downstream
-	ASSERT_LT( capture.count(), 20 );
+	// unblock after the thread has been joined
+	{
+		std::lock_guard< std::mutex > lock( blockMutex );
+		unblock = true;
+		blockCv.notify_all();
+	}
+
+	// worker was blocked throughout, so no messages should have been forwarded
+	ASSERT_EQ( sink.processedCount(), 0 );
 }
 
 TEST( MemoryPoolAsyncSinkTest, RestartCycle )
@@ -789,8 +819,31 @@ TEST( MemoryPoolAsyncBatchSinkTest, NeverStarted )
 
 TEST( MemoryPoolAsyncBatchSinkTest, StopAndDiscardDropsQueue )
 {
-	CaptureSink capture;
-	kmac::nova::extras::MemoryPoolAsyncBatchSink<> sink( capture, nullptr );
+	// block the worker so all 20 messages are guaranteed to be in the queue
+	// when stopAndDiscard() is called
+	std::mutex blockMutex;
+	std::condition_variable blockCv;
+	bool unblock = false;
+
+	class BlockingSink : public kmac::nova::Sink
+	{
+	public:
+		std::mutex& mutex;
+		std::condition_variable& cv;
+		bool& unblock;
+
+		BlockingSink( std::mutex& m, std::condition_variable& c, bool& u )
+			: mutex( m ), cv( c ), unblock( u ) {}
+
+		void process( const kmac::nova::Record& ) noexcept override
+		{
+			std::unique_lock< std::mutex > lock( mutex );
+			cv.wait( lock, [ this ] { return unblock; } );
+		}
+	};
+
+	BlockingSink blocker( blockMutex, blockCv, unblock );
+	kmac::nova::extras::MemoryPoolAsyncBatchSink<> sink( blocker, nullptr );
 
 	sink.start();
 
@@ -811,11 +864,18 @@ TEST( MemoryPoolAsyncBatchSinkTest, StopAndDiscardDropsQueue )
 		sink.process( record );
 	}
 
+	// worker is blocked - discard all queued messages without forwarding them
 	sink.stopAndDiscard();
 
-	// some messages may have been processed before the discard signal arrived,
-	// but not all 20 should have been forwarded downstream
-	ASSERT_LT( capture.count(), 20 );
+	// unblock after the thread has been joined
+	{
+		std::lock_guard< std::mutex > lock( blockMutex );
+		unblock = true;
+		blockCv.notify_all();
+	}
+
+	// worker was blocked throughout, so no messages should have been forwarded
+	ASSERT_EQ( sink.processedCount(), 0 );
 }
 
 TEST( MemoryPoolAsyncBatchSinkTest, RestartCycle )
