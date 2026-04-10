@@ -102,7 +102,13 @@ private:
 	MPSCQueue< EntryIndex< IndexType >, IndexQueueCapacity > _indexQueue{ };
 
 	kmac::nova::Sink* _downstream = nullptr;
-	std::atomic< bool > _shutdown{ false };
+
+	// atomic flags
+	std::atomic< bool > _running{ false };
+	std::atomic< bool > _shutdownDrain{ false };
+	std::atomic< bool > _shutdownDiscard{ false };
+
+	// statistics
 	std::atomic< std::size_t > _dropped{ 0 };
 	std::atomic< std::size_t > _processed{ 0 };
 
@@ -128,20 +134,44 @@ public:
 	/**
 	 * @brief Construct async sink with memory pool.
 	 *
-	 * Starts a background thread that waits on condition variable for entries.
-	 * The pool is allocated according to the Allocator template parameter.
+	 * Does not start the background thread.  Call start() before logging.
 	 *
 	 * @param downstream sink to forward records to (must outlive this sink)
 	 */
 	explicit MemoryPoolAsyncSink( kmac::nova::Sink& downstream ) noexcept;
 
 	/**
-	 * @brief Destructor - shuts down background thread.
-	 *
-	 * Signals shutdown and waits for all queued records to be processed.
-	 * Remaining entries in the pool are processed before thread exits.
+	 * @brief Destructor - drains and shuts down background thread if running.
 	 */
 	~MemoryPoolAsyncSink() noexcept override;
+
+	/**
+	 * @brief Start the background processing thread.
+	 *
+	 * If the sink is already running, this is a no-op.
+	 */
+	void start() noexcept;
+
+	/**
+	 * @brief Stop the background thread, processing all queued records first.
+	 *
+	 * Blocks until the worker thread exits.  This is safe to call start() again
+	 * after this returns.  Intended for use in pthread_atfork prepare/parent handlers.
+	 *
+	 * If the sink is not running, this is a no-op.
+	 */
+	void stopAndDrain() noexcept;
+
+	/**
+	 * @brief Stop the background thread, discarding all queued records.
+	 *
+	 * Blocks until the worker thread exits.  This is safe to call start() again
+	 * after this returns.  Intended for use in pthread_atfork child handlers where
+	 * buffered pre-fork records are not relevant.
+	 *
+	 * If the sink is not running, this is a no-op.
+	 */
+	void stopAndDiscard() noexcept;
 
 	/**
 	 * @brief Process a record by copying it and its message into the pool.
@@ -240,24 +270,48 @@ constexpr std::size_t MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexTy
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
 MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::MemoryPoolAsyncSink( kmac::nova::Sink& downstream ) noexcept
 	: _downstream( &downstream )
-	, _shutdown( false )
-	, _dropped( 0 )
-	, _processed( 0 )
-	, _workerThread( [ this ]() { processLoop(); } )
 {
 }
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
 MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::~MemoryPoolAsyncSink() noexcept
 {
-	// signal shutdown
+	if ( _running.load( std::memory_order_acquire ) )
+	{
+		stopAndDrain();
+	}
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::start() noexcept
+{
+	if ( _running.load( std::memory_order_acquire ) )
+	{
+		return;
+	}
+
+	_shutdownDrain.store( false, std::memory_order_release );
+	_shutdownDiscard.store( false, std::memory_order_release );
+	_running.store( true, std::memory_order_release );
+	_workerThread = std::thread( [ this ]() { processLoop(); } );
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::stopAndDrain() noexcept
+{
+	if ( ! _running.load( std::memory_order_acquire ) )
+	{
+		return;
+	}
+
+	_running.store( false, std::memory_order_release );
+
 	{
 		std::lock_guard< std::mutex > lock( _mutex );
-		_shutdown.store( true, std::memory_order_release );
+		_shutdownDrain.store( true, std::memory_order_release );
 		_cv.notify_one();
 	}
 
-	// wait for worker thread to finish
 	if ( _workerThread.joinable() )
 	{
 		_workerThread.join();
@@ -265,8 +319,44 @@ MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::~Memo
 }
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::stopAndDiscard() noexcept
+{
+	if ( ! _running.load( std::memory_order_acquire ) )
+	{
+		return;
+	}
+
+	_running.store( false, std::memory_order_release );
+
+	{
+		std::lock_guard< std::mutex > lock( _mutex );
+		_shutdownDiscard.store( true, std::memory_order_release );
+		_cv.notify_one();
+	}
+
+	if ( _workerThread.joinable() )
+	{
+		_workerThread.join();
+	}
+
+	// drain the queue and the pool without processing
+	constexpr std::size_t BATCH_SIZE = 64;
+	kmac::nova::platform::Array< EntryIndex< IndexType >, BATCH_SIZE > indexBatch{};
+	std::size_t batchSize = 0;
+
+	while ( ( batchSize = _indexQueue.popBatch( indexBatch.data(), BATCH_SIZE ) ) > 0 ) { }
+	_pool.release( _pool.used() );
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
 void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::process( const kmac::nova::Record& record ) noexcept
 {
+	if ( ! _running.load( std::memory_order_acquire ) )
+	{
+		_dropped.fetch_add( 1, std::memory_order_relaxed );
+		return;
+	}
+
 	// calculate space needed: Record struct + message data
 	std::size_t entrySize = sizeof( kmac::nova::Record ) + record.messageSize;
 
@@ -353,8 +443,13 @@ void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 
 	while ( true )
 	{
-		// check shutdown flag
-		bool shutdown = _shutdown.load( std::memory_order_acquire );
+		if ( _shutdownDiscard.load( std::memory_order_acquire ) )
+		{
+			break;
+		}
+
+		// check drain shutdown flag
+		bool shutdown = _shutdownDrain.load( std::memory_order_acquire );
 
 		// dequeue batch of indices (lock-free pop)
 		std::size_t batchSize = _indexQueue.popBatch( indexBatch.data(), BATCH_SIZE );
@@ -394,7 +489,9 @@ void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 
 			// wait until queue has data or shutdown signaled
 			_cv.wait( lock, [ this ]() {
-				return !_indexQueue.empty() || _shutdown.load( std::memory_order_acquire );
+				return !_indexQueue.empty()
+					|| _shutdownDrain.load( std::memory_order_acquire )
+					|| _shutdownDiscard.load( std::memory_order_acquire );
 			} );
 		}
 	}
