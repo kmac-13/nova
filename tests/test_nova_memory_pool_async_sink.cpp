@@ -215,6 +215,9 @@ TEST( MemoryPoolAsyncSinkTest, BasicLogging )
 	CaptureSink capture;
 	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
 
+	// start the async processing
+	sink.start();
+
 	// create a simple record
 	kmac::nova::Record record{};
 	record.tag = "INFO";
@@ -231,10 +234,8 @@ TEST( MemoryPoolAsyncSinkTest, BasicLogging )
 	// process record
 	sink.process( record );
 
-	// wait for async processing
-	std::this_thread::sleep_for( std::chrono::milliseconds( 250 ) );
-
 	// verify
+	sink.stopAndDrain();
 	auto messages = capture.getMessages();
 	ASSERT_EQ( messages.size(), 1 );
 	ASSERT_EQ( messages[ 0 ], "Hello, World!" );
@@ -246,6 +247,9 @@ TEST( MemoryPoolAsyncSinkTest, MultipleMessages )
 {
 	CaptureSink capture;
 	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
+
+	// start the async processing
+	sink.start();
 
 	// log 100 messages
 	for ( int i = 0; i < 100; ++i )
@@ -265,10 +269,8 @@ TEST( MemoryPoolAsyncSinkTest, MultipleMessages )
 		sink.process( record );
 	}
 
-	// wait for processing
-	std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-
 	// verify all messages received
+	sink.stopAndDrain();
 	auto messages = capture.getMessages();
 	ASSERT_EQ( messages.size(), 100 );
 
@@ -285,6 +287,9 @@ TEST( MemoryPoolAsyncSinkTest, VariableMessageSizes )
 {
 	CaptureSink capture;
 	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
+
+	// start the async processing
+	sink.start();
 
 	// lg messages of varying sizes
 	std::vector< std::string > testMessages {
@@ -311,10 +316,8 @@ TEST( MemoryPoolAsyncSinkTest, VariableMessageSizes )
 		sink.process( record );
 	}
 
-	// wait for processing
-	std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-
 	// verify
+	sink.stopAndDrain();
 	auto messages = capture.getMessages();
 	ASSERT_EQ( messages.size(), testMessages.size() );
 
@@ -328,6 +331,9 @@ TEST( MemoryPoolAsyncSinkTest, NoMessageCorruption )
 {
 	CaptureSink capture;
 	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
+
+	// start the async processing
+	sink.start();
 
 	// log messages, then immediately invalidate the source buffer
 	// this tests that the message is copied into the pool
@@ -352,10 +358,8 @@ TEST( MemoryPoolAsyncSinkTest, NoMessageCorruption )
 		std::memset( buffer, 'Z', sizeof( buffer ) );
 	}
 
-	// wait for processing
-	std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-
 	// verify no corruption
+	sink.stopAndDrain();
 	auto messages = capture.getMessages();
 	ASSERT_EQ( messages.size(), 50 );
 
@@ -370,6 +374,9 @@ TEST( MemoryPoolAsyncSinkTest, ConcurrentProducers )
 {
 	CaptureSink capture;
 	kmac::nova::extras::MemoryPoolAsyncSink< 2 * 1024 * 1024, 16384 > sink( capture );
+
+	// start the async processing
+	sink.start();
 
 	constexpr int NUM_THREADS = 4;
 	constexpr int MSGS_PER_THREAD = 100;
@@ -406,21 +413,7 @@ TEST( MemoryPoolAsyncSinkTest, ConcurrentProducers )
 	}
 
 	// wait for processing - actively wait until queue is drained
-	constexpr int MAX_WAIT_MS = 2000;
-	constexpr int POLL_INTERVAL_MS = 10;
-	int waited = 0;
-
-	while ( waited < MAX_WAIT_MS )
-	{
-		std::this_thread::sleep_for( std::chrono::milliseconds( POLL_INTERVAL_MS ) );
-		waited += POLL_INTERVAL_MS;
-
-		// check if processing is complete
-		if ( sink.queueSize() == 0 && sink.processedCount() >= NUM_THREADS * MSGS_PER_THREAD )
-		{
-			break;
-		}
-	}
+	sink.stopAndDrain();
 
 	// verify total count
 	auto messages = capture.getMessages();
@@ -482,6 +475,9 @@ TEST( MemoryPoolAsyncSinkTest, SmallPool_DropMessages )
 	// free space
 	kmac::nova::extras::MemoryPoolAsyncSink< 4096, 128, uint16_t > sink( blocker );
 
+	// start the async processing
+	sink.start();
+
 	for ( int i = 0; i < 100; ++i )
 	{
 		kmac::nova::Record record{};
@@ -509,6 +505,9 @@ TEST( MemoryPoolAsyncSinkTest, SmallPool_DropMessages )
 		unblock = true;
 		blockCv.notify_all();
 	}
+
+	// no need to handle any remaining records in the queue, so discard them
+	sink.stopAndDiscard();
 }
 
 TEST( MemoryPoolAsyncSinkTest, StackAllocatedPool )
@@ -516,6 +515,9 @@ TEST( MemoryPoolAsyncSinkTest, StackAllocatedPool )
 	CaptureSink capture;
 	// use stack-allocated pool
 	kmac::nova::extras::MemoryPoolAsyncSink< 64 * 1024, 512, uint64_t, kmac::nova::extras::PoolAllocator::Stack > sink( capture );
+
+	// start the async processing
+	sink.start();
 
 	// log some messages
 	for ( int i = 0; i < 50; ++i )
@@ -535,10 +537,8 @@ TEST( MemoryPoolAsyncSinkTest, StackAllocatedPool )
 		sink.process( record );
 	}
 
-	// wait for processing
-	std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-
 	// Verify
+	sink.stopAndDrain();
 	auto messages = capture.getMessages();
 	ASSERT_EQ( messages.size(), 50 );
 	ASSERT_EQ( sink.droppedCount(), 0 );
@@ -555,6 +555,9 @@ TEST( MemoryPoolAsyncSinkTest, PoolMetrics )
 	ASSERT_GT( sink.poolAvailable(), 60 * 1024 ); // should be nearly full
 	ASSERT_LT( sink.poolUsed(), 4 * 1024 );       // should be nearly empty
 
+	// start the async processing
+	sink.start();
+
 	// log a message
 	kmac::nova::Record record{};
 	record.tag = "INFO";
@@ -570,26 +573,8 @@ TEST( MemoryPoolAsyncSinkTest, PoolMetrics )
 
 	sink.process( record );
 
-	// actively poll for drain rather than sleeping a fixed amount of time.
-	// a fixed sleep is inherently racy under TSan because the sanitizer's
-	// instrumentation overhead can delay the worker thread far beyond what
-	// any reasonable sleep value anticipates
-	constexpr int MAX_WAIT_MS = 2000;
-	constexpr int POLL_INTERVAL_MS = 5;
-	int totalWaited = 0;
-
-	while ( totalWaited < MAX_WAIT_MS )
-	{
-		if ( sink.queueSize() == 0 && sink.processedCount() >= 1 )
-		{
-			break;
-		}
-
-		std::this_thread::sleep_for( std::chrono::milliseconds( POLL_INTERVAL_MS ) );
-		totalWaited += POLL_INTERVAL_MS;
-	}
-
-	// after waiting, message should be processed and queue should be empty
+	// after draining, message should be processed and queue should be empty
+	sink.stopAndDrain();
 	ASSERT_EQ( sink.queueSize(), 0 );
 	ASSERT_EQ( sink.processedCount(), 1 );
 }
@@ -605,6 +590,9 @@ TEST( MemoryPoolAsyncBatchSinkTest, PoolMetrics )
 	ASSERT_GT( sink.poolAvailable(), 60 * 1024 ); // should be nearly full
 	ASSERT_LT( sink.poolUsed(), 4 * 1024 );       // should be nearly empty
 
+	// start the async processing
+	sink.start();
+
 	// log a message
 	kmac::nova::Record record{};
 	record.tag = "INFO";
@@ -620,30 +608,331 @@ TEST( MemoryPoolAsyncBatchSinkTest, PoolMetrics )
 
 	sink.process( record );
 
-	// actively poll for drain rather than sleeping a fixed amount of time.
-	// a fixed sleep is inherently racy under TSan because the sanitizer's
-	// instrumentation overhead can delay the worker thread far beyond what
-	// any reasonable sleep value anticipates
-	constexpr int MAX_WAIT_MS = 2000;
-	constexpr int POLL_INTERVAL_MS = 5;
-	int totalWaited = 0;
-
-	while ( totalWaited < MAX_WAIT_MS )
-	{
-		if ( sink.queueSize() == 0 && sink.processedCount() >= 1 )
-		{
-			break;
-		}
-
-		std::this_thread::sleep_for( std::chrono::milliseconds( POLL_INTERVAL_MS ) );
-		totalWaited += POLL_INTERVAL_MS;
-	}
-
-	// after waiting, message should be processed and queue should be empty
+	// after draining, message should be processed and queue should be empty
+	sink.stopAndDrain();
 	ASSERT_EQ( sink.queueSize(), 0 );
 	ASSERT_EQ( sink.processedCount(), 1 );
 }
 
+
+// ============================================================================
+// Lifecycle Tests - MemoryPoolAsyncSink
+// ============================================================================
+
+TEST( MemoryPoolAsyncSinkTest, NeverStarted )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
+
+	kmac::nova::Record record{};
+	record.tag = "INFO";
+	record.tagId = 1;
+	record.file = "test.cpp";
+	record.function = "test_function";
+	record.line = 42;
+	record.timestamp = 0;
+
+	std::string msg = "Should be dropped";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
+	record.message = msg.c_str();
+
+	sink.process( record );
+	sink.process( record );
+	sink.process( record );
+
+	ASSERT_EQ( capture.count(), 0 );
+	ASSERT_EQ( sink.droppedCount(), 3 );
+}
+
+TEST( MemoryPoolAsyncSinkTest, StopAndDiscardDropsQueue )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
+
+	sink.start();
+
+	for ( int i = 0; i < 20; ++i )
+	{
+		kmac::nova::Record record{};
+		record.tag = "INFO";
+		record.tagId = 1;
+		record.file = "test.cpp";
+		record.function = "test_function";
+		record.line = 42;
+		record.timestamp = static_cast< std::uint64_t >( i );
+
+		std::string msg = "Message " + std::to_string( i );
+		record.messageSize = static_cast< std::uint32_t >( msg.size() );
+		record.message = msg.c_str();
+
+		sink.process( record );
+	}
+
+	sink.stopAndDiscard();
+
+	// verify the sink can be restarted and process messages after a discard
+	sink.start();
+
+	kmac::nova::Record record{};
+	record.tag = "INFO";
+	record.tagId = 1;
+	record.file = "test.cpp";
+	record.function = "test_function";
+	record.line = 42;
+	record.timestamp = 0;
+
+	std::string msg = "Post-discard message";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
+	record.message = msg.c_str();
+
+	sink.process( record );
+	sink.stopAndDrain();
+
+	auto messages = capture.getMessages();
+	ASSERT_EQ( messages.back(), "Post-discard message" );
+}
+
+TEST( MemoryPoolAsyncSinkTest, RestartCycle )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
+
+	auto sendMessages = [ &sink ]( int base, int count )
+	{
+		for ( int i = 0; i < count; ++i )
+		{
+			kmac::nova::Record record{};
+			record.tag = "INFO";
+			record.tagId = 1;
+			record.file = "test.cpp";
+			record.function = "test_function";
+			record.line = 42;
+			record.timestamp = static_cast< std::uint64_t >( base + i );
+
+			std::string msg = "Message " + std::to_string( base + i );
+			record.messageSize = static_cast< std::uint32_t >( msg.size() );
+			record.message = msg.c_str();
+
+			sink.process( record );
+		}
+	};
+
+	// first run
+	sink.start();
+	sendMessages( 0, 10 );
+	sink.stopAndDrain();
+
+	ASSERT_EQ( capture.count(), 10 );
+	ASSERT_EQ( sink.processedCount(), 10 );
+
+	// second run
+	sink.start();
+	sendMessages( 10, 10 );
+	sink.stopAndDrain();
+
+	ASSERT_EQ( capture.count(), 20 );
+	ASSERT_EQ( sink.processedCount(), 20 );
+	ASSERT_EQ( sink.droppedCount(), 0 );
+}
+
+TEST( MemoryPoolAsyncSinkTest, StartNoOp )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
+
+	// calling start() while already running should be a no-op
+	sink.start();
+	sink.start();
+
+	kmac::nova::Record record{};
+	record.tag = "INFO";
+	record.tagId = 1;
+	record.file = "test.cpp";
+	record.function = "test_function";
+	record.line = 42;
+	record.timestamp = 0;
+
+	std::string msg = "Hello";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
+	record.message = msg.c_str();
+
+	sink.process( record );
+	sink.stopAndDrain();
+
+	ASSERT_EQ( capture.count(), 1 );
+	ASSERT_EQ( sink.droppedCount(), 0 );
+}
+
+TEST( MemoryPoolAsyncSinkTest, StopNoOp )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
+
+	// calling stop when not running should be a no-op
+	sink.stopAndDrain();
+	sink.stopAndDiscard();
+
+	ASSERT_EQ( capture.count(), 0 );
+}
+
+// ============================================================================
+// Lifecycle Tests - MemoryPoolAsyncBatchSink
+// ============================================================================
+
+TEST( MemoryPoolAsyncBatchSinkTest, NeverStarted )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncBatchSink<> sink( capture, nullptr );
+
+	kmac::nova::Record record{};
+	record.tag = "INFO";
+	record.tagId = 1;
+	record.file = "test.cpp";
+	record.function = "test_function";
+	record.line = 42;
+	record.timestamp = 0;
+
+	std::string msg = "Should be dropped";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
+	record.message = msg.c_str();
+
+	sink.process( record );
+	sink.process( record );
+	sink.process( record );
+
+	ASSERT_EQ( capture.count(), 0 );
+	ASSERT_EQ( sink.droppedCount(), 3 );
+}
+
+TEST( MemoryPoolAsyncBatchSinkTest, StopAndDiscardDropsQueue )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncBatchSink<> sink( capture, nullptr );
+
+	sink.start();
+
+	for ( int i = 0; i < 20; ++i )
+	{
+		kmac::nova::Record record{};
+		record.tag = "INFO";
+		record.tagId = 1;
+		record.file = "test.cpp";
+		record.function = "test_function";
+		record.line = 42;
+		record.timestamp = static_cast< std::uint64_t >( i );
+
+		std::string msg = "Message " + std::to_string( i );
+		record.messageSize = static_cast< std::uint32_t >( msg.size() );
+		record.message = msg.c_str();
+
+		sink.process( record );
+	}
+
+	// stopAndDiscard() must complete cleanly and leave the sink restartable
+	sink.stopAndDiscard();
+
+	// verify the sink can be restarted and process messages after a discard
+	sink.start();
+
+	kmac::nova::Record record{};
+	record.tag = "INFO";
+	record.tagId = 1;
+	record.file = "test.cpp";
+	record.function = "test_function";
+	record.line = 42;
+	record.timestamp = 0;
+
+	std::string msg = "Post-discard message";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
+	record.message = msg.c_str();
+
+	sink.process( record );
+	sink.stopAndDrain();
+
+	auto messages = capture.getMessages();
+	ASSERT_EQ( messages.back(), "Post-discard message" );
+}
+
+TEST( MemoryPoolAsyncBatchSinkTest, RestartCycle )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncBatchSink<> sink( capture, nullptr );
+
+	auto sendMessages = [ &sink ]( int base, int count )
+	{
+		for ( int i = 0; i < count; ++i )
+		{
+			kmac::nova::Record record{};
+			record.tag = "INFO";
+			record.tagId = 1;
+			record.file = "test.cpp";
+			record.function = "test_function";
+			record.line = 42;
+			record.timestamp = static_cast< std::uint64_t >( base + i );
+
+			std::string msg = "Message " + std::to_string( base + i );
+			record.messageSize = static_cast< std::uint32_t >( msg.size() );
+			record.message = msg.c_str();
+
+			sink.process( record );
+		}
+	};
+
+	// first run
+	sink.start();
+	sendMessages( 0, 10 );
+	sink.stopAndDrain();
+
+	ASSERT_EQ( sink.processedCount(), 10 );
+
+	// second run
+	sink.start();
+	sendMessages( 10, 10 );
+	sink.stopAndDrain();
+
+	ASSERT_EQ( sink.processedCount(), 20 );
+	ASSERT_EQ( sink.droppedCount(), 0 );
+}
+
+TEST( MemoryPoolAsyncBatchSinkTest, StartNoOp )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncBatchSink<> sink( capture, nullptr );
+
+	// calling start() while already running should be a no-op
+	sink.start();
+	sink.start();
+
+	kmac::nova::Record record{};
+	record.tag = "INFO";
+	record.tagId = 1;
+	record.file = "test.cpp";
+	record.function = "test_function";
+	record.line = 42;
+	record.timestamp = 0;
+
+	std::string msg = "Hello";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
+	record.message = msg.c_str();
+
+	sink.process( record );
+	sink.stopAndDrain();
+
+	ASSERT_EQ( sink.processedCount(), 1 );
+	ASSERT_EQ( sink.droppedCount(), 0 );
+}
+
+TEST( MemoryPoolAsyncBatchSinkTest, StopNoOp )
+{
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncBatchSink<> sink( capture, nullptr );
+
+	// calling stop when not running should be a no-op
+	sink.stopAndDrain();
+	sink.stopAndDiscard();
+
+	ASSERT_EQ( capture.count(), 0 );
+}
 
 // ============================================================================
 // Main

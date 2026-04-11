@@ -50,6 +50,8 @@ class MemoryPoolAsyncBatchSink final : public kmac::nova::Sink
 	    "PoolSize exceeds maximum value representable by IndexType" );
 
 private:
+	static constexpr std::size_t BATCH_SIZE = 64;
+
 	// entry in the index queue
 	struct EntryIndex
 	{
@@ -73,17 +75,19 @@ private:
 	kmac::nova::platform::Array< char, FORMAT_BUFFER_SIZE > _formatBuffer { };
 	std::size_t _formatOffset = 0;
 
-	// consumer thread
-	std::thread _consumerThread;
-	std::atomic< bool > _shutdown{ false };
-
-	// notification
-	std::mutex _mutex;
-	std::condition_variable _cv;
+	// atomic flags
+	std::atomic< bool > _running{ false };
+	std::atomic< bool > _shutdownDrain{ false };
+	std::atomic< bool > _shutdownDiscard{ false };
 
 	// statistics
 	std::atomic< std::size_t > _dropped{ 0 };
 	std::atomic< std::size_t > _processed{ 0 };
+
+	// notification
+	std::mutex _mutex;
+	std::condition_variable _cv;
+	std::thread _workerThread;
 
 public:
 	/**
@@ -102,6 +106,8 @@ public:
 
 	/**
 	 * @brief Construct async sink with batch formatting.
+	 *
+	 * Does not start the background thread.  Call start() before logging.
 	 *
 	 * @param downstream sink to receive formatted batches (typically RollingFileSink)
 	 * @param formatter formatter object (must remain valid for sink's lifetime)
@@ -151,6 +157,34 @@ public:
 	std::size_t droppedCount() const noexcept;
 
 	/**
+	 * @brief Start the background processing thread.
+	 *
+	 * If the sink is already running, this is a no-op.
+	 */
+	void start() noexcept;
+
+	/**
+	 * @brief Stop the background thread, processing all queued records first.
+	 *
+	 * Blocks until the worker thread exits.  This is safe to call start() again
+	 * afterthis returns.  Intended for use in pthread_atfork prepare/parent handlers.
+	 *
+	 * If the sink is not running, this is a no-op.
+	 */
+	void stopAndDrain() noexcept;
+
+	/**
+	 * @brief Stop the background thread, discarding all queued records.
+	 *
+	 * Blocks until the worker thread exits.  This is safe to call start() again
+	 * after this returns.  Intended for use in pthread_atfork child handlers where
+	 * buffered pre-fork records are not relevant.
+	 *
+	 * If the sink is not running, this is a no-op.
+	 */
+	void stopAndDiscard() noexcept;
+
+	/**
 	 * @brief Process a record (producer hot path).
 	 *
 	 * Stores raw record in pool - NO formatting on hot path.
@@ -159,9 +193,20 @@ public:
 
 private:
 	/**
-	 * @brief Consumer thread - dequeues and formats batches.
+	 * @brief Background thread processing loop.
 	 */
 	void processLoop() noexcept;
+
+	/**
+	 * @brief Resolve, format, and release a batch of index queue entries.
+	 *
+	 * @param indexBatch array of index entries popped from the queue
+	 * @param batchSize number of valid entries in indexBatch
+	 */
+	void processBatchEntries(
+		const kmac::nova::platform::Array< EntryIndex, BATCH_SIZE >& indexBatch,
+		std::size_t batchSize
+	) noexcept;
 
 	/**
 	 * @brief Format batch of records using streaming Formatter interface.
@@ -218,18 +263,14 @@ MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 	: _downstream( &downstream )
 	, _formatter( formatter )
 {
-	_consumerThread = std::thread( &MemoryPoolAsyncBatchSink::processLoop, this );
 }
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
 MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::~MemoryPoolAsyncBatchSink() noexcept
 {
-	_shutdown.store( true, std::memory_order_release );
-	_cv.notify_all();
-
-	if ( _consumerThread.joinable() )
+	if ( _running.load( std::memory_order_acquire ) )
 	{
-		_consumerThread.join();
+		stopAndDrain();
 	}
 }
 
@@ -264,8 +305,79 @@ std::size_t MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, A
 }
 
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::start() noexcept
+{
+	if ( _running.load( std::memory_order_acquire ) )
+	{
+		return;
+	}
+
+	_shutdownDrain.store( false, std::memory_order_release );
+	_shutdownDiscard.store( false, std::memory_order_release );
+	_running.store( true, std::memory_order_release );
+	_workerThread = std::thread( &MemoryPoolAsyncBatchSink::processLoop, this );
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::stopAndDrain() noexcept
+{
+	if ( ! _running.load( std::memory_order_acquire ) )
+	{
+		return;
+	}
+
+	_running.store( false, std::memory_order_release );
+
+	{
+		std::lock_guard< std::mutex > lock( _mutex );
+		_shutdownDrain.store( true, std::memory_order_release );
+		_cv.notify_one();
+	}
+
+	if ( _workerThread.joinable() )
+	{
+		_workerThread.join();
+	}
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::stopAndDiscard() noexcept
+{
+	if ( ! _running.load( std::memory_order_acquire ) )
+	{
+		return;
+	}
+
+	_running.store( false, std::memory_order_release );
+
+	{
+		std::lock_guard< std::mutex > lock( _mutex );
+		_shutdownDiscard.store( true, std::memory_order_release );
+		_cv.notify_one();
+	}
+
+	if ( _workerThread.joinable() )
+	{
+		_workerThread.join();
+	}
+
+	// drain the queue and the pool without processing
+	kmac::nova::platform::Array< EntryIndex, BATCH_SIZE > indexBatch{};
+	std::size_t batchSize = 0;
+
+	while ( ( batchSize = _indexQueue.popBatch( indexBatch.data(), BATCH_SIZE ) ) > 0 ) { }
+	_pool.release( _pool.used() );
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
 void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::process( const kmac::nova::Record& record ) noexcept
 {
+	if ( ! _running.load( std::memory_order_acquire ) )
+	{
+		_dropped.fetch_add( 1, std::memory_order_relaxed );
+		return;
+	}
+
 	// calculate entry size
 	const std::size_t entrySize = sizeof( kmac::nova::Record ) + record.messageSize;
 
@@ -300,7 +412,7 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 		return;
 	}
 
-	// always notify consumer (prevents deadlock in multi-threaded scenarios)
+	// always notify worker (prevents deadlock in multi-threaded scenarios)
 	{
 		std::lock_guard< std::mutex > lock( _mutex );
 		_cv.notify_one();
@@ -310,37 +422,27 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
 void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::processLoop() noexcept
 {
-	constexpr std::size_t BATCH_SIZE = 64;
 	kmac::nova::platform::Array< EntryIndex, BATCH_SIZE > indexBatch { };
-	kmac::nova::platform::Array< kmac::nova::Record*, BATCH_SIZE > recordBatch { };
 
 	while ( true )
 	{
-		bool shutdown = _shutdown.load( std::memory_order_acquire );
+		if ( _shutdownDiscard.load( std::memory_order_acquire ) )
+		{
+			break;
+		}
+
+		// check drain shutdown flag
+		bool shutdown = _shutdownDrain.load( std::memory_order_acquire );
 
 		// dequeue batch
 		std::size_t batchSize = _indexQueue.popBatch( indexBatch.data(), BATCH_SIZE );
 
+		// process each entry in batch
 		if ( batchSize > 0 )
 		{
-			// get record pointers
-			for ( std::size_t i = 0; i < batchSize; ++i )
-			{
-				uint8_t* entryPtr = _pool.offsetToPointer( indexBatch.data()[ i ].offset );
-				// NOLINT NOTE: retrieving Record from pool buffer; same justification as process()
-				recordBatch.data()[ i ] = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-			}
+			processBatchEntries( indexBatch, batchSize );
 
-			// format and send batch
-			formatBatch( recordBatch.data(), batchSize );
-
-			// release pool entries
-			for ( std::size_t i = 0; i < batchSize; ++i )
-			{
-				std::size_t entrySize = sizeof( kmac::nova::Record ) + recordBatch.data()[ i ]->messageSize;
-				_pool.release( entrySize );
-			}
-
+			// update processed count
 			_processed.fetch_add( batchSize, std::memory_order_relaxed );
 		}
 
@@ -353,9 +455,38 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 		{
 			std::unique_lock< std::mutex > lock( _mutex );
 			_cv.wait( lock, [ this ]() {
-				return ! _indexQueue.empty() || _shutdown.load( std::memory_order_acquire );
+				return ! _indexQueue.empty()
+					|| _shutdownDrain.load( std::memory_order_acquire )
+					|| _shutdownDiscard.load( std::memory_order_acquire );
 			} );
 		}
+	}
+}
+
+template< std::size_t PoolSize, std::size_t IndexQueueCapacity, typename IndexType, PoolAllocator Allocator >
+void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::processBatchEntries(
+	const kmac::nova::platform::Array< EntryIndex, BATCH_SIZE >& indexBatch,
+	std::size_t batchSize
+) noexcept
+{
+	kmac::nova::platform::Array< kmac::nova::Record*, BATCH_SIZE > recordBatch { };
+
+	// get record pointers
+	for ( std::size_t i = 0; i < batchSize; ++i )
+	{
+		uint8_t* entryPtr = _pool.offsetToPointer( indexBatch.data()[ i ].offset );
+		// NOLINT NOTE: retrieving Record from pool buffer; same justification as process()
+		recordBatch.data()[ i ] = reinterpret_cast< kmac::nova::Record* >( entryPtr );  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+	}
+
+	// format and send batch
+	formatBatch( recordBatch.data(), batchSize );
+
+	// release pool entries
+	for ( std::size_t i = 0; i < batchSize; ++i )
+	{
+		std::size_t entrySize = sizeof( kmac::nova::Record ) + recordBatch.data()[ i ]->messageSize;
+		_pool.release( entrySize );
 	}
 }
 
