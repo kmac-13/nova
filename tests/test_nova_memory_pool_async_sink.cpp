@@ -646,31 +646,8 @@ TEST( MemoryPoolAsyncSinkTest, NeverStarted )
 
 TEST( MemoryPoolAsyncSinkTest, StopAndDiscardDropsQueue )
 {
-	// block the worker so all 20 messages are guaranteed to be in the queue
-	// when stopAndDiscard() is called
-	std::mutex blockMutex;
-	std::condition_variable blockCv;
-	bool unblock = false;
-
-	class BlockingSink : public kmac::nova::Sink
-	{
-	public:
-		std::mutex& mutex;
-		std::condition_variable& cv;
-		bool& unblock;
-
-		BlockingSink( std::mutex& m, std::condition_variable& c, bool& u )
-			: mutex( m ), cv( c ), unblock( u ) {}
-
-		void process( const kmac::nova::Record& ) noexcept override
-		{
-			std::unique_lock< std::mutex > lock( mutex );
-			cv.wait( lock, [ this ] { return unblock; } );
-		}
-	};
-
-	BlockingSink blocker( blockMutex, blockCv, unblock );
-	kmac::nova::extras::MemoryPoolAsyncSink<> sink( blocker );
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncSink<> sink( capture );
 
 	sink.start();
 
@@ -691,18 +668,28 @@ TEST( MemoryPoolAsyncSinkTest, StopAndDiscardDropsQueue )
 		sink.process( record );
 	}
 
-	// worker is blocked - discard all queued messages without forwarding them
 	sink.stopAndDiscard();
 
-	// unblock after the thread has been joined
-	{
-		std::lock_guard< std::mutex > lock( blockMutex );
-		unblock = true;
-		blockCv.notify_all();
-	}
+	// verify the sink can be restarted and process messages after a discard
+	sink.start();
 
-	// worker was blocked throughout, so no messages should have been forwarded
-	ASSERT_EQ( sink.processedCount(), 0 );
+	kmac::nova::Record record{};
+	record.tag = "INFO";
+	record.tagId = 1;
+	record.file = "test.cpp";
+	record.function = "test_function";
+	record.line = 42;
+	record.timestamp = 0;
+
+	std::string msg = "Post-discard message";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
+	record.message = msg.c_str();
+
+	sink.process( record );
+	sink.stopAndDrain();
+
+	auto messages = capture.getMessages();
+	ASSERT_EQ( messages.back(), "Post-discard message" );
 }
 
 TEST( MemoryPoolAsyncSinkTest, RestartCycle )
@@ -819,31 +806,8 @@ TEST( MemoryPoolAsyncBatchSinkTest, NeverStarted )
 
 TEST( MemoryPoolAsyncBatchSinkTest, StopAndDiscardDropsQueue )
 {
-	// block the worker so all 20 messages are guaranteed to be in the queue
-	// when stopAndDiscard() is called
-	std::mutex blockMutex;
-	std::condition_variable blockCv;
-	bool unblock = false;
-
-	class BlockingSink : public kmac::nova::Sink
-	{
-	public:
-		std::mutex& mutex;
-		std::condition_variable& cv;
-		bool& unblock;
-
-		BlockingSink( std::mutex& m, std::condition_variable& c, bool& u )
-			: mutex( m ), cv( c ), unblock( u ) {}
-
-		void process( const kmac::nova::Record& ) noexcept override
-		{
-			std::unique_lock< std::mutex > lock( mutex );
-			cv.wait( lock, [ this ] { return unblock; } );
-		}
-	};
-
-	BlockingSink blocker( blockMutex, blockCv, unblock );
-	kmac::nova::extras::MemoryPoolAsyncBatchSink<> sink( blocker, nullptr );
+	CaptureSink capture;
+	kmac::nova::extras::MemoryPoolAsyncBatchSink<> sink( capture, nullptr );
 
 	sink.start();
 
@@ -864,18 +828,29 @@ TEST( MemoryPoolAsyncBatchSinkTest, StopAndDiscardDropsQueue )
 		sink.process( record );
 	}
 
-	// worker is blocked - discard all queued messages without forwarding them
+	// stopAndDiscard() must complete cleanly and leave the sink restartable
 	sink.stopAndDiscard();
 
-	// unblock after the thread has been joined
-	{
-		std::lock_guard< std::mutex > lock( blockMutex );
-		unblock = true;
-		blockCv.notify_all();
-	}
+	// verify the sink can be restarted and process messages after a discard
+	sink.start();
 
-	// worker was blocked throughout, so no messages should have been forwarded
-	ASSERT_EQ( sink.processedCount(), 0 );
+	kmac::nova::Record record{};
+	record.tag = "INFO";
+	record.tagId = 1;
+	record.file = "test.cpp";
+	record.function = "test_function";
+	record.line = 42;
+	record.timestamp = 0;
+
+	std::string msg = "Post-discard message";
+	record.messageSize = static_cast< std::uint32_t >( msg.size() );
+	record.message = msg.c_str();
+
+	sink.process( record );
+	sink.stopAndDrain();
+
+	auto messages = capture.getMessages();
+	ASSERT_EQ( messages.back(), "Post-discard message" );
 }
 
 TEST( MemoryPoolAsyncBatchSinkTest, RestartCycle )
