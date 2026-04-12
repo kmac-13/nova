@@ -77,6 +77,19 @@ struct Record
 	// will be 0 on unsupported platforms or non-PIE binaries
 	std::uint64_t loadBaseAddress = 0;
 
+	// fault context - only populated when captured via signal handler
+	// (captureRegisters=true on EmergencySinkBase, triggered by signal delivery)
+	std::uint64_t faultAddress = 0;  // si_addr from siginfo_t; 0 if not a fault record
+	std::uint64_t aslrOffset = 0;    // ASLR slide for the main executable
+	bool hasFaultAddress = false;    // false when faultAddress is not meaningful
+
+	// CPU registers at the point of fault, architecture layout identified by registerLayout.
+	// Maximum size covers the largest supported layout (ARM64: 34 x uint64_t = 272 bytes).
+	static constexpr std::size_t MAX_REGISTERS = 34;
+	kmac::nova::platform::Array< std::uint64_t, MAX_REGISTERS > registers { };
+	std::size_t registerCount = 0;   // number of valid entries in registers
+	std::uint8_t registerLayout = 0; // RegisterLayoutId value
+
 	/**
 	 * @brief Reset record to empty state.
 	 */

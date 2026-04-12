@@ -1,6 +1,7 @@
 #include "kmac/flare/emergency_sink.h"
 
 #include "kmac/flare/record.h"
+#include "kmac/flare/signal_handler.h"
 #include "kmac/flare/tlv.h"
 
 #include <kmac/nova/details.h>
@@ -10,7 +11,7 @@
 #include <cstring>
 #include <stdint.h>
 
-// Platform-specific includes for process/thread IDs
+// platform-specific includes for process/thread IDs
 #if defined( __linux__ ) || defined( __unix__ ) || defined( __APPLE__ ) || defined( __FreeBSD__ )
 #include <unistd.h>  // getpid()
 #endif
@@ -98,12 +99,37 @@ struct TlvWriteHelper
 
 	void writeLoadBaseAddressTlv( std::uint64_t loadBaseAddress ) noexcept;
 
+	void writeAslrOffsetTlv( std::uint64_t aslrOffset ) noexcept;
+
+	// writes FaultAddress (if present), AslrOffset, and CpuRegisters TLVs from fault context;
+	// no-op when faultContext is null (non-POSIX builds or normal log records)
+	void writeFaultContextTlvs( const kmac::flare::FaultContext* faultContext ) noexcept;
+
 	// frames: array of raw return addresses
 	// frameCount: number of valid entries
 	void writeStackFramesTlv( void* const* frames, std::size_t frameCount ) noexcept;
 
+	// registers: packed uint64_t values; layoutId identifies the architecture
+	void writeCpuRegistersTlv(
+		const std::uint64_t* registers,
+		std::size_t registerCount,
+		kmac::flare::RegisterLayoutId layoutId
+	) noexcept;
+
 	// returns true if message was truncated
 	bool writeMessageTlv( const kmac::nova::Record& record ) noexcept;
+
+	// write the FLARE_MAGIC and size-field placeholder; returns the offset of the
+	// size field so it can be back-patched, or SIZE_MAX on failure
+	std::size_t writeRecordHeader() noexcept;
+
+	// back-patch the size field and update the status byte; called after all TLVs
+	// are written but before the end marker so the final size includes everything
+	void finaliseRecord(
+		std::size_t sizeFieldOffset,
+		std::size_t statusByteOffset,
+		bool messageTruncated
+	) noexcept;
 };
 
 } // anonymous namespace
@@ -132,26 +158,32 @@ IWriter* EmergencySinkBase::writer() const noexcept
 	return _writer;
 }
 
-std::size_t EmergencySinkBase::encodeRecordTlv( const kmac::nova::Record& record, char* buffer, std::size_t bufferSize, std::size_t sequenceNumber ) noexcept
+std::uint64_t EmergencySinkBase::loadBaseAddress() const noexcept
+{
+	return _loadBaseAddress;
+}
+
+std::size_t EmergencySinkBase::encodeRecordTlv(
+	const kmac::nova::Record& record,
+	char* buffer,
+	std::size_t bufferSize,
+	std::size_t sequenceNumber,
+	const FaultContext* faultContext
+) noexcept
 {
 	std::size_t offset = 0;
+
+#if ! defined( FLARE_HAVE_FAULT_CONTEXT )
+	(void) faultContext;
+#endif
 	::TlvWriteHelper writeHelper{ buffer, offset, bufferSize };
 
-	// write magic number
-	if ( offset + sizeof( FLARE_MAGIC ) > bufferSize )
+	// write magic and reserve size field; returns offset of size field or SIZE_MAX on failure
+	const std::size_t sizeFieldOffset = writeHelper.writeRecordHeader();
+	if ( sizeFieldOffset == SIZE_MAX )
 	{
 		return 0;
 	}
-	std::memcpy( buffer + offset, &FLARE_MAGIC, sizeof( FLARE_MAGIC ) );
-	offset += sizeof( FLARE_MAGIC );
-
-	// reserve space for total size (filled in at the end)
-	const std::size_t sizeOffset = offset;
-	if ( ( offset + sizeof( std::uint32_t ) ) > bufferSize )
-	{
-		return 0;
-	}
-	offset += sizeof( std::uint32_t );
 
 	// write the status as InProgress initially
 	// (if we crash before updating it, reader knows it's a torn write)
@@ -160,49 +192,42 @@ std::size_t EmergencySinkBase::encodeRecordTlv( const kmac::nova::Record& record
 	{
 		return 0;
 	}
-	const std::size_t statusOffset = offset - sizeof( status );  // remember where status is
+	const std::size_t statusOffset = offset - sizeof( status );
 
-	// write mandatory fields, starting with the sequence number
+	// mandatory fields
 	if ( ! writeHelper.writeTlv( TlvType::SequenceNumber, &sequenceNumber, sizeof( sequenceNumber ) ) )
 	{
 		return 0;
 	}
-
-	// write the timestamp
 	if ( ! writeHelper.writeTlv( TlvType::TimestampNs, &record.timestamp, sizeof( record.timestamp ) ) )
 	{
 		return 0;
 	}
-
-	// write the tag as hash (for compact storage)
 	std::uint64_t tagHash = hashString( record.tag );
 	if ( ! writeHelper.writeTlv( TlvType::TagId, &tagHash, sizeof( tagHash ) ) )
 	{
 		return 0;
 	}
 
-	// write optional source location fields, starting with the file name (if not too long)
+	// source location
 	writeHelper.writeStringTlv( TlvType::FileName, record.file );
-
-	// write the line number
 	if ( ! writeHelper.writeTlv( TlvType::LineNumber, &record.line, sizeof( record.line ) ) )
 	{
 		return 0;
 	}
-
-	// write the function name (if not too long)
 	writeHelper.writeStringTlv( TlvType::FunctionName, record.function );
 
-	// write the process/thread info if enabled
+	// process/thread info
 	if ( _captureProcessInfo )
 	{
 		writeHelper.writeProcessInfoTlv();
 	}
 
-	// write load base address (always; value is 0 on unsupported platforms)
+	// crash context TLVs (fault address, ASLR offset, registers) then load base
+	writeHelper.writeFaultContextTlvs( faultContext );
 	writeHelper.writeLoadBaseAddressTlv( _loadBaseAddress );
 
-	// write stack trace if enabled and compile-time support is present
+	// stack trace
 	if ( _captureStackTrace )
 	{
 		kmac::nova::platform::Array< void*, Record::MAX_STACK_FRAMES > frames {};
@@ -213,38 +238,28 @@ std::size_t EmergencySinkBase::encodeRecordTlv( const kmac::nova::Record& record
 		}
 	}
 
-	// write message, with truncation fallback
+	// message
 	const bool messageTruncated = writeHelper.writeMessageTlv( record );
-
-	// if message was truncated, add truncation marker
 	if ( messageTruncated )
 	{
 		const std::uint8_t truncFlag = 1;
 		writeHelper.writeTlv( TlvType::MessageTruncated, &truncFlag, sizeof( truncFlag ) );
 	}
 
-	// write end marker
+	// end marker
 	const std::uint16_t endType = std::uint16_t( TlvType::RecordEnd );
 	const std::uint16_t zero = 0;
 	if ( ( offset + sizeof( endType ) + sizeof( zero ) ) > bufferSize )
 	{
 		return 0;
 	}
-
 	std::memcpy( buffer + offset, &endType, sizeof( endType ) );
 	offset += sizeof( endType );
 	std::memcpy( buffer + offset, &zero, sizeof( zero ) );
 	offset += sizeof( zero );
 
-	// update the status to Complete (we made it to the end!)
-	status = messageTruncated
-		? std::uint8_t( RecordStatus::Truncated )
-		: std::uint8_t( RecordStatus::Complete );
-	std::memcpy( buffer + statusOffset, &status, sizeof( status ) );
-
-	// write the total size
-	const std::uint32_t totalSize = std::uint32_t( offset );
-	std::memcpy( buffer + sizeOffset, &totalSize, sizeof( totalSize ) );
+	// back-patch status and total size
+	writeHelper.finaliseRecord( sizeFieldOffset, statusOffset, messageTruncated );
 
 	return offset;
 }
@@ -490,6 +505,110 @@ void TlvWriteHelper::writeProcessInfoTlv() noexcept
 void TlvWriteHelper::writeLoadBaseAddressTlv( std::uint64_t loadBaseAddress ) noexcept
 {
 	writeTlv( kmac::flare::TlvType::LoadBaseAddress, &loadBaseAddress, sizeof( loadBaseAddress ) );
+}
+
+void TlvWriteHelper::writeAslrOffsetTlv( std::uint64_t aslrOffset ) noexcept
+{
+	writeTlv( kmac::flare::TlvType::AslrOffset, &aslrOffset, sizeof( aslrOffset ) );
+}
+
+std::size_t TlvWriteHelper::writeRecordHeader() noexcept
+{
+	// write magic number
+	if ( offset + sizeof( kmac::flare::FLARE_MAGIC ) > bufferSize )
+	{
+		return SIZE_MAX;
+	}
+	std::memcpy( buffer + offset, &kmac::flare::FLARE_MAGIC, sizeof( kmac::flare::FLARE_MAGIC ) );
+	offset += sizeof( kmac::flare::FLARE_MAGIC );
+
+	// reserve space for total size field (back-patched by finaliseRecord)
+	const std::size_t sizeFieldOffset = offset;
+	if ( ( offset + sizeof( std::uint32_t ) ) > bufferSize )
+	{
+		return SIZE_MAX;
+	}
+	offset += sizeof( std::uint32_t );
+
+	return sizeFieldOffset;
+}
+
+void TlvWriteHelper::finaliseRecord(
+	std::size_t sizeFieldOffset,
+	std::size_t statusByteOffset,
+	bool messageTruncated
+) noexcept
+{
+	// back-patch status byte
+	const std::uint8_t status = messageTruncated
+		? std::uint8_t( kmac::flare::RecordStatus::Truncated )
+		: std::uint8_t( kmac::flare::RecordStatus::Complete );
+	std::memcpy( buffer + statusByteOffset, &status, sizeof( status ) );
+
+	// back-patch total size
+	const std::uint32_t totalSize = std::uint32_t( offset );
+	std::memcpy( buffer + sizeFieldOffset, &totalSize, sizeof( totalSize ) );
+}
+
+void TlvWriteHelper::writeFaultContextTlvs( const kmac::flare::FaultContext* faultContext ) noexcept
+{
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
+	if ( faultContext == nullptr )
+	{
+		return;
+	}
+
+	if ( faultContext->hasFaultAddress )
+	{
+		writeTlv(
+			kmac::flare::TlvType::FaultAddress,
+			&faultContext->faultAddress,
+			sizeof( faultContext->faultAddress )
+		);
+	}
+
+	writeAslrOffsetTlv( faultContext->aslrOffset );
+
+	if ( faultContext->registerCount > 0 )
+	{
+		writeCpuRegistersTlv(
+			faultContext->registers.data(),
+			faultContext->registerCount,
+			static_cast< kmac::flare::RegisterLayoutId >( faultContext->layoutId )
+		);
+	}
+#else
+	(void) faultContext;
+#endif
+}
+
+void TlvWriteHelper::writeCpuRegistersTlv(
+	const std::uint64_t* registers,
+	std::size_t registerCount,
+	kmac::flare::RegisterLayoutId layoutId
+) noexcept
+{
+	if ( registers == nullptr || registerCount == 0 )
+	{
+		return;
+	}
+
+	static_assert(
+		kmac::flare::Record::MAX_REGISTERS * sizeof( std::uint64_t ) <= UINT16_MAX,
+		"MAX_REGISTERS too large for uint16_t TLV length field"
+	);
+
+	const std::size_t count = registerCount < kmac::flare::Record::MAX_REGISTERS
+		? registerCount
+		: kmac::flare::Record::MAX_REGISTERS;
+
+	// RegisterLayout TLV precedes CpuRegisters so readers can decode the array
+	// without knowing the target architecture out-of-band
+	const std::uint8_t layoutByte = std::uint8_t( layoutId );
+	writeTlv( kmac::flare::TlvType::RegisterLayout, &layoutByte, sizeof( layoutByte ) );
+
+	const std::uint16_t payloadLen = static_cast< std::uint16_t >( count * sizeof( std::uint64_t ) );
+	writeTlv( kmac::flare::TlvType::CpuRegisters, registers, payloadLen );
 }
 
 void TlvWriteHelper::writeStackFramesTlv( void* const* frames, std::size_t frameCount ) noexcept
