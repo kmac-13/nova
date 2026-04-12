@@ -139,7 +139,7 @@ void SignalHandlerBase::signalHandler( int signum, siginfo_t* info, void* uctx )
 		// signal number to short name - covers the five signals we install for;
 		// no default initialiser to avoid a dead-store warning: every reachable
 		// path through the switch sets signame before strncpy uses it
-		const char* signame;
+		const char* signame = nullptr;
 		switch ( signum )
 		{
 		case SIGSEGV: signame = "SIGSEGV"; break;
