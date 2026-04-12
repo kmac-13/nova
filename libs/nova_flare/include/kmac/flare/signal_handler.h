@@ -162,9 +162,9 @@ private:
  *   at a time (signals are masked for the duration of handler execution).
  *
  * @tparam StackSize size of the alternate signal stack in bytes.
- *   Must be at least MINSIGSTKSZ.  The default (8192) is sufficient for
- *   the handler body and a few frames of call depth.  Increase if your
- *   signal handler or any function it calls has large stack frames.
+ *   Must be at least 2048.  The default (8192) is sufficient for the handler
+ *   body and a few frames of call depth.  Increase if your signal handler or
+ *   any function it calls has large stack frames.
  *
  * @note Designed for Linux, Android, macOS, and FreeBSD.
  *   Not available on Windows or bare-metal targets.
@@ -241,7 +241,11 @@ template < std::size_t StackSize = 8 * 1024 >
 class SignalHandler : public SignalHandlerBase
 {
 private:
-	static_assert( StackSize >= MINSIGSTKSZ, "StackSize must be at least MINSIGSTKSZ bytes" );
+	// can't use MINSIGSTKSZ directly in a static_assert because glibc 2.34+
+	// made it a runtime sysconf() call, not a constant; 2048 bytes is a safe,
+	// portable floor (larger than the historical MINSIGSTKSZ on all supported
+	// architectures, which is typically 2048 on x86-64, 5120 on ARM64)
+	static_assert( StackSize >= 2048, "StackSize must be at least 2048 bytes" );
 
 	// alternate stack storage (static so it outlives signal delivery)
 	// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
