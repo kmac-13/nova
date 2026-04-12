@@ -68,7 +68,7 @@ private:
 
 	// saved previous signal actions so we can restore + re-raise
 	// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-	static kmac::nova::platform::Array< struct sigaction, NUM_SIGNALS > _previousActions;
+	static kmac::nova::platform::Array< sigaction, NUM_SIGNALS > _previousActions;
 
 	// saved previous terminate handler
 	// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)

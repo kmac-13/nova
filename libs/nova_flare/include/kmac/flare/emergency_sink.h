@@ -18,7 +18,7 @@ namespace kmac::flare
 struct FaultContext;  // full definition in signal_handler.h
 
 /**
- * @brief Non-templated base for BasicEmergencySink.
+ * @brief Non-templated base for EmergencySink.
  *
  * EmergencySinkBase holds all state and implements everything that does not
  * depend on the encoding buffer size: construction, flush(), and the full
@@ -26,7 +26,7 @@ struct FaultContext;  // full definition in signal_handler.h
  * template is process(), which allocates the stack buffer and calls
  * encodeRecordTlv.
  *
- * This class is not intended to be used directly.  Use BasicEmergencySink<N>
+ * This class is not intended to be used directly.  Use EmergencySink<N>
  * or the EmergencySink alias instead.
  *
  * @note EmergencySinkBase must be constructed in a normal (non-signal)
@@ -86,12 +86,6 @@ public:
 	 */
 	void flush() noexcept;
 
-protected:
-	/**
-	 * @brief Get the underlying IWriter.
-	 */
-	IWriter* writer() const noexcept;
-
 	/**
 	 * @brief Get the load base address captured at construction.
 	 *
@@ -99,6 +93,26 @@ protected:
 	 * needing to re-query the dynamic linker from a signal handler.
 	 */
 	std::uint64_t loadBaseAddress() const noexcept;
+
+	/**
+	 * @brief Encode and write a Nova record with fault context from a signal handler.
+	 *
+	 * Called by SignalHandler on crash signal delivery.  Implemented by
+	 * EmergencySink<N> which has the correctly-sized stack buffer.
+	 *
+	 * @param record the Record to process
+	 * @param faultContext fault context captured from siginfo_t / ucontext_t
+	 */
+	virtual void processWithFaultContext(
+		const kmac::nova::Record& record,
+		const FaultContext& faultContext
+	) noexcept = 0;
+
+protected:
+	/**
+	 * @brief Get the underlying IWriter.
+	 */
+	IWriter* writer() const noexcept;
 
 	/**
 	 * @brief Encode a Nova record into a caller-supplied TLV buffer.
@@ -161,7 +175,7 @@ private:
 /**
  * @brief Crash-safe forensic logging sink for Nova.
  *
- * BasicEmergencySink writes Nova log records to a binary stream in TLV format.
+ * EmergencySink writes Nova log records to a binary stream in TLV format.
  * Designed for crash handlers and emergency logging scenarios where:
  * - heap allocation is unsafe
  * - exceptions cannot be used
@@ -212,7 +226,7 @@ private:
  *   static kmac::flare::EmergencySink< 512 > sink( &ramWriter );
  * @endcode
  */
-template < std::size_t BufferSize = 4096 >
+template< std::size_t BufferSize = 4 * 1024 >
 class EmergencySink final : public EmergencySinkBase
 {
 private:
@@ -242,7 +256,7 @@ public:
 	void processWithFaultContext(
 		const kmac::nova::Record& record,
 		const FaultContext& faultContext
-	) noexcept;
+	) noexcept override;
 
 private:
 	/**
@@ -267,13 +281,13 @@ private:
 	void writeRecord( const kmac::nova::Record& record, const FaultContext* faultContext ) noexcept;
 };
 
-template < std::size_t BufferSize >
+template< std::size_t BufferSize >
 void EmergencySink< BufferSize >::process( const kmac::nova::Record& record ) noexcept
 {
 	writeRecord( record, nullptr );
 }
 
-template < std::size_t BufferSize >
+template< std::size_t BufferSize >
 void EmergencySink< BufferSize >::processWithFaultContext(
 	const kmac::nova::Record& record,
 	const FaultContext& faultContext
@@ -282,7 +296,7 @@ void EmergencySink< BufferSize >::processWithFaultContext(
 	writeRecord( record, &faultContext );
 }
 
-template < std::size_t BufferSize >
+template< std::size_t BufferSize >
 void EmergencySink< BufferSize >::writeRecord( const kmac::nova::Record& record, const FaultContext* faultContext ) noexcept
 {
 	if ( writer() == nullptr )
