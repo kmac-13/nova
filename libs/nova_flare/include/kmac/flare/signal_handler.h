@@ -5,7 +5,7 @@
 // SignalHandler is a POSIX-only facility.  Guard the entire header so
 // non-POSIX translation units can include nova_flare headers without error.
 #if defined( __linux__ ) || defined( __APPLE__ ) || defined( __FreeBSD__ ) || defined( __ANDROID__ )
-#define FLARE_HAVE_FAULT_CONTEXT 1
+#define FLARE_HAVE_FAULT_CONTEXT 1 /* NOLINT(cppcoreguidelines-macro-usage) */
 
 #include "emergency_sink.h"
 
@@ -112,7 +112,7 @@ private:
 	 * Captures fault context from siginfo_t and ucontext_t, writes a
 	 * crash record via _sink, then re-raises to restore default behaviour.
 	 */
-	static void signalHandler( int signum, siginfo_t* info, void* ucontext ) noexcept;
+	static void signalHandler( int signum, siginfo_t* info, void* uctx ) noexcept;
 
 	/**
 	 * @brief std::terminate replacement that logs before aborting.

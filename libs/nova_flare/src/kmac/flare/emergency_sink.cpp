@@ -101,6 +101,10 @@ struct TlvWriteHelper
 
 	void writeAslrOffsetTlv( std::uint64_t aslrOffset ) noexcept;
 
+	// writes FaultAddress (if present), AslrOffset, and CpuRegisters TLVs from fault context;
+	// no-op when faultContext is null (non-POSIX builds or normal log records)
+	void writeFaultContextTlvs( const kmac::flare::FaultContext* faultContext ) noexcept;
+
 	// frames: array of raw return addresses
 	// frameCount: number of valid entries
 	void writeStackFramesTlv( void* const* frames, std::size_t frameCount ) noexcept;
@@ -231,30 +235,12 @@ std::size_t EmergencySinkBase::encodeRecordTlv(
 	//   ASLR offset    - slide to subtract from runtime addresses for symbolisation
 	//   stack frames   - runtime return addresses (subtract AslrOffset in reader to get static addresses)
 	//   register layout + registers - CPU state at fault point
-
-#if defined( FLARE_HAVE_FAULT_CONTEXT )
-	if ( faultContext != nullptr && faultContext->hasFaultAddress )
-	{
-		writeHelper.writeTlv(
-			TlvType::FaultAddress,
-			&faultContext->faultAddress,
-			sizeof( faultContext->faultAddress )
-		);
-	}
-#endif
+	writeHelper.writeFaultContextTlvs( faultContext );
 
 	// load base address (always written; 0 on unsupported platforms)
 	writeHelper.writeLoadBaseAddressTlv( _loadBaseAddress );
 
-	// ASLR offset (written when fault context is present; equals load base for PIE)
-#if defined( FLARE_HAVE_FAULT_CONTEXT )
-	if ( faultContext != nullptr )
-	{
-		writeHelper.writeAslrOffsetTlv( faultContext->aslrOffset );
-	}
-#endif
-
-	// stack trace - from fault context registers if available, otherwise backtrace()
+	// stack trace
 	if ( _captureStackTrace )
 	{
 		kmac::nova::platform::Array< void*, Record::MAX_STACK_FRAMES > frames {};
@@ -264,18 +250,6 @@ std::size_t EmergencySinkBase::encodeRecordTlv(
 			writeHelper.writeStackFramesTlv( std::data( frames ), frameCount );
 		}
 	}
-
-	// CPU registers (register layout TLV precedes the register array)
-#if defined( FLARE_HAVE_FAULT_CONTEXT )
-	if ( faultContext != nullptr && faultContext->registerCount > 0 )
-	{
-		writeHelper.writeCpuRegistersTlv(
-			faultContext->registers.data(),
-			faultContext->registerCount,
-			static_cast< kmac::flare::RegisterLayoutId >( faultContext->layoutId )
-		);
-	}
-#endif
 
 	// write message, with truncation fallback
 	const bool messageTruncated = writeHelper.writeMessageTlv( record );
@@ -559,6 +533,38 @@ void TlvWriteHelper::writeLoadBaseAddressTlv( std::uint64_t loadBaseAddress ) no
 void TlvWriteHelper::writeAslrOffsetTlv( std::uint64_t aslrOffset ) noexcept
 {
 	writeTlv( kmac::flare::TlvType::AslrOffset, &aslrOffset, sizeof( aslrOffset ) );
+}
+
+void TlvWriteHelper::writeFaultContextTlvs( const kmac::flare::FaultContext* faultContext ) noexcept
+{
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
+	if ( faultContext == nullptr )
+	{
+		return;
+	}
+
+	if ( faultContext->hasFaultAddress )
+	{
+		writeTlv(
+			kmac::flare::TlvType::FaultAddress,
+			&faultContext->faultAddress,
+			sizeof( faultContext->faultAddress )
+		);
+	}
+
+	writeAslrOffsetTlv( faultContext->aslrOffset );
+
+	if ( faultContext->registerCount > 0 )
+	{
+		writeCpuRegistersTlv(
+			faultContext->registers.data(),
+			faultContext->registerCount,
+			static_cast< kmac::flare::RegisterLayoutId >( faultContext->layoutId )
+		);
+	}
+#else
+	(void) faultContext;
+#endif
 }
 
 void TlvWriteHelper::writeCpuRegistersTlv(
