@@ -99,7 +99,16 @@ struct TlvWriteHelper
 
 	void writeLoadBaseAddressTlv( std::uint64_t loadBaseAddress ) noexcept;
 
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
 	void writeAslrOffsetTlv( std::uint64_t aslrOffset ) noexcept;
+
+	// registers: packed uint64_t values; layoutId identifies the architecture
+	void writeCpuRegistersTlv(
+		const std::uint64_t* registers,
+		std::size_t registerCount,
+		kmac::flare::RegisterLayoutId layoutId
+	) noexcept;
+#endif
 
 	// writes FaultAddress (if present), AslrOffset, and CpuRegisters TLVs from fault context;
 	// no-op when faultContext is null (non-POSIX builds or normal log records)
@@ -108,13 +117,6 @@ struct TlvWriteHelper
 	// frames: array of raw return addresses
 	// frameCount: number of valid entries
 	void writeStackFramesTlv( void* const* frames, std::size_t frameCount ) noexcept;
-
-	// registers: packed uint64_t values; layoutId identifies the architecture
-	void writeCpuRegistersTlv(
-		const std::uint64_t* registers,
-		std::size_t registerCount,
-		kmac::flare::RegisterLayoutId layoutId
-	) noexcept;
 
 	// returns true if message was truncated
 	bool writeMessageTlv( const kmac::nova::Record& record ) noexcept;
@@ -507,10 +509,43 @@ void TlvWriteHelper::writeLoadBaseAddressTlv( std::uint64_t loadBaseAddress ) no
 	writeTlv( kmac::flare::TlvType::LoadBaseAddress, &loadBaseAddress, sizeof( loadBaseAddress ) );
 }
 
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
+
 void TlvWriteHelper::writeAslrOffsetTlv( std::uint64_t aslrOffset ) noexcept
 {
 	writeTlv( kmac::flare::TlvType::AslrOffset, &aslrOffset, sizeof( aslrOffset ) );
 }
+
+void TlvWriteHelper::writeCpuRegistersTlv(
+	const std::uint64_t* registers,
+	std::size_t registerCount,
+	kmac::flare::RegisterLayoutId layoutId
+) noexcept
+{
+	if ( registers == nullptr || registerCount == 0 )
+	{
+		return;
+	}
+
+	static_assert(
+		kmac::flare::Record::MAX_REGISTERS * sizeof( std::uint64_t ) <= UINT16_MAX,
+		"MAX_REGISTERS too large for uint16_t TLV length field"
+	);
+
+	const std::size_t count = registerCount < kmac::flare::Record::MAX_REGISTERS
+		? registerCount
+		: kmac::flare::Record::MAX_REGISTERS;
+
+	// RegisterLayout TLV precedes CpuRegisters so readers can decode the array
+	// without knowing the target architecture out-of-band
+	const std::uint8_t layoutByte = std::uint8_t( layoutId );
+	writeTlv( kmac::flare::TlvType::RegisterLayout, &layoutByte, sizeof( layoutByte ) );
+
+	const std::uint16_t payloadLen = static_cast< std::uint16_t >( count * sizeof( std::uint64_t ) );
+	writeTlv( kmac::flare::TlvType::CpuRegisters, registers, payloadLen );
+}
+
+#endif  // FLARE_HAVE_FAULT_CONTEXT
 
 std::size_t TlvWriteHelper::writeRecordHeader() noexcept
 {
@@ -580,35 +615,6 @@ void TlvWriteHelper::writeFaultContextTlvs( const kmac::flare::FaultContext* fau
 #else
 	(void) faultContext;
 #endif
-}
-
-void TlvWriteHelper::writeCpuRegistersTlv(
-	const std::uint64_t* registers,
-	std::size_t registerCount,
-	kmac::flare::RegisterLayoutId layoutId
-) noexcept
-{
-	if ( registers == nullptr || registerCount == 0 )
-	{
-		return;
-	}
-
-	static_assert(
-		kmac::flare::Record::MAX_REGISTERS * sizeof( std::uint64_t ) <= UINT16_MAX,
-		"MAX_REGISTERS too large for uint16_t TLV length field"
-	);
-
-	const std::size_t count = registerCount < kmac::flare::Record::MAX_REGISTERS
-		? registerCount
-		: kmac::flare::Record::MAX_REGISTERS;
-
-	// RegisterLayout TLV precedes CpuRegisters so readers can decode the array
-	// without knowing the target architecture out-of-band
-	const std::uint8_t layoutByte = std::uint8_t( layoutId );
-	writeTlv( kmac::flare::TlvType::RegisterLayout, &layoutByte, sizeof( layoutByte ) );
-
-	const std::uint16_t payloadLen = static_cast< std::uint16_t >( count * sizeof( std::uint64_t ) );
-	writeTlv( kmac::flare::TlvType::CpuRegisters, registers, payloadLen );
 }
 
 void TlvWriteHelper::writeStackFramesTlv( void* const* frames, std::size_t frameCount ) noexcept
