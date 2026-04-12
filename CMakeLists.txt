@@ -20,6 +20,7 @@ include( ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Sanitizers.cmake )
 # build options
 option( NOVA_BUILD_EXTRAS        "Build Nova Extras library"             ON  )
 option( NOVA_BUILD_FLARE         "Build Flare emergency logging library" ON  )
+option( FLARE_SIGNAL_HANDLER     "Build Flare POSIX signal handler (Linux/macOS/Android/FreeBSD)" ON )
 option( NOVA_BUILD_EXAMPLES      "Build example programs"                OFF )
 option( NOVA_BUILD_TESTS         "Build unit tests"                      OFF )
 option( NOVA_BUILD_FUZZ          "Build LibFuzzer fuzz targets"          OFF )
@@ -198,6 +199,15 @@ if( NOVA_BUILD_FLARE )
 	target_link_libraries( nova_flare PUBLIC nova )
 
 	target_compile_features( nova_flare PUBLIC cxx_std_17 )
+
+	# Signal handler support - POSIX only; silently ignored on non-POSIX targets
+	# because signal_handler.cpp guards its entire body behind the same platform check
+	if( FLARE_SIGNAL_HANDLER )
+		target_compile_definitions( nova_flare PUBLIC FLARE_ENABLE_SIGNAL_HANDLER )
+		message( STATUS "Flare: Signal handler enabled (SIGSEGV/SIGBUS/SIGFPE/SIGILL/SIGABRT + std::terminate)" )
+	else()
+		message( STATUS "Flare: Signal handler disabled (set FLARE_SIGNAL_HANDLER=ON to enable)" )
+	endif()
 
 	set_target_properties( nova_flare PROPERTIES
 		EXPORT_NAME Flare

@@ -23,6 +23,11 @@ void Record::clear() noexcept
 	messageLen = 0;
 	stackFrameCount = 0;
 	loadBaseAddress = 0;
+	faultAddress = 0;
+	aslrOffset = 0;
+	hasFaultAddress = false;
+	registerCount = 0;
+	registerLayout = 0;
 }
 
 const char* Record::statusString() const noexcept

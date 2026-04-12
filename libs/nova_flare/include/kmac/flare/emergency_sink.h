@@ -14,6 +14,9 @@
 namespace kmac::flare
 {
 
+// forward declarations
+struct FaultContext;  // full definition in signal_handler.h
+
 /**
  * @brief Non-templated base for BasicEmergencySink.
  *
@@ -90,12 +93,21 @@ protected:
 	IWriter* writer() const noexcept;
 
 	/**
+	 * @brief Get the load base address captured at construction.
+	 *
+	 * Used by SignalHandler to populate FaultContext::aslrOffset without
+	 * needing to re-query the dynamic linker from a signal handler.
+	 */
+	std::uint64_t loadBaseAddress() const noexcept;
+
+	/**
 	 * @brief Encode a Nova record into a caller-supplied TLV buffer.
 	 *
 	 * @param record the Nova record to encode
 	 * @param buffer destination buffer
 	 * @param bufferSize size of destination buffer in bytes
 	 * @param sequenceNumber monotonic counter for this record
+	 * @param faultContext optional fault context from a signal handler (may be nullptr)
 	 * @return number of bytes written, or 0 on error
 	 *
 	 * @note The caller is responsible for maintaining and incrementing the
@@ -105,7 +117,8 @@ protected:
 		const kmac::nova::Record& record,
 		char* buffer,
 		std::size_t bufferSize,
-		std::size_t sequenceNumber
+		std::size_t sequenceNumber,
+		const FaultContext* faultContext = nullptr
 	) noexcept;
 
 private:
@@ -168,6 +181,9 @@ private:
  *   bare-metal targets with limited interrupt-stack space; increase if
  *   you need longer messages without truncation.
  *
+ *   For bare-metal crash capture considerations (fault vectors, register
+ *   extraction, RamWriter usage) see the TODO in signal_handler.h.
+ *
  *   Minimum useful size is roughly:
  *     8  (magic) + 4 (size) + ~60 (fixed TLVs) + message + stack frames
  *   A static_assert enforces a 256-byte floor.
@@ -176,7 +192,8 @@ private:
  * - MAGIC (8 bytes)
  * - size (4 bytes)
  * - TLVs for status, sequence, timestamp, tag, file, line, function,
- *   process info, load base address, stack frames, message
+ *   process info, fault address (signal records only), load base address,
+ *   ASLR offset, stack frames, register layout + CPU registers, message
  * - END marker
  *
  * Usage (signal handler):
@@ -209,36 +226,92 @@ public:
 	/**
 	 * @brief Encode and write a Nova record.
 	 *
-	 * Allocates a BufferSize-byte buffer on the stack, encodes the record
-	 * into TLV format, and writes it to the underlying IWriter in a single
-	 * call.
-	 *
 	 * @param record the Record to process
 	 */
-	void process( const kmac::nova::Record& record ) noexcept override
-	{
-		if ( writer() == nullptr )
-		{
-			return;
-		}
+	void process( const kmac::nova::Record& record ) noexcept override;
 
-		// fixed-size stack buffer, no heap allocation
-		kmac::nova::platform::Array< char, BufferSize > buffer {};
-		const std::size_t encodedSize = encodeRecordTlv( record, buffer.data(), buffer.size(), _sequenceNumber );
+	/**
+	 * @brief Encode and write a Nova record with fault context from a signal handler.
+	 *
+	 * Called by SignalHandler on crash signal delivery.  Includes fault address,
+	 * ASLR offset, and CPU register snapshot alongside the standard TLVs.
+	 *
+	 * @param record the Record to process
+	 * @param faultContext fault context captured from siginfo_t / ucontext_t
+	 */
+	void processWithFaultContext(
+		const kmac::nova::Record& record,
+		const FaultContext& faultContext
+	) noexcept;
 
-		if ( encodedSize > 0 )
-		{
-			// single atomic write
-			writer()->write( buffer.data(), encodedSize );
-
-			// flush for crash safety
-			writer()->flush();
-
-			// increment sequence number for next record
-			++_sequenceNumber;
-		}
-	}
+private:
+	/**
+	 * @brief Encode and write a record, optionally with fault context.
+	 *
+	 * Common implementation for process() and processWithFaultContext().
+	 * Allocates the stack buffer, encodes, writes, flushes, and advances
+	 * the sequence number.
+	 *
+	 * encodedSize == 0 means the buffer was too small to fit the mandatory
+	 * fixed-size header fields - a silent no-op is the correct response.
+	 * There is nothing meaningful to write, no partial record to flush, and
+	 * in a crash handler there is no way to surface an error.  The sequence
+	 * number is intentionally not incremented: a gap could mislead a reader
+	 * into believing a record was lost in transit, whereas leaving it
+	 * unchanged means the next successful record is numbered as if this
+	 * call never happened.
+	 *
+	 * @param record the Record to encode
+	 * @param faultContext optional fault context (nullptr for normal records)
+	 */
+	void writeRecord( const kmac::nova::Record& record, const FaultContext* faultContext ) noexcept;
 };
+
+template < std::size_t BufferSize >
+void EmergencySink< BufferSize >::process( const kmac::nova::Record& record ) noexcept
+{
+	writeRecord( record, nullptr );
+}
+
+template < std::size_t BufferSize >
+void EmergencySink< BufferSize >::processWithFaultContext(
+	const kmac::nova::Record& record,
+	const FaultContext& faultContext
+) noexcept
+{
+	writeRecord( record, &faultContext );
+}
+
+template < std::size_t BufferSize >
+void EmergencySink< BufferSize >::writeRecord( const kmac::nova::Record& record, const FaultContext* faultContext ) noexcept
+{
+	if ( writer() == nullptr )
+	{
+		return;
+	}
+
+	// fixed-size stack buffer, no heap allocation
+	kmac::nova::platform::Array< char, BufferSize > buffer {};
+	const std::size_t encodedSize = encodeRecordTlv(
+		record,
+		buffer.data(),
+		buffer.size(),
+		_sequenceNumber,
+		faultContext
+	);
+
+	if ( encodedSize > 0 )
+	{
+		// single atomic write
+		writer()->write( buffer.data(), encodedSize );
+
+		// flush for crash safety
+		writer()->flush();
+
+		// increment sequence number for next record
+		++_sequenceNumber;
+	}
+}
 
 } // namespace kmac::flare
 

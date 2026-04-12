@@ -1,6 +1,7 @@
 #include "kmac/flare/emergency_sink.h"
 
 #include "kmac/flare/record.h"
+#include "kmac/flare/signal_handler.h"
 #include "kmac/flare/tlv.h"
 
 #include <kmac/nova/details.h>
@@ -10,7 +11,7 @@
 #include <cstring>
 #include <stdint.h>
 
-// Platform-specific includes for process/thread IDs
+// platform-specific includes for process/thread IDs
 #if defined( __linux__ ) || defined( __unix__ ) || defined( __APPLE__ ) || defined( __FreeBSD__ )
 #include <unistd.h>  // getpid()
 #endif
@@ -98,9 +99,18 @@ struct TlvWriteHelper
 
 	void writeLoadBaseAddressTlv( std::uint64_t loadBaseAddress ) noexcept;
 
+	void writeAslrOffsetTlv( std::uint64_t aslrOffset ) noexcept;
+
 	// frames: array of raw return addresses
 	// frameCount: number of valid entries
 	void writeStackFramesTlv( void* const* frames, std::size_t frameCount ) noexcept;
+
+	// registers: packed uint64_t values; layoutId identifies the architecture
+	void writeCpuRegistersTlv(
+		const std::uint64_t* registers,
+		std::size_t registerCount,
+		kmac::flare::RegisterLayoutId layoutId
+	) noexcept;
 
 	// returns true if message was truncated
 	bool writeMessageTlv( const kmac::nova::Record& record ) noexcept;
@@ -132,9 +142,24 @@ IWriter* EmergencySinkBase::writer() const noexcept
 	return _writer;
 }
 
-std::size_t EmergencySinkBase::encodeRecordTlv( const kmac::nova::Record& record, char* buffer, std::size_t bufferSize, std::size_t sequenceNumber ) noexcept
+std::uint64_t EmergencySinkBase::loadBaseAddress() const noexcept
+{
+	return _loadBaseAddress;
+}
+
+std::size_t EmergencySinkBase::encodeRecordTlv(
+	const kmac::nova::Record& record,
+	char* buffer,
+	std::size_t bufferSize,
+	std::size_t sequenceNumber,
+	const FaultContext* faultContext
+) noexcept
 {
 	std::size_t offset = 0;
+
+#if ! defined( FLARE_HAVE_FAULT_CONTEXT )
+	(void) faultContext;
+#endif
 	::TlvWriteHelper writeHelper{ buffer, offset, bufferSize };
 
 	// write magic number
@@ -199,10 +224,37 @@ std::size_t EmergencySinkBase::encodeRecordTlv( const kmac::nova::Record& record
 		writeHelper.writeProcessInfoTlv();
 	}
 
-	// write load base address (always; value is 0 on unsupported platforms)
+	// crash context TLVs - written in dependency order so readers can interpret
+	// each field using only what came before it in the stream:
+	//   fault address  - what faulted (si_addr; only present for signal records)
+	//   load base      - where the binary landed at runtime
+	//   ASLR offset    - slide to subtract from runtime addresses for symbolisation
+	//   stack frames   - runtime return addresses (subtract AslrOffset in reader to get static addresses)
+	//   register layout + registers - CPU state at fault point
+
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
+	if ( faultContext != nullptr && faultContext->hasFaultAddress )
+	{
+		writeHelper.writeTlv(
+			TlvType::FaultAddress,
+			&faultContext->faultAddress,
+			sizeof( faultContext->faultAddress )
+		);
+	}
+#endif
+
+	// load base address (always written; 0 on unsupported platforms)
 	writeHelper.writeLoadBaseAddressTlv( _loadBaseAddress );
 
-	// write stack trace if enabled and compile-time support is present
+	// ASLR offset (written when fault context is present; equals load base for PIE)
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
+	if ( faultContext != nullptr )
+	{
+		writeHelper.writeAslrOffsetTlv( faultContext->aslrOffset );
+	}
+#endif
+
+	// stack trace - from fault context registers if available, otherwise backtrace()
 	if ( _captureStackTrace )
 	{
 		kmac::nova::platform::Array< void*, Record::MAX_STACK_FRAMES > frames {};
@@ -212,6 +264,18 @@ std::size_t EmergencySinkBase::encodeRecordTlv( const kmac::nova::Record& record
 			writeHelper.writeStackFramesTlv( std::data( frames ), frameCount );
 		}
 	}
+
+	// CPU registers (register layout TLV precedes the register array)
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
+	if ( faultContext != nullptr && faultContext->registerCount > 0 )
+	{
+		writeHelper.writeCpuRegistersTlv(
+			faultContext->registers.data(),
+			faultContext->registerCount,
+			static_cast< kmac::flare::RegisterLayoutId >( faultContext->layoutId )
+		);
+	}
+#endif
 
 	// write message, with truncation fallback
 	const bool messageTruncated = writeHelper.writeMessageTlv( record );
@@ -490,6 +554,40 @@ void TlvWriteHelper::writeProcessInfoTlv() noexcept
 void TlvWriteHelper::writeLoadBaseAddressTlv( std::uint64_t loadBaseAddress ) noexcept
 {
 	writeTlv( kmac::flare::TlvType::LoadBaseAddress, &loadBaseAddress, sizeof( loadBaseAddress ) );
+}
+
+void TlvWriteHelper::writeAslrOffsetTlv( std::uint64_t aslrOffset ) noexcept
+{
+	writeTlv( kmac::flare::TlvType::AslrOffset, &aslrOffset, sizeof( aslrOffset ) );
+}
+
+void TlvWriteHelper::writeCpuRegistersTlv(
+	const std::uint64_t* registers,
+	std::size_t registerCount,
+	kmac::flare::RegisterLayoutId layoutId
+) noexcept
+{
+	if ( registers == nullptr || registerCount == 0 )
+	{
+		return;
+	}
+
+	static_assert(
+		kmac::flare::Record::MAX_REGISTERS * sizeof( std::uint64_t ) <= UINT16_MAX,
+		"MAX_REGISTERS too large for uint16_t TLV length field"
+	);
+
+	const std::size_t count = registerCount < kmac::flare::Record::MAX_REGISTERS
+		? registerCount
+		: kmac::flare::Record::MAX_REGISTERS;
+
+	// RegisterLayout TLV precedes CpuRegisters so readers can decode the array
+	// without knowing the target architecture out-of-band
+	const std::uint8_t layoutByte = std::uint8_t( layoutId );
+	writeTlv( kmac::flare::TlvType::RegisterLayout, &layoutByte, sizeof( layoutByte ) );
+
+	const std::uint16_t payloadLen = static_cast< std::uint16_t >( count * sizeof( std::uint64_t ) );
+	writeTlv( kmac::flare::TlvType::CpuRegisters, registers, payloadLen );
 }
 
 void TlvWriteHelper::writeStackFramesTlv( void* const* frames, std::size_t frameCount ) noexcept
