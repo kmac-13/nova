@@ -53,7 +53,7 @@ const kmac::nova::platform::Array< int, SignalHandlerBase::NUM_SIGNALS > SignalH
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
 EmergencySinkBase* SignalHandlerBase::_sink = nullptr;
 
-kmac::nova::platform::Array< sigaction, SignalHandlerBase::NUM_SIGNALS > SignalHandlerBase::_previousActions {};
+kmac::nova::platform::Array< struct sigaction, SignalHandlerBase::NUM_SIGNALS > SignalHandlerBase::_previousActions {};
 
 void ( *SignalHandlerBase::_previousTerminateHandler )() = nullptr;
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)

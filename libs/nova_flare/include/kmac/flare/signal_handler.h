@@ -55,10 +55,11 @@ struct FaultContext
  */
 class SignalHandlerBase
 {
-private:
+public:
 	// number of signals we handle
 	static constexpr std::size_t NUM_SIGNALS = 5;
 
+private:
 	// signal numbers we install handlers for
 	static const kmac::nova::platform::Array< int, NUM_SIGNALS > HANDLED_SIGNALS;
 
@@ -68,7 +69,7 @@ private:
 
 	// saved previous signal actions so we can restore + re-raise
 	// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-	static kmac::nova::platform::Array< sigaction, NUM_SIGNALS > _previousActions;
+	static kmac::nova::platform::Array< struct sigaction, NUM_SIGNALS > _previousActions;
 
 	// saved previous terminate handler
 	// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
