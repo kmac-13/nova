@@ -11,6 +11,33 @@
 #include <vector>
 #include <cstring>
 
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
+#include "kmac/flare/fd_writer.h"
+#include "kmac/flare/signal_handler.h"
+
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+
+// ============================================================================
+// This example has two modes depending on whether a crash log already exists:
+//
+// * First run:  test_signal.flare absent
+//   - installs SignalHandler
+//   - deliberately dereferences a null pointer (SIGSEGV)
+//   - handler writes a crash record to test_signal.flare
+//   - process re-raises and exits with signal status
+//
+// * Second run: test_signal.flare present
+//   - reads and displays the crash record from the first run
+//   - deletes the file
+//   - runs the remaining Flare tests (write, read, scanner, etc.)
+//   - exits 0
+//
+// During the second run, the test_signal.flare is automatically deleted, so
+// the next run will start over at the first run again.
+// ============================================================================
+
 // test tag
 struct CrashTag {};
 
@@ -21,9 +48,210 @@ std::uint64_t fixedTimestamp()
 
 NOVA_LOGGER_TRAITS( CrashTag, CRASH, true, fixedTimestamp );
 
+// ============================================================================
+// Crash record display
+// ============================================================================
+
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
+
+static void printCrashRecord( const kmac::flare::Record& record )
+{
+	std::cout << "  Status:         " << record.statusString() << "\n";
+	std::cout << "  Sequence:       " << record.sequenceNumber << "\n";
+	std::cout << "  Timestamp:      " << record.timestampNs << " ns\n";
+
+	if ( record.processId != 0 )
+	{
+		std::cout << "  Process:        " << record.processId << "\n";
+	}
+	if ( record.threadId != 0 )
+	{
+		std::cout << "  Thread:         " << record.threadId << "\n";
+	}
+
+	std::cout << "  Message:        " << record.message.data() << "\n";
+
+	if ( record.hasFaultAddress )
+	{
+		std::cout << "  Fault address:  0x" << std::hex << record.faultAddress << std::dec << "\n";
+	}
+
+	if ( record.loadBaseAddress != 0 )
+	{
+		std::cout << "  Load base:      0x" << std::hex << record.loadBaseAddress << std::dec << "\n";
+	}
+
+	if ( record.aslrOffset != 0 )
+	{
+		std::cout << "  ASLR offset:    0x" << std::hex << record.aslrOffset << std::dec << "\n";
+	}
+
+	if ( record.stackFrameCount > 0 )
+	{
+		std::cout << "  Stack frames:   " << record.stackFrameCount << "\n";
+		for ( std::size_t i = 0; i < record.stackFrameCount; ++i )
+		{
+			const std::uint64_t runtime = record.stackFrames.at( i );
+			const std::uint64_t staticAddr = runtime - record.aslrOffset;
+			std::cout << "    [" << i << "]  0x" << std::hex << runtime
+				<< "  ->  static 0x" << staticAddr << std::dec << "\n";
+		}
+		std::cout << "  (pass --binary <path> --addr2line addr2line to flare_reader.py"
+			" to resolve symbols)\n";
+	}
+
+	if ( record.registerCount > 0 )
+	{
+		// register names for the most common layout (x86-64)
+		static const char* const X86_64_NAMES[] = {
+			"rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
+			"r8",  "r9",  "r10", "r11", "r12", "r13", "r14", "r15",
+			"rip", "rflags"
+		};
+		static const char* const ARM64_NAMES[] = {
+			"x0",  "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",
+			"x8",  "x9",  "x10", "x11", "x12", "x13", "x14", "x15",
+			"x16", "x17", "x18", "x19", "x20", "x21", "x22", "x23",
+			"x24", "x25", "x26", "x27", "x28", "fp",  "lr",  "sp",
+			"pc",  "pstate"
+		};
+		static const char* const ARM32_NAMES[] = {
+			"r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
+			"r8",  "r9",  "r10", "fp",  "ip",  "sp",  "lr",  "pc",
+			"cpsr"
+		};
+
+		const char* const* names = nullptr;
+		std::size_t nameCount = 0;
+		const char* layoutName = "unknown";
+
+		switch ( record.registerLayout )
+		{
+		case 1:
+			names = X86_64_NAMES;
+			nameCount = 18;
+			layoutName = "x86-64";
+			break;
+		case 2:
+			names = ARM64_NAMES;
+			nameCount = 34;
+			layoutName = "ARM64";
+			break;
+		case 3:
+			names = ARM32_NAMES;
+			nameCount = 17;
+			layoutName = "ARM32";
+			break;
+		default:
+			break;
+		}
+
+		std::cout << "  Registers (" << layoutName << "):\n";
+		for ( std::size_t i = 0; i < record.registerCount; ++i )
+		{
+			const char* name = ( names != nullptr && i < nameCount ) ? names[ i ] : "?";
+			std::cout << "    " << name << "\t0x"
+				<< std::hex << record.registers.at( i ) << std::dec << "\n";
+		}
+	}
+}
+
+#endif // FLARE_HAVE_FAULT_CONTEXT
+
+// ============================================================================
+// main
+// ============================================================================
+
 int main()
 {
-	std::cout << "=== Flare Library Test ===\n\n";
+	std::cout << "=== Flare Library Example ===\n\n";
+
+	// -----------------------------------------------------------------------
+	// Crash demo (POSIX only)
+	// -----------------------------------------------------------------------
+#if defined( FLARE_HAVE_FAULT_CONTEXT )
+	{
+		static constexpr const char* CRASH_LOG = "test_signal.flare";
+
+		std::ifstream existingLog( CRASH_LOG, std::ios::binary );
+		const bool crashLogExists = existingLog.good();
+		existingLog.close();
+
+		if ( ! crashLogExists )
+		{
+			// first run: install handler and deliberately crash
+			std::cout << "No crash log found - demonstrating crash capture.\n";
+			std::cout << "The process will crash with SIGSEGV, write a Flare record,\n";
+			std::cout << "and terminate.  Run again to see the captured crash data.\n\n";
+
+			// FdWriter + EmergencySink must have static storage - they must
+			// outlive the signal handler and survive the crash itself
+			// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+			static int fd = ::open( CRASH_LOG, O_WRONLY | O_CREAT | O_TRUNC, 0644 );
+			if ( fd < 0 )
+			{
+				std::cerr << "ERROR: failed to open crash log file\n";
+				return 1;
+			}
+
+			// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+			static kmac::flare::FdWriter fdWriter( fd );
+
+			// captureStackTrace=true so we get a full stack trace in the record
+			// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+			static kmac::flare::EmergencySink<> signalSink( &fdWriter, true, true );
+
+			kmac::flare::SignalHandler<>::install( &signalSink );
+
+			std::cout << "Signal handlers installed. Crashing now...\n";
+			std::cout.flush();
+
+			// deliberately dereference null to trigger SIGSEGV
+			// NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+			volatile int* nullPtr = nullptr;
+			*nullPtr = 42; // SIGSEGV here - handler fires, writes record, re-raises
+
+			// unreachable
+			return 1;
+		}
+		else
+		{
+			// second run: read and display the crash record from the first run
+			std::cout << "Crash log found from previous run - displaying crash record:\n";
+			std::cout << "-------------------------------------------------------------\n";
+
+			std::ifstream file( CRASH_LOG, std::ios::binary );
+			std::vector< std::uint8_t > data {
+				std::istreambuf_iterator< char >( file ),
+				std::istreambuf_iterator< char >()
+			};
+
+			kmac::flare::Reader reader;
+			kmac::flare::Record record;
+			int count = 0;
+
+			while ( reader.parseNext( data.data(), data.size(), record ) )
+			{
+				++count;
+				std::cout << "\nCrash record " << count << ":\n";
+				printCrashRecord( record );
+			}
+
+			if ( count == 0 )
+			{
+				std::cerr << "ERROR: crash log exists but contains no parseable records\n";
+				return 1;
+			}
+
+			// remove the crash log so the demo resets for the next run
+			std::remove( CRASH_LOG );
+
+			std::cout << "\n(crash log deleted - run again to repeat the demo)\n\n";
+		}
+	}
+#else
+	std::cout << "SignalHandler not available on this platform (POSIX only).\n\n";
+#endif
 
 	// test 1: write emergency records
 	std::cout << "Test 1: writing emergency records to file\n";
@@ -37,7 +265,7 @@ int main()
 		}
 
 		kmac::flare::FileWriter fileWriter( emergencyFile );
-		kmac::flare::EmergencySink sink( &fileWriter );
+		kmac::flare::EmergencySink<> sink( &fileWriter );
 		kmac::nova::Logger< CrashTag >::bindSink( &sink );
 
 		// write several test records
@@ -179,9 +407,7 @@ int main()
 			std::cerr << "ERROR: scanner should fail when size field is missing\n";
 			return 1;
 		}
-		std::cout << "missing size field correctly rejected\n";
-
-		std::cout << "\n";
+		std::cout << "missing size field correctly rejected\n\n";
 	}
 
 	// test 4: EmergencySink with large message
@@ -190,7 +416,7 @@ int main()
 	{
 		std::FILE* emergencyFile = std::fopen( "test_large.flare", "wb" );
 		kmac::flare::FileWriter fileWriter( emergencyFile );
-		kmac::flare::EmergencySink sink( &fileWriter );
+		kmac::flare::EmergencySink<> sink( &fileWriter );
 
 		// create a very large message (larger than UINT16_MAX)
 		std::string largeMsg( 70000, 'X' );  // 70KB of 'X'
@@ -210,7 +436,7 @@ int main()
 		sink.flush();
 		std::fclose( emergencyFile );
 
-		// Read it back
+		// read it back
 		std::ifstream file( "test_large.flare", std::ios::binary );
 		std::vector< std::uint8_t > data {
 			std::istreambuf_iterator< char >( file ),
@@ -223,20 +449,10 @@ int main()
 		if ( reader.parseNext( data.data(), data.size(), readBack ) )
 		{
 			std::cout << "large message written and read back\n";
-			std::cout << "  Status: " << readBack.statusString() << "\n";
-			std::cout << "  Original size: " << largeMsg.size() << " bytes\n";
+			std::cout << "  Status:         " << readBack.statusString() << "\n";
+			std::cout << "  Original size:  " << largeMsg.size() << " bytes\n";
 			std::cout << "  Read back size: " << readBack.messageLen << " bytes\n";
 			std::cout << "  Truncated flag: " << ( readBack.messageTruncated ? "Yes" : "No" ) << "\n";
-
-			if ( readBack.messageTruncated )
-			{
-				std::cout << "  truncation correctly flagged\n";
-			}
-
-			if ( readBack.messageLen < largeMsg.size() )
-			{
-				std::cout << "  message was truncated (expected)\n";
-			}
 		}
 		else
 		{
@@ -254,18 +470,8 @@ int main()
 		// write with tag
 		std::FILE* f1 = std::fopen( "test_hash1.flare", "wb" );
 		kmac::flare::FileWriter f1Writer( f1 );
-		kmac::flare::EmergencySink sink1( &f1Writer );
-
-		kmac::nova::Record rec1 {
-			12345ULL,
-			0,
-			"TestTag",
-			"file.cpp",
-			"func",
-			1,
-			9,
-			"Message 1"
-		};
+		kmac::flare::EmergencySink<> sink1( &f1Writer );
+		kmac::nova::Record rec1 { 12345ULL, 0, "TestTag", "file.cpp",  "func",  1, 9, "Message 1" };
 		sink1.process( rec1 );
 		sink1.flush();
 		std::fclose( f1 );
@@ -273,18 +479,8 @@ int main()
 		// write same tag again
 		std::FILE* f2 = std::fopen( "test_hash2.flare", "wb" );
 		kmac::flare::FileWriter f2Writer( f2 );
-		kmac::flare::EmergencySink sink2( &f2Writer );
-
-		kmac::nova::Record rec2 {
-			67890ULL,
-			0,
-			"TestTag",
-			"file2.cpp",
-			"func2",
-			2,
-			9,
-			"Message 2"
-		};
+		kmac::flare::EmergencySink<> sink2( &f2Writer );
+		kmac::nova::Record rec2 { 67890ULL, 0, "TestTag", "file2.cpp", "func2", 2, 9, "Message 2" };
 		sink2.process( rec2 );
 		sink2.flush();
 		std::fclose( f2 );
@@ -337,7 +533,7 @@ int main()
 	{
 		std::FILE* seqFile = std::fopen( "test_sequence.flare", "wb" );
 		kmac::flare::FileWriter seqWriter( seqFile );
-		kmac::flare::EmergencySink seqSink( &seqWriter );
+		kmac::flare::EmergencySink<> seqSink( &seqWriter );
 
 		// write multiple records
 		for ( int i = 0; i < 5; ++i )
@@ -349,7 +545,7 @@ int main()
 				"SEQ",
 				"test.cpp",
 				"testSeq",
-				uint32_t( 100 + i ),
+				std::uint32_t( 100 + i ),
 				static_cast< std::uint32_t >( msg.size() ),
 				msg.c_str()
 			};
@@ -360,7 +556,7 @@ int main()
 
 		// read back and verify sequence
 		std::ifstream file( "test_sequence.flare", std::ios::binary );
-		std::vector< std::uint8_t > data{
+		std::vector< std::uint8_t > data {
 			std::istreambuf_iterator< char >( file ),
 			std::istreambuf_iterator< char >()
 		};
@@ -384,8 +580,7 @@ int main()
 		}
 
 		std::cout << "read " << count << " records\n";
-		std::cout << "sequence numbers 0-" << ( count - 1 ) << " in order\n";
-		std::cout << "\n";
+		std::cout << "sequence numbers 0-" << ( count - 1 ) << " in order\n\n";
 	}
 
 	std::cout << "=== all Flare tests passed! ===\n";
@@ -397,320 +592,59 @@ int main()
 Expected Output:
 ================
 
-=== Flare Library Test ===
+--- First run (no test_signal.flare present) ---
+
+=== Flare Library Example ===
+
+No crash log found - demonstrating crash capture.
+The process will crash with SIGSEGV, write a Flare record,
+and terminate.  Run again to see the captured crash data.
+
+Signal handlers installed. Crashing now...
+[process exits with SIGSEGV]
+
+--- Second run (test_signal.flare present) ---
+
+=== Flare Library Example ===
+
+Crash log found from previous run - displaying crash record:
+-------------------------------------------------------------
+
+Crash record 1:
+  Status:         Complete
+  Sequence:       0
+  Timestamp:      [ns]
+  Process:        [pid]
+  Thread:         [tid]
+  Message:        SIGSEGV
+  Fault address:  0x0000000000000000
+  Load base:      0x[addr]
+  ASLR offset:    0x[addr]
+  Stack frames:   [N]
+    [0]  0x[runtime]  ->  static 0x[static]
+    [1]  0x[runtime]  ->  static 0x[static]
+    ...
+  (pass --binary <path> --addr2line addr2line to flare_reader.py to resolve symbols)
+  Registers (x86-64):
+    rax     0x[value]
+    rbx     0x[value]
+    ...
+    rip     0x[value]
+    rflags  0x[value]
+
+(crash log deleted - run again to repeat the demo)
 
 Test 1: writing emergency records to file
 -------------------------------------------
 successfully wrote 4 emergency records
 
 Test 2: reading emergency records from file
---------------------------------------------
-read 727 bytes from file
-
-Record 1:
-  Sequence:  0
-  Status:    Complete
-  Timestamp: 1704067200000000000 ns
-  Tag ID:    0x[hex value]
-  Process:   [pid]
-  Thread:    [tid]
-  File:      main.cpp
-  Line:      47
-  Function:  main
-  Message:   Test record 1: basic message
-
-Record 2:
-  Sequence:  1
-  Status:    Complete
-  Timestamp: 1704067200000000000 ns
-  Tag ID:    0x[hex value]
-  Process:   [pid]
-  Thread:    [tid]
-  File:      main.cpp
-  Line:      52
-  Function:  main
-  Message:   Test record 2: with numbers: 42 and 3.14
-
-Record 3:
-  Sequence:  2
-  Status:    Complete
-  Timestamp: 1704067200000000000 ns
-  Tag ID:    0x[hex value]
-  Process:   [pid]
-  Thread:    [tid]
-  File:      main.cpp
-  Line:      57
-  Function:  main
-  Message:   Test record 3: multi-line message
-Line 2
-Line 3
-
-Record 4:
-  Sequence:  3
-  Status:    Complete
-  Timestamp: 1704067200000000000 ns
-  Tag ID:    0x[hex value]
-  Process:   [pid]
-  Thread:    [tid]
-  File:      crash_handler.cpp
-  Line:      99
-  Function:  signal_handler
-  Message:   SIGSEGV: Segmentation fault at 0xdeadbeef
-
-successfully parsed 4 records
-
-Test 3: testing Scanner with edge cases
-----------------------------------------
-empty data correctly rejected
-partial magic correctly rejected
-missing size field correctly rejected
-
-Test 4: testing with large message (truncation)
-------------------------------------------------
-large message written and read back
-  Status: Truncated
-  Original size: 70000 bytes
-  Read back size: [bytes read]
-  Truncated flag: Yes
-  truncation correctly flagged
-  message was truncated (expected)
-
-Test 5: testing tag hash consistency
--------------------------------------
-read both records
-  record 1 tag hash: 0x[hex]
-  record 2 tag hash: 0x[hex]
-  tag hashes match (consistent hashing)
-
-Test 6: testing sequence number ordering
------------------------------------------
-read 5 records
-sequence numbers 0-4 in order
+...
 
 === all Flare tests passed! ===
 
-
-Key Takeaways:
-==============
-
-1. **Flare Emergency Logging**: Designed for crash-safe forensic logging in emergency scenarios
-2. **FileWriter Pattern**: EmergencySink requires an IWriter implementation (FileWriter for FILE*)
-3. **Binary TLV Format**: Records stored in compact Type-Length-Value format for reliability
-4. **Automatic Metadata**: Process ID, thread ID, sequence numbers added automatically
-5. **Graceful Truncation**: Large messages are truncated with appropriate status flags
-6. **Reader Resilience**: Can parse partial/corrupted records from crash dumps
-7. **Hash Consistency**: Tag strings consistently hash to same ID across writes
-8. **No Heap Allocation**: Emergency logging uses only stack buffers (4KB default)
-
-
-What This Example Demonstrates:
-================================
-
-**Basic Workflow**:
-- opening a binary .flare file for emergency logging
-- creating FileWriter to wrap FILE* handle
-- binding EmergencySink to Nova logger
-- writing records via RecordBuilder (automatic) or direct API (manual)
-- flushing to ensure data reaches disk
-- reading back records with Reader
-- parsing TLV-encoded binary format
-
-**Advanced Features**:
-- multi-line message handling
-- large message truncation (70KB → buffer limit)
-- scanner edge case handling (partial data, missing fields)
-- tag hash consistency verification
-- sequence number monotonicity
-- process/thread ID capture
-
-**Error Handling**:
-- scanner rejects malformed data gracefully
-- reader extracts partial information from corrupted records
-- truncation is flagged but doesn't prevent parsing
-- all operations are async-signal-safe (except FILE* functions)
-
-
-Real-World Usage Pattern:
-==========================
-
-// crash handler setup (called once at startup)
-void setupCrashLogging()
-{
-	static FILE* crashLog = fopen("/var/log/app_crash.flare", "ab");
-	static FileWriter writer(crashLog);
-	static EmergencySink sink(&writer, true);  // capture process info
-
-	Logger<CrashTag>::bindSink(&sink);
-
-	// install signal handlers that log via CrashTag before terminating
-}
-
-// in-signal handler (must be async-signal-safe)
-void signalHandler(int sig)
-{
-	// this is safe in signal handlers (no malloc, no locks beyond atomic)
-	TruncatingRecordBuilder<CrashTag> builder(__FILE__, __FUNCTION__, __LINE__);
-	builder << "Signal " << sig << " received at " << getCurrentAddress();
-
-	// record is automatically flushed when builder destructs
-	// (though in real crash handler, process may terminate immediately)
-}
-
-// post-crash analysis
-void analyzeCrashLog()
-{
-	ifstream file("/var/log/app_crash.flare", ios::binary);
-	vector<uint8_t> data(istreambuf_iterator<char>(file), {});
-
-	Reader reader;
-	Record record;
-
-	while (reader.parseNext(data.data(), data.size(), record))
-	{
-		cout << record.statusString() << ": " << record.message << "\n";
-
-		// can filter by sequence, timestamp, tag, etc.
-		// can detect torn writes via status field
-		// can reconstruct timeline from timestamps
-	}
-}
-
-
-Comparison with Nova Examples:
-===============================
-
-**Nova Examples**:
-- general-purpose logging with flexible routing
-- multiple sinks (console, file, composite)
-- thread-safe wrappers (SynchronizedSink)
-- runtime filtering (FilterSink)
-- custom timestamps and formatting
-
-**Flare Example**:
-- emergency/forensic logging only
-- single purpose: crash-safe binary logging
-- no formatting (raw TLV encoding)
-- minimal overhead (stack-only, no heap)
-- designed for signal handlers and crash scenarios
-
-
-When to Use Flare:
-===================
-- signal handlers (SIGSEGV, SIGABRT, etc.)
-- crash dump forensics
-- embedded systems with limited resources
-- real-time systems (deterministic, lock-free writes)
-- scenarios where process may terminate unexpectedly
-- post-mortem debugging
-
-When NOT to Use Flare:
-======================
-- regular application logging (use Nova + OStreamSink instead)
-- human-readable logs (use Nova + FormattingSink instead)
-- interactive debugging (use standard debugger)
-
-
-Advanced Usage:
-===============
-
-**Custom IWriter for Raw Syscalls**:
-Instead of FileWriter (which uses FILE and fwrite), implement IWriter
-with raw syscalls for true async-signal-safety:
-
-class SyscallWriter : public IWriter
-{
-	int _fd;
-public:
-	SyscallWriter(int fd) : _fd(fd) {}
-
-	size_t write(const void* data, size_t size) noexcept override
-	{
-		return ::write(_fd, data, size);  // POSIX syscall (async-signal-safe)
-	}
-
-	void flush() noexcept override
-	{
-		::fsync(_fd);  // Force to disk
-	}
-};
-
-// Usage:
-int fd = open("/var/log/crash.flare", O_WRONLY | O_CREAT | O_APPEND, 0644);
-SyscallWriter writer(fd);
-EmergencySink sink(&writer);
-
-
-**Analyzing Crash Logs with Python**:
-Flare includes Python tools in scripts/ for parsing .flare files:
-
-	python scripts/analyze_crash.py crash.flare --json output.json
-
-This generates human-readable JSON with all parsed records.
-
-
-**Integration with Core Dumps**:
-Flare logs complement core dumps:
-- core dump: memory state at crash
-- Flare log: event sequence leading to crash
-- together: complete forensic picture
-
-
-File Format Details:
-====================
-
-Each record in .flare file:
-- MAGIC (8 bytes): 0x52 0x4C 0x46 0x5F 0x43 0x41 0x4D 0x4B ("FLARE_KMAC")
-- SIZE (4 bytes): Total record size in bytes
-- TLVs: Type-Length-Value triplets
-  - RecordStatus (0x03): Complete/Truncated/InProgress
-  - SequenceNumber (0x04): Monotonic counter
-  - TimestampNs (0x0A): Nanosecond timestamp
-  - TagId (0x0B): FNV-1a hash of tag string
-  - FileName (0x0C): Source file
-  - LineNumber (0x0D): Source line
-  - FunctionName (0x0E): Function name
-  - ProcessId (0x0F): Process ID
-  - ThreadId (0x10): Thread ID
-  - MessageBytes (0x14): Log message
-  - MessageTruncated (0x15): Truncation flag
-- END (2 bytes): 0xFF 0xFF marker
-
-Reader is forward-compatible: unknown TLV types are skipped.
-
-
-Thread Safety Notes:
-=====================
-
-- EmergencySink itself is NOT thread-safe
-- Multiple threads should use separate EmergencySink instances
-- OR wrap in SynchronizedSink (adds mutex, loses async-signal-safety)
-- OR use lock-free techniques (one sink per thread, thread-local)
-
-For signal handlers:
-- EmergencySink operations are async-signal-safe
-- EXCEPT when using FileWriter (fwrite/fflush are not async-signal-safe)
-- Use SyscallWriter with raw write() for true async-signal-safety
-
-
-Common Pitfalls:
-================
-
-1. **forgetting to flush**: call sink.flush() before fclose()
-2. **FILE* lifetime**: FileWriter doesn't own FILE*, caller must manage
-3. **large messages**: messages >4KB are truncated (check messageTruncated flag)
-4. **tag hashing**: different tag strings may hash to same ID (very rare)
-5. **binary format**: Don't try to cat/grep .flare files (use Reader or Python tools)
-6. **concurrent writes**: multiple threads writing to same sink needs synchronization
-
-
-Next Steps:
-===========
-
-1. **Try the Nova examples**: Learn the general-purpose logging features
-2. **Read flare/README.md**: Understand design philosophy and use cases
-3. **Explore Python tools**: scripts/analyze_crash.py for post-mortem analysis
-4. **Review emergency_sink.h**: See all TLV types and encoding details
-5. **Check reader.h**: Understand corruption handling and resilience
-6. **Integrate with crash handler**: Use Flare in your signal handlers
-
+The crash demo resets automatically - each odd run crashes, each even run
+displays the captured data and runs the remaining tests.
+To symbolicate stack frames:
+  python3 flare_reader.py test_signal.flare --binary ./07_flare --addr2line addr2line
 */
