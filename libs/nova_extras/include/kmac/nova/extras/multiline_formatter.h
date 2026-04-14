@@ -3,7 +3,7 @@
 #define KMAC_NOVA_EXTRAS_MULTILINE_FORMATTER_H
 
 #include "buffer.h"
-#include "streaming_formatter.h"
+#include "multi_record_formatter.h"
 
 #include <cstddef>
 
@@ -88,7 +88,7 @@ namespace kmac::nova::extras
  * Without line numbers:
  *   MultilineFormatter formatter(false, true); // No numbers, keep empty
  */
-class MultilineFormatter final : public StreamingFormatter
+class MultilineFormatter final : public MultiRecordFormatter
 {
 private:
 	bool _addLineNumbers;       ///< prepend [N/Total] to each line

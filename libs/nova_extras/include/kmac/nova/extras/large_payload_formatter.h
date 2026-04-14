@@ -2,7 +2,7 @@
 #ifndef KMAC_NOVA_EXTRAS_LARGE_PAYLOAD_FORMATTER_H
 #define KMAC_NOVA_EXTRAS_LARGE_PAYLOAD_FORMATTER_H
 
-#include "streaming_formatter.h"
+#include "multi_record_formatter.h"
 
 #include <cstddef>
 
@@ -40,7 +40,7 @@ namespace kmac::nova::extras
  * - automatically chunks data into manageable sizes
  * - preserves all payload data (no truncation)
  * - clear begin/end markers for reassembly
- * - works with StreamingFormatter interface
+ * - works with MultiRecordFormatter interface
  *
  * Limitations:
  * - emits multiple log records (one per chunk + header/footer)
@@ -83,7 +83,7 @@ namespace kmac::nova::extras
  * Default chunk size is determined by maxChunkSize() override.
  * Adjust if needed based on downstream sink limits.
  */
-class LargePayloadFormatter final : public StreamingFormatter
+class LargePayloadFormatter final : public MultiRecordFormatter
 {
 private:
 	const char* _payload;      ///< payload data (not owned)
