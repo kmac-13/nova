@@ -9,7 +9,6 @@
 
 #include <cstring>
 #include <iterator>
-#include <system_error>
 
 namespace kmac::nova::extras
 {
