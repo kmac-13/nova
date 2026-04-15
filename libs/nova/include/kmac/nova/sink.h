@@ -4,8 +4,8 @@
 
 #include "immovable.h"
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 struct Record;
 
@@ -65,6 +65,7 @@ public:
 	virtual void process( const Record& record ) noexcept = 0;
 };
 
-} // namespace kmac::nova
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_SINK_H

@@ -27,8 +27,9 @@
  * performance characteristics.
  */
 
-namespace kmac::nova::performance
-{
+namespace kmac {
+namespace nova {
+namespace performance {
 
 //
 // Logger Performance Metrics
@@ -182,7 +183,9 @@ struct PerformanceReport
 	}
 };
 
-} // namespace kmac::nova::performance
+} // namespace performance
+} // namespace nova
+} // namespace kmac
 
 //
 // Convenience Macros for Testing

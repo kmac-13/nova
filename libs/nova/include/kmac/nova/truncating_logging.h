@@ -32,8 +32,8 @@
 #include <cstddef>
 #include <cstring>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 // ============================================================================
 // TruncatingRecordBuilder
@@ -115,7 +115,7 @@ private:
 	const char* _tagName = nullptr;
 	std::uint64_t _tagId = 0;
 
-	using LogFunc = void (*)( const Record& ) noexcept;
+	using LogFunc = void (*)( const Record& );  // noexcept not allowed in C++14
 	LogFunc _logFunc = nullptr;
 
 public:
@@ -282,7 +282,7 @@ TruncatingRecordBuilder< BufferSize >& TruncatingRecordBuilder< BufferSize >::op
 	// string_view overload is called with a length-1 literal (e.g. "\n") and
 	// the compiler loses track of the source bound after inlining
 	static_assert( N > 0 );
-	if constexpr ( N > 1 )
+	NOVA_IF_CONSTEXPR ( N > 1 )
 	{
 		return operator<<( platform::StringView( lit, N - 1 ) );
 	}
@@ -644,6 +644,7 @@ bool StackTruncatingBuilder< Tag, BufferSize >::wasTruncated() const noexcept
 	return _builder.wasTruncated();
 }
 
-} // namespace kmac::nova
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_TRUNCATING_LOGGING_H

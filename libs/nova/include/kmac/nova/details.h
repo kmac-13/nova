@@ -5,8 +5,14 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace kmac::nova::details
-{
+namespace kmac {
+namespace nova {
+namespace details {
+
+/**
+ * @brief Compile-time stripping of path from, e.g., __FILE__.
+ */
+constexpr const char* fileName( const char* path );
 
 /**
  * @brief FNV-1a hashing function for generating a 64-bit hash from a string.
@@ -31,7 +37,7 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;  // NOLINT(c
  * This variable template acts as a compile-time registry for tag identifiers.
  * Each NOVA_LOGGER_TRAITS invocation defines a specialisation:
  *
- *     tagIdVal<tagId> = tagId
+ *     TagIdVal<tagId>::value = tagId
  *
  * If two tags hash to the same tagId within a translation unit, the compiler
  * encounters multiple definitions of the same specialisation and emits a
@@ -131,11 +137,24 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;  // NOLINT(c
 // conflicting tag types appear in the error message via the surrounding template
 // instantiation context - no string storage is needed for diagnostics.
 template< std::uint64_t Id >
-inline constexpr std::uint64_t tagIdVal = 0;
+struct TagIdVal { static constexpr std::uint64_t value = 0; };
 
 //
 // IMPLEMENTATION
 //
+
+constexpr const char* fileName( const char* path )
+{
+	const char* file = path;
+	for ( const char* ptr = path; *ptr != '\0'; ++ptr )
+	{
+		if ( *ptr == '/' || *ptr == '\\' )
+		{
+			file = ptr + 1;
+		}
+	}
+	return file;
+}
 
 // FNV-1a constants
 constexpr std::uint64_t FNV_OFFSET = 14695981039346656037ULL;
@@ -182,6 +201,8 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept  // NOLINT(cp
 	return hash;
 }
 
-} // kmac::nova::details
+} // namespace details
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_DETAILS_H

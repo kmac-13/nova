@@ -32,8 +32,9 @@
  * No heap allocation.  C++14 compatible.
  */
 
-namespace kmac::nova::platform
-{
+namespace kmac {
+namespace nova {
+namespace platform {
 
 #if NOVA_HAS_STD_STRING_VIEW
 
@@ -138,6 +139,8 @@ constexpr bool StringView::empty() const noexcept
 
 #endif // NOVA_HAS_STD_STRING_VIEW
 
-} // namespace kmac::nova::platform
+} // namespace platform
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_PLATFORM_STRING_VIEW_H

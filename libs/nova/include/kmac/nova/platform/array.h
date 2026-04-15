@@ -14,11 +14,11 @@
 /**
  * @file array.h
  * @brief Fixed-size array abstraction for bare-metal environments
- * 
+ *
  * Provides std::array-like interface with two implementations:
  * 1. std::array (default, fully featured)
  * 2. C-style array wrapper (bare-metal, minimal overhead)
- * 
+ *
  * Both implementations provide:
  * - size known at compile time
  * - no heap allocation
@@ -26,7 +26,9 @@
  * - iterator support
  */
 
-namespace kmac::nova::platform {
+namespace kmac {
+namespace nova {
+namespace platform {
 
 // ============================================================================
 // IMPLEMENTATION 1: STANDARD LIBRARY (Default)
@@ -45,7 +47,7 @@ using Array = std::array< T, N >;
 
 /**
  * @brief Bare-metal fixed-size array wrapper
- * 
+ *
  * Provides std::array-compatible interface using C-style arrays.
  * Zero overhead compared to raw C arrays.
  * Bounds checking only in debug builds (NOVA_ASSERT).
@@ -220,6 +222,8 @@ struct Array< T, 0 >
 
 #endif // NOVA_HAS_STD_ARRAY
 
-} // namespace kmac::nova::platform
+} // namespace platform
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_PLATFORM_ARRAY_H

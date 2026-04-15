@@ -34,8 +34,9 @@
  * 6 fractional digits).  Callers should reserve at least 32 bytes.
  */
 
-namespace kmac::nova::platform
-{
+namespace kmac {
+namespace nova {
+namespace platform {
 
 /**
  * @brief Result type mirroring std::to_chars_result, without <charconv>.
@@ -136,8 +137,8 @@ inline FloatToCharsResult floatToChars( char* first, char* last, double value ) 
 {
 #if NOVA_HAS_CHARCONV
 
-	auto [ ptr, ec ] = std::to_chars( first, last, value );
-	return { ptr, ec == std::errc{} };
+	const auto result = std::to_chars( first, last, value );
+	return { result.ptr, result.ec == std::errc{} };
 
 #else // bare-metal fixed-point fallback
 
@@ -288,6 +289,8 @@ inline FloatToCharsResult floatToChars( char* first, char* last, float value ) n
 	return floatToChars( first, last, static_cast< double >( value ) );
 }
 
-} // namespace kmac::nova::platform
+} // namespace platform
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_PLATFORM_FLOAT_TO_CHARS_H

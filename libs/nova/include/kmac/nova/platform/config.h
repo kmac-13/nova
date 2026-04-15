@@ -281,11 +281,12 @@
 // C++ VERSION DETECTION
 // ============================================================================
 
+// C++17 is 201703L, C++14 is 201402L
 #if defined( _MSVC_LANG )
-	#if _MSVC_LANG < 201703L
+	#if _MSVC_LANG < 201402L
 		#error "Nova requires C++17 or later. Use /std:c++17 or newer."
 	#endif
-#elif __cplusplus < 201703L
+#elif __cplusplus < 201402L
 	#error "Nova requires C++17 or later. Use -std=c++17 or newer."
 #endif
 
@@ -394,7 +395,8 @@
 #endif
 
 // standard library string_view available?
-#if ! defined( NOVA_NO_STRING_VIEW ) && ! defined( NOVA_NO_STD )
+#if ! defined( NOVA_NO_STRING_VIEW ) && ! defined( NOVA_NO_STD ) \
+	&& ( __cplusplus >= 201703L || _MSVC_LANG >= 201703L )
 	#define NOVA_HAS_STD_STRING_VIEW 1
 #else
 	#define NOVA_HAS_STD_STRING_VIEW 0
@@ -427,6 +429,18 @@
 	#define NOVA_HAS_CHARCONV 1
 #else
 	#define NOVA_HAS_CHARCONV 0
+#endif
+
+// NOVA_IF_CONSTEXPR expands to 'if constexpr' on C++17 and later,
+// and plain 'if' on C++14.  The condition must be a constexpr expression
+// in both cases; on C++14 the compiler will optimise away the dead branch
+// but instantiation of the disabled branch is not guaranteed to be suppressed.
+#if __cplusplus >= 201703L || _MSVC_LANG >= 201703L
+	#define NOVA_IF_CONSTEXPR if constexpr
+	#define NOVA_INLINE_VAR inline
+#else
+	#define NOVA_IF_CONSTEXPR if
+	#define NOVA_INLINE_VAR
 #endif
 
 // ============================================================================

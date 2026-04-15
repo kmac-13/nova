@@ -9,8 +9,8 @@
 // 	Type( Type&& ) = delete;
 // 	Type& operator=( Type&& ) = delete
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 /**
  * @brief Base class that disables copy and move semantics.
@@ -45,6 +45,7 @@ struct Immovable
 	Immovable& operator=( Immovable&& ) = delete;
 };
 
-} // namespace kmac::nova
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_IMMOVABLE_H

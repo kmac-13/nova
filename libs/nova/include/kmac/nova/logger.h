@@ -10,8 +10,8 @@
 
 #include <cstring>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 /**
  * @brief Compile-time logging endpoint for a specific tag.
@@ -112,7 +112,7 @@ Sink* Logger< Tag >::getSink() noexcept
 template< typename Tag >
 void Logger< Tag >::log( const char* file, const char* function, std::uint32_t line, const char* message ) noexcept
 {
-	if constexpr ( logger_traits< Tag >::enabled )
+	NOVA_IF_CONSTEXPR ( logger_traits< Tag >::enabled )
 	{
 		Record record {
 			logger_traits< Tag >::timestamp(),
@@ -131,7 +131,7 @@ void Logger< Tag >::log( const char* file, const char* function, std::uint32_t l
 template< typename Tag >
 void Logger< Tag >::log( const Record& record ) noexcept
 {
-	if constexpr ( logger_traits< Tag >::enabled )
+	NOVA_IF_CONSTEXPR ( logger_traits< Tag >::enabled )
 	{
 		Sink* sink = _sink.load();
 		if ( sink == nullptr )
@@ -142,6 +142,7 @@ void Logger< Tag >::log( const Record& record ) noexcept
 	}
 }
 
-} // namespace kmac::nova
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_LOGGER_H

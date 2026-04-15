@@ -6,12 +6,12 @@
 
 #include <cstdint>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 /**
  * @brief Helper functions for common timestamp sources.
- * 
+ *
  * These functions delegate to platform::chrono for actual implementation.
  * In standard environments, they use std::chrono.
  * In bare-metal environments, users must implement platform::steadyNanosecs().
@@ -66,6 +66,7 @@ inline std::uint64_t highResMillisecs() noexcept
 
 } // namespace TimestampHelper
 
-} // namespace kmac::nova
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_TIMESTAMP_HELPER_H
