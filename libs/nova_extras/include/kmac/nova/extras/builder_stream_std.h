@@ -76,8 +76,10 @@
 // Helper: write a sequence range as [a, b, c]
 // ============================================================================
 
-namespace kmac::nova::extras::std_support
-{
+namespace kmac {
+namespace nova {
+namespace extras {
+namespace std_support {
 
 template< typename Builder, typename Iterator >
 Builder& writeRange( Builder& builder, Iterator first, Iterator last )
@@ -111,7 +113,10 @@ Builder& writeMap( Builder& builder, Iterator first, Iterator last )
 	return builder;
 }
 
-} // namespace kmac::nova::extras::std_support
+} // namespace std_support
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 // ============================================================================
 // std::vector<T>
@@ -273,6 +278,8 @@ kmac::nova::extras::ContinuationRecordBuilder< N >& operator<<(
 	return builder << '(' << value.first << ", " << value.second << ')';
 }
 
+#if __cplusplus >= 201703L || _MSVC_LANG >= 201703L
+
 // ============================================================================
 // std::optional<T>
 // ============================================================================
@@ -300,5 +307,7 @@ kmac::nova::extras::ContinuationRecordBuilder< N >& operator<<(
 	}
 	return builder << "<nullopt>";
 }
+
+#endif  // __cplusplus
 
 #endif // KMAC_NOVA_EXTRAS_BUILDER_STREAM_STD_H

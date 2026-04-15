@@ -6,8 +6,9 @@
 
 #include <mutex>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Thread-safe sink using a mutex.
@@ -38,6 +39,8 @@ public:
 	void process( const kmac::nova::Record& record ) noexcept override;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // #ifndef KMAC_NOVA_EXTRAS_SYNCHRONIZED_SINK_H

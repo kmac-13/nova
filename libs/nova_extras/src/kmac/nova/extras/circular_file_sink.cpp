@@ -6,8 +6,9 @@
 
 #include <cstring>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 CircularFileSink::CircularFileSink( const std::string& filename, std::size_t maxFileSize, Formatter* formatter ) noexcept
 	: _filename( filename )
@@ -279,4 +280,6 @@ void CircularFileSink::writeLarge( const char* data, std::size_t size ) noexcept
 	}
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

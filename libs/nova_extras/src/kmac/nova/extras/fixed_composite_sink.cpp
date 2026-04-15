@@ -1,7 +1,8 @@
 #include "kmac/nova/extras/fixed_composite_sink.h"
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 FixedCompositeSink::FixedCompositeSink( Sink** sinks, std::size_t count ) noexcept
 	: _sinks( sinks )
@@ -21,4 +22,6 @@ void FixedCompositeSink::process( const kmac::nova::Record& record ) noexcept
 	}
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

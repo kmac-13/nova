@@ -80,7 +80,7 @@ TEST( RollingFileSink, CreatesInitialFile )
 
 	const std::string base = ( dir.path() / "test.log" ).string();
 
-	kmac::nova::extras::RollingFileSink sink( base, 1024, &formatter );
+	kmac::nova::extras::RollingFileSink sink( base, 1, 1024, &formatter );
 
 	EXPECT_TRUE( std::filesystem::exists( base + ".1" ) );
 }
@@ -95,6 +95,7 @@ TEST( RollingFileSink, WritesFormattedRecord )
 
 	kmac::nova::extras::RollingFileSink sink(
 		base,
+		1,
 		1024,
 		&formatter
 	);
@@ -128,7 +129,7 @@ TEST( RollingFileSink, RotatesOnMaxSize )
 		std::filesystem::remove( base + "." + std::to_string(i) );
 	}
 
-	kmac::nova::extras::RollingFileSink sink( base, 6 /* size of "TEST" */, &formatter );
+	kmac::nova::extras::RollingFileSink sink( base, 1, 6 /* size of "TEST" */, &formatter );
 
 	kmac::nova::Record record {};
 
@@ -168,7 +169,7 @@ TEST( RollingFileSink, RolloverCallbackCalled )
 
 	bool called = false;
 
-	kmac::nova::extras::RollingFileSink sink( base, 5, &formatter );
+	kmac::nova::extras::RollingFileSink sink( base, 1, 5, &formatter );
 
 	sink.setRolloverCallback(
 		[ & ]( const std::string& oldFile, const std::string& newFile )
@@ -193,7 +194,7 @@ TEST( RollingFileSink, ForceRotateCreatesNewFile )
 
 	const std::string base = ( dir.path() / "force.log" ).string();
 
-	kmac::nova::extras::RollingFileSink sink( base, 1024, &formatter );
+	kmac::nova::extras::RollingFileSink sink( base, 1, 1024, &formatter );
 
 	sink.forceRotate();
 

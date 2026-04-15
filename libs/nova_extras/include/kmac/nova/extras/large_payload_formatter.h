@@ -6,14 +6,13 @@
 
 #include <cstddef>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
+
 struct Record;
 class Sink;
-} // namespace kmac::nova
 
-namespace kmac::nova::extras
-{
+namespace extras {
 
 /**
  * @brief Chunks large payloads into multiple records for safe transmission.
@@ -127,6 +126,8 @@ public:
 	void formatAndWrite( const kmac::nova::Record& record, kmac::nova::Sink& downstream ) noexcept override;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_LARGE_PAYLOAD_FORMATTER_H

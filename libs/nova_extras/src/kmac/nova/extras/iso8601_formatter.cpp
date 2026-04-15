@@ -4,8 +4,9 @@
 
 #include <cstring>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Lookup table for 2-digit strings: "00" to "99"
@@ -486,4 +487,6 @@ void ISO8601Formatter::buildTimestamp( std::uint64_t timestamp ) noexcept
 	// NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay,cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

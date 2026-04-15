@@ -97,8 +97,9 @@
 #include <cstdint>
 #include <cstring>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Sink that writes log records to the Android logging system (logcat).
@@ -187,7 +188,9 @@ void AndroidLogSink< BufferSize >::process( const kmac::nova::Record& record ) n
 	__android_log_write( priority, _androidTag, buf.data() );
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // __ANDROID__
 

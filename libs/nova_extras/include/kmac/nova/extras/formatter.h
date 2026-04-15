@@ -4,13 +4,12 @@
 
 // #include <cstddef>
 
-namespace kmac::nova
-{
-struct Record;
-} // namespace kmac::nova
+namespace kmac {
+namespace nova {
 
-namespace kmac::nova::extras
-{
+struct Record;
+
+namespace extras {
 
 class Buffer;
 
@@ -51,6 +50,8 @@ public:
 	virtual bool format( const kmac::nova::Record& record, Buffer& buffer ) noexcept = 0;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif  // KMAC_NOVA_EXTRAS_FORMATTER_H

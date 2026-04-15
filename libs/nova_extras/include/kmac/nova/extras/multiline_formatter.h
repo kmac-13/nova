@@ -7,14 +7,13 @@
 
 #include <cstddef>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
+
 struct Record;
 class Sink;
-} // namespace kmac::nova
 
-namespace kmac::nova::extras
-{
+namespace extras {
 
 /**
  * @brief Splits multi-line messages into separate records, one per line.
@@ -174,6 +173,8 @@ private:
 	) const noexcept;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_MULTILINE_FORMATTER_H

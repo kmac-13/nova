@@ -151,8 +151,9 @@
 #include <functional>
 #include <string>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 class Formatter;
 
@@ -264,6 +265,7 @@ public:
 	 */
 	explicit RollingFileSink(
 		const std::string& baseFilename,
+		std::size_t startIndex = 0,
 		std::size_t maxFileSize = 10UL * 1024UL * 1024UL,  // 10 MB default
 		Formatter* formatter = nullptr
 	) noexcept;
@@ -338,17 +340,6 @@ private:
 	void processFormatted( const kmac::nova::Record& record ) noexcept;
 
 	/**
-	 * @brief Initialize by finding existing files that match the specified
-	 * base name and opening current.
-	 */
-	void initialize() noexcept;
-
-	/**
-	 * @brief Find highest index of existing log file indices.
-	 */
-	std::size_t findHighestIndex() const noexcept;
-
-	/**
 	 * @brief Make filename for given index.
 	 */
 	std::string makeFilename( std::size_t index ) const noexcept;
@@ -374,6 +365,8 @@ private:
 	void rotate() noexcept;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_ROLLING_FILE_SINK_H

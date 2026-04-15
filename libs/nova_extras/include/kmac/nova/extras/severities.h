@@ -4,8 +4,9 @@
 
 #include <kmac/nova/nova.h>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Predefined severity level tags and convenience macros.
@@ -70,7 +71,9 @@ struct ErrorTag { };
  */
 struct FatalTag { };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 // configure tag traits for each severity level
 NOVA_LOGGER_TRAITS( ::kmac::nova::extras::TraceTag, TRACE, true, ::kmac::nova::TimestampHelper::systemNanosecs );

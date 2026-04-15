@@ -100,8 +100,9 @@
 #include <cstdint>
 #include <cstring>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Sink that writes log records to Qt's logging system.
@@ -283,7 +284,9 @@ void QtLogSink< BufferSize >::logWithoutCategory( const QMessageLogger& logger, 
 	}
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // QT_VERSION
 

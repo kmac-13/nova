@@ -17,8 +17,9 @@
 #include <thread>
 #include <type_traits>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Index entry for locating records in the memory pool.
@@ -497,6 +498,8 @@ void MemoryPoolAsyncSink< PoolSize, IndexQueueCapacity, IndexType, Allocator >::
 	}
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_MEMORY_POOL_ASYNC_SINK_H

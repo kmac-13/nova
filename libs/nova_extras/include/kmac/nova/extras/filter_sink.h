@@ -5,8 +5,9 @@
 #include <kmac/nova/sink.h>
 #include <kmac/nova/record.h>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Sink that filters records based on a user-provided predicate.
@@ -91,6 +92,8 @@ void FilterSink< FilterFn >::process( const kmac::nova::Record& record ) noexcep
 	}
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_FILTER_SINK_H

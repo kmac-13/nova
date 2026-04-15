@@ -15,8 +15,9 @@
 #include <cstring>
 #include <ctime>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Selects which Record field a FieldSpec writes.
@@ -349,7 +350,7 @@ struct ResumeState
 template< char Open >
 inline bool writeSpecPhase0( Buffer& buffer, std::size_t& contentOffset ) noexcept
 {
-	if constexpr ( Open != '\0' )
+	NOVA_IF_CONSTEXPR ( Open != '\0' )
 	{
 		if ( ! buffer.appendChar( Open ) )
 		{
@@ -368,11 +369,11 @@ inline bool writeSpecPhase1(  // NOLINT(readability-function-cognitive-complexit
 	std::size_t& contentOffset
 ) noexcept
 {
-	if constexpr ( Fld == Field::None )
+	NOVA_IF_CONSTEXPR ( Fld == Field::None )
 	{
 		// nothing to emit, fall through immediately
 	}
-	else if constexpr ( Fld == Field::Tag )
+	else NOVA_IF_CONSTEXPR ( Fld == Field::Tag )
 	{
 		const char* src = record.tag ? record.tag : "";
 		if ( ! detail::writePartial( buffer, src, cache.tagLen, contentOffset ) )
@@ -380,14 +381,14 @@ inline bool writeSpecPhase1(  // NOLINT(readability-function-cognitive-complexit
 			return false;
 		}
 	}
-	else if constexpr ( Fld == Field::Message )
+	else NOVA_IF_CONSTEXPR ( Fld == Field::Message )
 	{
 		if ( ! detail::writePartial( buffer, record.message, record.messageSize, contentOffset ) )
 		{
 			return false;
 		}
 	}
-	else if constexpr ( Fld == Field::File )
+	else NOVA_IF_CONSTEXPR ( Fld == Field::File )
 	{
 		const char* src = record.file ? record.file : "";
 		if ( ! detail::writePartial( buffer, src, cache.fileLen, contentOffset ) )
@@ -395,7 +396,7 @@ inline bool writeSpecPhase1(  // NOLINT(readability-function-cognitive-complexit
 			return false;
 		}
 	}
-	else if constexpr ( Fld == Field::Function )
+	else NOVA_IF_CONSTEXPR ( Fld == Field::Function )
 	{
 		const char* src = record.function ? record.function : "";
 		if ( ! detail::writePartial( buffer, src, cache.funcLen, contentOffset ) )
@@ -403,14 +404,14 @@ inline bool writeSpecPhase1(  // NOLINT(readability-function-cognitive-complexit
 			return false;
 		}
 	}
-	else if constexpr ( Fld == Field::Line )
+	else NOVA_IF_CONSTEXPR ( Fld == Field::Line )
 	{
 		if ( ! detail::writePartial( buffer, cache.lineBuf.data(), cache.lineLen, contentOffset ) )
 		{
 			return false;
 		}
 	}
-	else if constexpr ( Fld == Field::TimestampRaw || Fld == Field::TimestampISO )
+	else NOVA_IF_CONSTEXPR ( Fld == Field::TimestampRaw || Fld == Field::TimestampISO )
 	{
 		if ( ! detail::writePartial( buffer, cache.timestampBuf.data(), cache.timestampLen, contentOffset ) )
 		{
@@ -423,7 +424,7 @@ inline bool writeSpecPhase1(  // NOLINT(readability-function-cognitive-complexit
 template< char Close >
 inline bool writeSpecPhase2( Buffer& buffer ) noexcept
 {
-	if constexpr ( Close != '\0' )
+	NOVA_IF_CONSTEXPR ( Close != '\0' )
 	{
 		if ( ! buffer.appendChar( Close ) )
 		{
@@ -574,31 +575,31 @@ struct HasField< Target, FieldSpec< Opn, Fld, Cls >, Rest... >
 template< typename... Specs >
 void fillCache( FieldCache& cache, const kmac::nova::Record& record ) noexcept
 {
-	if constexpr ( HasField< Field::TimestampISO, Specs... >::value )
+	NOVA_IF_CONSTEXPR ( HasField< Field::TimestampISO, Specs... >::value )
 	{
 		cache.timestampLen = detail::buildISOTimestamp( cache.timestampBuf.data(), record.timestamp );
 	}
-	else if constexpr ( HasField< Field::TimestampRaw, Specs... >::value )
+	else NOVA_IF_CONSTEXPR ( HasField< Field::TimestampRaw, Specs... >::value )
 	{
 		cache.timestampLen = detail::buildRawTimestamp( cache.timestampBuf.data(), record.timestamp );
 	}
 
-	if constexpr ( HasField< Field::Line, Specs... >::value )
+	NOVA_IF_CONSTEXPR ( HasField< Field::Line, Specs... >::value )
 	{
 		cache.lineLen = detail::buildLineNumber( cache.lineBuf.data(), record.line );
 	}
 
-	if constexpr ( HasField< Field::Tag, Specs... >::value )
+	NOVA_IF_CONSTEXPR ( HasField< Field::Tag, Specs... >::value )
 	{
 		cache.tagLen = record.tag ? std::strlen( record.tag ) : 0;
 	}
 
-	if constexpr ( HasField< Field::File, Specs... >::value )
+	NOVA_IF_CONSTEXPR ( HasField< Field::File, Specs... >::value )
 	{
 		cache.fileLen = record.file ? std::strlen( record.file ) : 0;
 	}
 
-	if constexpr ( HasField< Field::Function, Specs... >::value )
+	NOVA_IF_CONSTEXPR ( HasField< Field::Function, Specs... >::value )
 	{
 		cache.funcLen = record.function ? std::strlen( record.function ) : 0;
 	}
@@ -762,6 +763,8 @@ bool CustomFormatter< Specs... >::format( const kmac::nova::Record& record, Buff
 	return done;
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_CUSTOM_FORMATTER_H

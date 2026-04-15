@@ -4,14 +4,13 @@
 
 #include <cstddef>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
+
 struct Record;
 class Sink;
-} // namespace kmac::nova
 
-namespace kmac::nova::extras
-{
+namespace extras {
 
 /**
  * @brief Interface for formatters that emit multiple records from a single input.
@@ -68,6 +67,8 @@ public:
 	) noexcept = 0;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_MULTI_RECORD_FORMATTER_H

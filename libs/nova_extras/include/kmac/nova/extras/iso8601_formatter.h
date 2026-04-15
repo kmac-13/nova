@@ -10,8 +10,9 @@
 #include <cstdint>
 #include <ctime>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Formats log records as ISO 8601 timestamped lines.
@@ -190,6 +191,8 @@ private:
 	void buildTimestamp( std::uint64_t timestamp ) noexcept;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_ISO8601_FORMATTER_H

@@ -34,8 +34,9 @@
 
 // #include <kmac/nova/nova.h>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief No-op record builder that compiles to nothing.
@@ -69,7 +70,9 @@ constexpr NullRecordBuilder& NullRecordBuilder::operator<<( const T& ) noexcept
 	return *this;
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 // ============================================================================
 // Null Logging Macro

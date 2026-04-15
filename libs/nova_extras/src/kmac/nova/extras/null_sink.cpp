@@ -1,7 +1,8 @@
 #include "kmac/nova/extras/null_sink.h"
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 NullSink& NullSink::instance() noexcept
 {
@@ -14,4 +15,6 @@ void NullSink::process( const kmac::nova::Record& ) noexcept
 	// no-op
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

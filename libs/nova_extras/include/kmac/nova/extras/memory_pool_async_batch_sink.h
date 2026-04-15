@@ -18,8 +18,9 @@
 #include <mutex>
 #include <thread>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Asynchronous sink with batch formatting using Formatter interface.
@@ -575,6 +576,8 @@ void MemoryPoolAsyncBatchSink< PoolSize, IndexQueueCapacity, IndexType, Allocato
 	_formatOffset = 0;
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_MEMORY_POOL_ASYNC_BATCHED_SINK_H

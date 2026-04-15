@@ -4,8 +4,9 @@
 
 #include <ostream>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 OStreamSink::OStreamSink( std::ostream& stream, bool flushOnWrite ) noexcept
 	: _stream( &stream )
@@ -23,4 +24,6 @@ void OStreamSink::process( const kmac::nova::Record& record ) noexcept
 	}
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

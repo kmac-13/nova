@@ -33,8 +33,9 @@
 #include <sstream>
 #include <string>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 // ============================================================================
 // StreamingRecordBuilder
@@ -79,7 +80,7 @@ private:
 	const char* _tagName = nullptr;
 	std::uint64_t _tagId = 0;
 
-	using LogFunc = void (*)( const Record& ) noexcept;
+	using LogFunc = void (*)( const Record& );  // noexcept not allowed in C++14
 	LogFunc _logFunc = nullptr;
 
 public:
@@ -175,7 +176,9 @@ void StreamingRecordBuilder::commit()
 	_committed = true;
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 // TODO: consider TLS wrappers to ensure the stream memory is retained
 
