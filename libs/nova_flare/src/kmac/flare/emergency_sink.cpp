@@ -136,8 +136,8 @@ struct TlvWriteHelper
 
 } // anonymous namespace
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 EmergencySinkBase::EmergencySinkBase( IWriter* writer, bool captureProcessInfo, bool captureStackTrace ) noexcept
 	: _writer( writer )
@@ -233,10 +233,10 @@ std::size_t EmergencySinkBase::encodeRecordTlv(
 	if ( _captureStackTrace )
 	{
 		kmac::nova::platform::Array< void*, Record::MAX_STACK_FRAMES > frames {};
-		const std::size_t frameCount = captureStackFrames( std::data( frames ), Record::MAX_STACK_FRAMES );
+		const std::size_t frameCount = captureStackFrames( frames.data(), Record::MAX_STACK_FRAMES );
 		if ( frameCount > 0 )
 		{
-			writeHelper.writeStackFramesTlv( std::data( frames ), frameCount );
+			writeHelper.writeStackFramesTlv( frames.data(), frameCount );
 		}
 	}
 
@@ -409,7 +409,8 @@ std::size_t EmergencySinkBase::captureStackFrames( void** frames, std::size_t ma
 #endif
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 namespace
 {
@@ -645,7 +646,7 @@ void TlvWriteHelper::writeStackFramesTlv( void* const* frames, std::size_t frame
 	}
 
 	const std::uint16_t payloadLen = static_cast< std::uint16_t >( count * sizeof( std::uint64_t ) );
-	writeTlv( kmac::flare::TlvType::StackFrames, std::data( addresses ), payloadLen );
+	writeTlv( kmac::flare::TlvType::StackFrames, addresses.data(), payloadLen );
 }
 
 // returns true if message was truncated

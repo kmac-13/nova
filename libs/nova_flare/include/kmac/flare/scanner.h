@@ -5,8 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 /**
  * @brief Locates valid Flare records in potentially corrupted binary data.
@@ -222,6 +222,7 @@ public:
 	bool scan( const std::uint8_t* data, std::size_t size );
 };
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // KMAC_FLARE_SCANNER_H

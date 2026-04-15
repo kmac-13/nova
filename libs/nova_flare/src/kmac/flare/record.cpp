@@ -2,8 +2,8 @@
 
 #include "kmac/flare/tlv.h"
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 void Record::clear() noexcept
 {
@@ -51,4 +51,5 @@ const char* Record::statusString() const noexcept
 	}
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac

@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 /**
  * @brief Parsed forensic record (Reader output).
@@ -101,6 +101,7 @@ struct Record
 	const char* statusString() const noexcept;
 };
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // KMAC_FLARE_RECORD_H

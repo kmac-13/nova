@@ -2,8 +2,8 @@
 
 #include <cstring>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 RamWriter::RamWriter( void* buf, std::size_t capacity ) noexcept
 	: _buf( static_cast< std::uint8_t* >( buf ) )
@@ -51,4 +51,5 @@ void RamWriter::reset() noexcept
 	_offset = 0;
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac

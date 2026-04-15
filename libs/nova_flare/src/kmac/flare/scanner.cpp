@@ -19,8 +19,8 @@ bool validateCandidate(
 
 } // namespace
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 Scanner::Scanner()
 {
@@ -86,7 +86,8 @@ bool Scanner::scan( const std::uint8_t* data, std::size_t size )
 	return false;
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 namespace
 {

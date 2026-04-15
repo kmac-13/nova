@@ -6,8 +6,8 @@
 
 #include <cstdint>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 /**
  * @file ram_writer.h
@@ -120,6 +120,7 @@ public:
 	void reset() noexcept;
 };
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // KMAC_FLARE_RAM_WRITER_H

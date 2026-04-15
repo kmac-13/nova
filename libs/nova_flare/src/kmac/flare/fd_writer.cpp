@@ -4,8 +4,8 @@
 
 #include <unistd.h>  // write(), fsync()
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 FdWriter::FdWriter( int fileDescriptor, FlushMode flushMode ) noexcept
 	: _fd( fileDescriptor )
@@ -51,6 +51,7 @@ void FdWriter::flush() noexcept
 	}
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // defined( __linux__ ) || ...

@@ -6,8 +6,8 @@
 
 #include <cstddef>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 /**
  * @brief Abstract interface for writing Flare log data.
@@ -66,6 +66,7 @@ public:
 	virtual void flush() noexcept = 0;
 };
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // KMAC_FLARE_IWRITER_H

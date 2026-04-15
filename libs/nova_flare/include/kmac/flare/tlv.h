@@ -4,8 +4,8 @@
 
 #include <cstdint>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 // Type Length Value
 enum class TlvType : uint16_t
@@ -122,6 +122,7 @@ static constexpr uint64_t FLARE_MAGIC = 0x4B4D41435F464C52ULL; // "KMAC_FLR"
 
 static constexpr uint32_t MAX_RECORD_SIZE = 64 * 1024;
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // KMAC_FLARE_TLV_H

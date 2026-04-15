@@ -11,8 +11,8 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 // forward declarations
 struct FaultContext;  // full definition in signal_handler.h
@@ -327,6 +327,7 @@ void EmergencySink< BufferSize >::writeRecord( const kmac::nova::Record& record,
 	}
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // KMAC_FLARE_EMERGENCY_SINK_H
