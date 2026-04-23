@@ -72,8 +72,9 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
 	// a 64-byte buffer is specified so truncation is triggered even on short
 	// inputs; the default (1024 bytes) would rarely truncate with -max_len=1024
 	{
-		kmac::nova::StackTruncBuilderWrapper< FuzzTag, 64 > builder(
+		kmac::nova::StackTruncBuilderWrapper< FuzzTag, 64 > wrapper(
 			__FILE__, __func__, static_cast< std::uint32_t >( __LINE__ ) );
+		auto& builder = wrapper.builder();
 
 		const size_t mid = size / 2;
 
