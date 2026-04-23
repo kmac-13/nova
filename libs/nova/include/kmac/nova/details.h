@@ -169,7 +169,7 @@ constexpr std::uint64_t fnv1aAvalanche( std::uint64_t hash ) noexcept
 }
 
 // NOLINT NOTE - intentional tail recursion required for constexpr
-// compatibility with C++11, which does not permit loops in constexp
+// compatibility with C++11, which does not permit loops in constexpr
 // functions; recursion depth is bounded by string length
 constexpr std::uint64_t recurseFnv1a( const char* str, std::uint64_t hash ) noexcept  // NOLINT(misc-no-recursion)
 {

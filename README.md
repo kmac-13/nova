@@ -3,7 +3,7 @@
 A modern domain-based C++ logging framework emphasizing compile-time routing, explicit configuration, and zero-cost abstractions, designed for safety-critical, real-time, and embedded systems where deterministic behavior and performance are paramount.
 
 [![License](https://img.shields.io/badge/license-BSD--3-blue.svg)](LICENSE)
-[![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
+[![C++11+](https://img.shields.io/badge/C%2B%2B-11%2B-blue.svg)](https://en.cppreference.com/w/cpp/11)
 
 ## Overview
 
@@ -36,7 +36,7 @@ Nova's distinguishing approach:
 **Type-based routing instead of string lookups**
 - logging domains are represented by tags, which are C++ types (e.g. struct NetworkTag {};), not runtime strings
 - Logger<NetworkTag> resolved at compile time - no runtime map lookups or string comparisons
-- disabled tags optimized to zero overhead via if constexpr (when using macro-based logging)
+- disabled tags optimized to zero overhead via `std::conditional` (compatible with C++11 and later)
 
 **Severity is optional, not mandatory**
 - core Nova has no concept of DEBUG/INFO/ERROR levels
@@ -67,7 +67,7 @@ Additionally, severities can be combined with other logging contexts:
 - **Explicit Over Implicit**: no hidden global configuration, everything is visible
 - **Header-Only**: no linking required for basic functionality
 - **No Exceptions**: suitable for exception-free environments
-- **Minimal Dependencies**: only standard C++ library (C++17), configurable for bare-metal/no-std environments
+- **Minimal Dependencies**: only standard C++ library (C++11 or later), configurable for bare-metal/no-std environments
 
 ### Nova Extras
 
@@ -509,7 +509,7 @@ using ComCompanyModule = HierarchicalTag< CompanyTag, ModuleTag >;
 
 | Scenario | Nova Approach | String-Based Approach | Verdict |
 |----------|---------------|----------------------|---------|
-| **Zero-cost disabled logs** | ✅ `if constexpr` eliminates code | ❌ Runtime checks always present* | **Nova unique** |
+| **Zero-cost disabled logs** | ✅ `std::conditional` eliminates code (C++11 and later) | ❌ Runtime checks always present* | **Nova unique** |
 | **Selective disabling** | ✅ Per-tag granularity | ❌ All-or-nothing by severity** | **Nova unique** |
 | **Compile-time safety** | ✅ Types catch errors | ❌ Strings fail at runtime | Nova wins |
 | **Runtime config files** | ⚠️ Requires app code | ✅ Built-in | String wins (convenience) |
@@ -580,6 +580,10 @@ See `docs/LOGGING_COMPARISON.md` for detailed analysis.
 No build required!  Just include headers:
 
 ```bash
+# minimum supported standard
+g++ -std=c++11 -I nova/include your_app.cpp -o your_app
+
+# recommended for best standard library support (std::string_view, std::to_chars)
 g++ -std=c++17 -I nova/include your_app.cpp -o your_app
 ```
 
@@ -597,7 +601,7 @@ make test  # Run unit tests
 Or compile directly:
 
 ```bash
-g++ -std=c++17 \
+g++ -std=c++11 \
     -I nova/include \
     -I nova_extras/include \
     -I flare/include \
@@ -616,6 +620,7 @@ make
 ctest
 
 # Or with Google Test directly
+# note: tests require C++17 for std::filesystem
 g++ -std=c++17 \
     -I nova/include \
     -I nova_extras/include \
@@ -648,7 +653,7 @@ Build and run:
 
 ```bash
 cd examples/nova
-g++ -std=c++17 -I../../nova/include -I../../nova_extras/include \
+g++ -std=c++11 -I../../nova/include -I../../nova_extras/include \
     01_basic_usage/main.cpp \
     ../../nova_extras/src/kmac/nova/extras/*.cpp \
     -o basic_usage
@@ -848,14 +853,14 @@ NOVA_LOG( WorkheadMovingState ) << "move direction = " << moveDir;  // log speci
 
 ### Compiler Requirements
 
-- **GCC**: 7.0+ (C++17 support)
-- **Clang**: 6.0+ (C++17 support)
-- **MSVC**: 2019+ (C++17 support)
+- **GCC**: 5.0+ (C++11 support)
+- **Clang**: 3.3+ (C++11 support)
+- **MSVC**: 2015+ (C++11 support)
 
 ### Embedded Platforms
 
 Nova core works on embedded platforms with:
-- C++17 compiler
+- C++11 or later compiler
 - standard library (atomic, chrono, vector)
 - threading support (optional)
 

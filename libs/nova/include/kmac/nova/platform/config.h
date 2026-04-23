@@ -17,9 +17,9 @@
  * C++ Version Requirements:
  * - C++11 or later: required (enforced with #error)
  *
- * Nova uses C++11+ features including if constexpr, std::string_view, and
- * std::to_chars for zero-cost abstractions and optimal performance, and
- * __has_include for automatic configuration.
+ * Nova targets C++11 and later.  On C++17 and later, optional features
+ * including if constexpr, std::string_view, and std::to_chars are used
+ * automatically; C++11/14 fallbacks are provided for all of them.
  *
  * ============================================================================
  * Mode Descriptors
