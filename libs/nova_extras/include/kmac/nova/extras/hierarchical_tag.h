@@ -6,8 +6,9 @@
 
 #include <cstring>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Template for creating hierarchical tag types.
@@ -52,7 +53,9 @@ struct HierarchicalTag
 	// static constexpr const char* tagName = /* generated for associated logger_traits below */;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 //
 // Specialization to provide automatic tag names
@@ -87,45 +90,51 @@ struct kmac::nova::logger_traits< kmac::nova::extras::HierarchicalTag< Subsystem
 // Common Severity Levels
 //
 
-namespace kmac::nova::extras
+namespace kmac {
+namespace nova {
+namespace extras {
+
+// standard severity levels
+struct Trace {};
+struct Debug {};
+struct Info {};
+struct Warning {};
+struct Error {};
+struct Fatal {};
+
+// numeric severity values for filtering
+enum class SeverityLevel : std::uint8_t
 {
-	// standard severity levels
-	struct Trace {};
-	struct Debug {};
-	struct Info {};
-	struct Warning {};
-	struct Error {};
-	struct Fatal {};
+	Trace   = 0,
+	Debug   = 1,
+	Info    = 2,
+	Warning = 3,
+	Error   = 4,
+	Fatal   = 5
+};
 
-	// numeric severity values for filtering
-	enum class SeverityLevel : std::uint8_t
-	{
-		Trace   = 0,
-		Debug   = 1,
-		Info    = 2,
-		Warning = 3,
-		Error   = 4,
-		Fatal   = 5
-	};
+// helper to get severity level
+template< typename Severity >
+struct SeverityValue;
 
-	// helper to get severity level
-	template< typename Severity >
-	struct SeverityValue;
+template<> struct SeverityValue< Trace >   { static constexpr int value = int( SeverityLevel::Trace   ); };
+template<> struct SeverityValue< Debug >   { static constexpr int value = int( SeverityLevel::Debug   ); };
+template<> struct SeverityValue< Info >    { static constexpr int value = int( SeverityLevel::Info    ); };
+template<> struct SeverityValue< Warning > { static constexpr int value = int( SeverityLevel::Warning ); };
+template<> struct SeverityValue< Error >   { static constexpr int value = int( SeverityLevel::Error   ); };
+template<> struct SeverityValue< Fatal >   { static constexpr int value = int( SeverityLevel::Fatal   ); };
 
-	template<> struct SeverityValue< Trace >   { static constexpr int value = int( SeverityLevel::Trace   ); };
-	template<> struct SeverityValue< Debug >   { static constexpr int value = int( SeverityLevel::Debug   ); };
-	template<> struct SeverityValue< Info >    { static constexpr int value = int( SeverityLevel::Info    ); };
-	template<> struct SeverityValue< Warning > { static constexpr int value = int( SeverityLevel::Warning ); };
-	template<> struct SeverityValue< Error >   { static constexpr int value = int( SeverityLevel::Error   ); };
-	template<> struct SeverityValue< Fatal >   { static constexpr int value = int( SeverityLevel::Fatal   ); };
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 //
 // Helper Functions
 //
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Check if a tag belongs to a specific subsystem.
@@ -162,6 +171,8 @@ struct GetSeverityLevel< HierarchicalTag< Subsystem, Severity > >
 	static constexpr int value = SeverityValue< Severity >::value;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_HIERARCHICAL_TAG_H

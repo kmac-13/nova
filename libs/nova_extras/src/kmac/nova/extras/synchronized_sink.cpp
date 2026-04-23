@@ -4,8 +4,9 @@
 
 #include <mutex>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 SynchronizedSink::SynchronizedSink( kmac::nova::Sink& downstream ) noexcept
 	: _downstream( &downstream )
@@ -18,4 +19,6 @@ void SynchronizedSink::process( const kmac::nova::Record& record ) noexcept
 	_downstream->process( record );
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

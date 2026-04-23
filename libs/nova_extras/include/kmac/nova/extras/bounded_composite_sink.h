@@ -7,13 +7,9 @@
 
 #include <cstddef>
 
-// namespace kmac::nova
-// {
-// struct Record;
-// } // namespace kmac::nova
-
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Fixed-capacity composite sink with compile-time maximum.
@@ -231,6 +227,8 @@ void BoundedCompositeSink< MaxSinks >::process( const kmac::nova::Record& record
 	}
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_BOUNDED_COMPOSITE_SINK_H

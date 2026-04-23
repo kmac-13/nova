@@ -9,8 +9,8 @@
 
 #include <cstddef>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 class Sink;
 
@@ -74,7 +74,7 @@ template< size_t MaxBindings = 16 >
 class ScopedConfigurator : private Immovable
 {
 private:
-	using UnbindFn = void ( * )( ) noexcept;
+	using UnbindFn = void ( * )( );  // noexcept not allowed before C++17
 
 	platform::Array< UnbindFn, MaxBindings > _boundList;  ///< registered unbind functions
 	size_t _count = 0;  ///< number of registered unbind functions
@@ -402,6 +402,7 @@ void ScopedConfigurator< MaxBindings >::remove( UnbindFn unbindFn ) noexcept
 	}
 }
 
-} // namespace kmac::nova
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_SCOPED_CONFIGURATOR_H

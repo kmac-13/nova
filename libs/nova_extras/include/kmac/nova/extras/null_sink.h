@@ -4,13 +4,12 @@
 
 #include <kmac/nova/sink.h>
 
-namespace kmac::nova
-{
-struct Record;
-} // namespace kmac::nova
+namespace kmac {
+namespace nova {
 
-namespace kmac::nova::extras
-{
+struct Record;
+
+namespace extras {
 
 /**
  * @brief Sink that discards all log records.
@@ -67,6 +66,8 @@ public:
 	void process( const kmac::nova::Record& record ) noexcept override;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_NULL_SINK_H

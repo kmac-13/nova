@@ -8,8 +8,9 @@
 
 #include <cstring>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 LargePayloadFormatter::LargePayloadFormatter(
 	const char* payload,
@@ -91,4 +92,6 @@ void LargePayloadFormatter::formatAndWrite(
 	downstream.process( footerRecord );
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

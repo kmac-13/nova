@@ -1,7 +1,8 @@
 #include "kmac/nova/extras/composite_sink.h"
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 void CompositeSink::add( kmac::nova::Sink& sink ) noexcept
 {
@@ -24,4 +25,6 @@ void CompositeSink::process( const kmac::nova::Record& record ) noexcept
 	}
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

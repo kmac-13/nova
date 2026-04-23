@@ -34,8 +34,9 @@
  * 6 fractional digits).  Callers should reserve at least 32 bytes.
  */
 
-namespace kmac::nova::platform
-{
+namespace kmac {
+namespace nova {
+namespace platform {
 
 /**
  * @brief Result type mirroring std::to_chars_result, without <charconv>.
@@ -53,7 +54,7 @@ struct FloatToCharsResult
 // IMPLEMENTATION DETAIL (bare-metal fallback only)
 // ============================================================================
 
-#if ! NOVA_HAS_CHARCONV
+#if ! NOVA_HAS_FLOAT_CHARCONV
 
 namespace details
 {
@@ -99,7 +100,7 @@ inline char* writeUInt( char* buf, char* end, std::uint64_t value ) noexcept
 
 } // namespace details
 
-#endif // ! NOVA_HAS_CHARCONV
+#endif // ! NOVA_HAS_FLOAT_CHARCONV
 
 // ============================================================================
 // PUBLIC INTERFACE
@@ -134,10 +135,10 @@ inline char* writeUInt( char* buf, char* end, std::uint64_t value ) noexcept
  */
 inline FloatToCharsResult floatToChars( char* first, char* last, double value ) noexcept
 {
-#if NOVA_HAS_CHARCONV
+#if NOVA_HAS_FLOAT_CHARCONV
 
-	auto [ ptr, ec ] = std::to_chars( first, last, value );
-	return { ptr, ec == std::errc{} };
+	const auto result = std::to_chars( first, last, value );
+	return { result.ptr, result.ec == std::errc{} };
 
 #else // bare-metal fixed-point fallback
 
@@ -268,7 +269,7 @@ inline FloatToCharsResult floatToChars( char* first, char* last, double value ) 
 
 	return { p, true };
 
-#endif // NOVA_HAS_CHARCONV
+#endif // NOVA_HAS_FLOAT_CHARCONV
 }
 
 /**
@@ -288,6 +289,8 @@ inline FloatToCharsResult floatToChars( char* first, char* last, float value ) n
 	return floatToChars( first, last, static_cast< double >( value ) );
 }
 
-} // namespace kmac::nova::platform
+} // namespace platform
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_PLATFORM_FLOAT_TO_CHARS_H

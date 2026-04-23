@@ -2,11 +2,10 @@
 #ifndef KMAC_NOVA_RECORD_H
 #define KMAC_NOVA_RECORD_H
 
-#include <cstddef>
 #include <cstdint>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 /**
  * @brief Log record structure passed to Sink::process().
@@ -73,6 +72,7 @@ struct Record
 	const char* message;       ///< log message (may NOT be null-terminated)
 };
 
-} // namespace kmac::nova
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_RECORD_H

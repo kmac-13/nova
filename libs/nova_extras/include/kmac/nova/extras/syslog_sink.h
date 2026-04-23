@@ -87,8 +87,9 @@
 #include <cstdint>
 #include <cstring>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Sink that writes log records to the Linux syslog daemon.
@@ -171,7 +172,9 @@ void SyslogSink< BufferSize >::process( const kmac::nova::Record& record ) noexc
 	syslog( priority, "%s", buf.data() );
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // __linux__
 

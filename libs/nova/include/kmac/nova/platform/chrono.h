@@ -32,7 +32,9 @@
  * - consider overflow behavior for long-running systems
  */
 
-namespace kmac::nova::platform {
+namespace kmac {
+namespace nova {
+namespace platform {
 
 #if NOVA_HAS_STD_CHRONO
 
@@ -287,6 +289,8 @@ inline std::uint64_t noTimestamp() noexcept
 	return 0;
 }
 
-} // namespace kmac::nova::platform
+} // namespace platform
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_PLATFORM_CHRONO_H

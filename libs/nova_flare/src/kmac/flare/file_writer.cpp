@@ -1,7 +1,7 @@
 #include "kmac/flare/file_writer.h"
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 FileWriter::FileWriter( std::FILE* file ) noexcept
 	: _file( file )
@@ -26,4 +26,5 @@ void FileWriter::flush() noexcept
 	}
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac

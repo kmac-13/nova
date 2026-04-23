@@ -13,19 +13,19 @@
 /**
  * @file atomic.h
  * @brief Atomic operations abstraction for bare-metal and RTOS environments
- * 
+ *
  * Provides atomic pointer operations with multiple backend implementations:
  * 1. std::atomic (default, thread-safe)
  * 2. Volatile pointers (bare-metal single-core, not thread-safe)
  * 3. RTOS-specific primitives (interrupt-safe)
  * 4. Compiler intrinsics (platform-specific atomics)
- * 
+ *
  * Trade-offs:
  * - std::atomic: Full thread safety, TSAN compatible
  * - volatile: Single-core only, minimal overhead, NOT thread-safe
  * - RTOS primitives: Interrupt-safe, RTOS-dependent
  * - Intrinsics: Platform-specific, may require manual porting
- * 
+ *
  * Safety Note:
  * For safety-critical systems (DO-178C Level A, IEC 61508 SIL 3/4):
  * - Use std::atomic where available and qualified
@@ -34,7 +34,9 @@
  * - Document assumptions about interrupt/thread safety in safety case
  */
 
-namespace kmac::nova::platform {
+namespace kmac {
+namespace nova {
+namespace platform {
 
 // ============================================================================
 // IMPLEMENTATION 1: STANDARD LIBRARY (Default)
@@ -94,18 +96,18 @@ public:
 
 /**
  * WARNING: This implementation is NOT thread-safe and NOT interrupt-safe!
- * 
+ *
  * Safe usage scenarios:
  * - single-core bare-metal with interrupts disabled during sink binding
  * - single-threaded applications
  * - logging from single execution context only
- * 
+ *
  * Unsafe scenarios:
  * - multi-core systems
  * - multi-threaded RTOS
  * - logging from interrupts AND normal code
  * - any concurrent access to Logger<Tag>::bindSink()/unbindSink()
- * 
+ *
  * For multi-core or concurrent systems, you MUST provide a proper atomic
  * implementation using platform-specific intrinsics or RTOS primitives.
  */
@@ -191,12 +193,12 @@ public:
 
 /**
  * Platform-Specific Atomic Implementations
- * 
+ *
  * Users can provide their own atomic implementation by defining
  * NOVA_CUSTOM_ATOMIC before including this header:
- * 
+ *
  * Example: ARM Cortex-M with LDREX/STREX
- * 
+ *
  * template< typename T >
  * class AtomicPtr
  * {
@@ -231,9 +233,9 @@ public:
  *		return old;
  *	}
  * };
- * 
+ *
  * Example: FreeRTOS critical sections
- * 
+ *
  * template< typename T >
  * class AtomicPtr
  * {
@@ -258,6 +260,8 @@ public:
  * };
  */
 
-} // namespace kmac::nova::platform
+} // namespace platform
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_PLATFORM_ATOMIC_H

@@ -9,8 +9,8 @@
 
 #include <cstdio>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 /**
  * @brief IWriter interface adapter for FILE*.
@@ -89,7 +89,8 @@ public:
 //	return EmergencySink( &writer, captureProcessInfo );
 // }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // __has_include <cstdio>
 

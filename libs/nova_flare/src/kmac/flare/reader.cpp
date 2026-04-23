@@ -24,8 +24,8 @@ struct TlvFieldParseHelper
 
 } // namespace
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 bool Reader::parseNext( const std::uint8_t* data, std::size_t size, Record& outRecord )
 {
@@ -107,7 +107,8 @@ bool Reader::parseRecord( const std::uint8_t* data, std::size_t size, Record& ou
 	return false;
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 namespace
 {

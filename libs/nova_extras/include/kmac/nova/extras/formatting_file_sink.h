@@ -11,8 +11,9 @@
 
 #include <cstdio>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Sink that writes formatted log messages to a FILE* with explicit flush control.
@@ -231,6 +232,8 @@ void FormattingFileSink< BufferSize >::flushFormatBuffer() noexcept
 	// NOTE: does NOT call fflush() - only flush() method does that
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_FORMATTING_FILE_SINK_H

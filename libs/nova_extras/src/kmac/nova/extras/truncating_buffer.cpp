@@ -2,8 +2,9 @@
 
 #include <cstring>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 TruncatingBuffer::TruncatingBuffer( char* buffer, std::size_t capacity ) noexcept
 	: _buffer( buffer )
@@ -63,4 +64,6 @@ bool TruncatingBuffer::appendChar( char chr ) noexcept
 	return true;
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

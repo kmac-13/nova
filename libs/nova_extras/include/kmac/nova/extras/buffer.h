@@ -4,8 +4,9 @@
 
 #include <cstddef>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Fixed-size buffer helper for record builders.
@@ -111,6 +112,8 @@ bool Buffer::appendLiteral( const char ( &lit )[ N ] ) noexcept  // NOLINT(cppco
 	return append( lit, N - 1 );
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_BUFFER_H

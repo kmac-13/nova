@@ -9,8 +9,9 @@
 #include <cstdio>
 #include <string>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 class Formatter;
 
@@ -250,6 +251,8 @@ private:
 	void writeLarge( const char* data, std::size_t size ) noexcept;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_CIRCULAR_FILE_SINK_H

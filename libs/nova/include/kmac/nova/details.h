@@ -5,8 +5,14 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace kmac::nova::details
-{
+namespace kmac {
+namespace nova {
+namespace details {
+
+/**
+ * @brief Compile-time stripping of path from, e.g., __FILE__.
+ */
+constexpr const char* fileName( const char* path );
 
 /**
  * @brief FNV-1a hashing function for generating a 64-bit hash from a string.
@@ -31,7 +37,7 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;  // NOLINT(c
  * This variable template acts as a compile-time registry for tag identifiers.
  * Each NOVA_LOGGER_TRAITS invocation defines a specialisation:
  *
- *     tagIdVal<tagId> = tagId
+ *     TagIdVal<tagId>::value = tagId
  *
  * If two tags hash to the same tagId within a translation unit, the compiler
  * encounters multiple definitions of the same specialisation and emits a
@@ -131,57 +137,62 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;  // NOLINT(c
 // conflicting tag types appear in the error message via the surrounding template
 // instantiation context - no string storage is needed for diagnostics.
 template< std::uint64_t Id >
-inline constexpr std::uint64_t tagIdVal = 0;
+struct TagIdVal { static constexpr std::uint64_t value = 0; };
 
 //
 // IMPLEMENTATION
 //
+
+// NOLINT NOTE - intentional tail recursion required for constexpr
+// compatibility with C++11, which does not permit loops in constexpr
+// functions; recursion depth is bounded by string length
+constexpr const char* recurseFileName( const char* path, const char* last ) noexcept  // NOLINT(misc-no-recursion)
+{
+	return *path == '\0'
+		? last
+		: recurseFileName( path + 1, ( *path == '/' || *path == '\\' ) ? path + 1 : last );
+}
+
+constexpr const char* fileName( const char* path )
+{
+	return recurseFileName( path, path );
+}
 
 // FNV-1a constants
 constexpr std::uint64_t FNV_OFFSET = 14695981039346656037ULL;
 constexpr std::uint64_t FNV_PRIME = 1099511628211ULL;
 constexpr std::uint64_t FNV_FINAL = 0xd6e8feb86659fd93ULL;
 
+constexpr std::uint64_t fnv1aAvalanche( std::uint64_t hash ) noexcept
+{
+	return ( ( hash ^ ( hash >> 32U ) ) * FNV_FINAL ) ^ ( ( ( hash ^ ( hash >> 32U ) ) * FNV_FINAL ) >> 32U );
+}
+
+// NOLINT NOTE - intentional tail recursion required for constexpr
+// compatibility with C++11, which does not permit loops in constexpr
+// functions; recursion depth is bounded by string length
+constexpr std::uint64_t recurseFnv1a( const char* str, std::uint64_t hash ) noexcept  // NOLINT(misc-no-recursion)
+{
+	return *str == '\0'
+		? fnv1aAvalanche( hash )
+		: recurseFnv1a( str + 1, ( hash ^ static_cast< std::uint8_t >( *str ) ) * FNV_PRIME );
+}
+
 // string hash
 constexpr std::uint64_t fnv1a( const char* str ) noexcept
 {
-	std::uint64_t hash = FNV_OFFSET;
-
-	while ( *str != '\0' )
-	{
-		hash ^= static_cast< unsigned char >( *str );
-		hash *= FNV_PRIME;
-		++str;
-	}
-
-	// final avalanche mix (improves distribution for short strings)
-	hash ^= hash >> 32U;
-	hash *= FNV_FINAL;
-	hash ^= hash >> 32U;
-
-	return hash;
+	return recurseFnv1a( str, FNV_OFFSET );
 }
 
 // string literal hash
 template< std::size_t N >
 constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 {
-	std::uint64_t hash = FNV_OFFSET;
-
-	for ( std::size_t i = 0; i < N - 1; ++i )
-	{
-		hash ^= static_cast< std::uint8_t >( str[ i ] );
-		hash *= FNV_PRIME;
-	}
-
-	// final avalanche mix (improves distribution for short strings)
-	hash ^= hash >> 32U;
-	hash *= FNV_FINAL;
-	hash ^= hash >> 32U;
-
-	return hash;
+	return fnv1a( static_cast< const char* >( str ) );
 }
 
-} // kmac::nova::details
+} // namespace details
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_DETAILS_H

@@ -1,7 +1,7 @@
 #include "kmac/flare/uart_writer.h"
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 UartWriter::UartWriter( WriteFn writeFn, FlushFn flushFn ) noexcept
 	: _writeFn( writeFn )
@@ -27,4 +27,5 @@ void UartWriter::flush() noexcept
 	}
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac

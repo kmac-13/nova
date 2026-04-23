@@ -7,8 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 struct Record;
 
@@ -275,6 +275,7 @@ private:
 	bool parseRecord( const std::uint8_t* data, std::size_t size, Record& outRecord );
 };
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // KMAC_FLARE_READER_H

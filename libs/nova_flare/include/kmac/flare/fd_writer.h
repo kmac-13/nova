@@ -14,8 +14,8 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 /**
  * @brief Async-signal-safe IWriter implementation for POSIX file descriptors.
@@ -113,7 +113,8 @@ public:
 	void flush() noexcept override;
 };
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // defined( __linux__ ) || ...
 

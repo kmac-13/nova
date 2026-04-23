@@ -16,8 +16,8 @@
 #include <cstdint>
 #include <signal.h>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 /**
  * @brief Fault context captured from a signal handler.
@@ -269,7 +269,8 @@ void SignalHandler< StackSize >::install( EmergencySinkBase* sink ) noexcept
 	install( _altStack.data(), _altStack.size(), sink );
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // POSIX platforms
 

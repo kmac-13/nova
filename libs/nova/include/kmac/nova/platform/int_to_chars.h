@@ -36,8 +36,9 @@
  * - base 16:          16 characters ("ffffffffffffffff")
  */
 
-namespace kmac::nova::platform
-{
+namespace kmac {
+namespace nova {
+namespace platform {
 
 /**
  * @brief Result type mirroring std::to_chars_result, without <charconv>.
@@ -78,10 +79,10 @@ struct IntToCharsResult
  */
 inline IntToCharsResult intToChars( char* first, char* last, std::uint64_t value, int base = 10 ) noexcept
 {
-#if NOVA_HAS_CHARCONV
+#if NOVA_HAS_INT_CHARCONV
 
-	auto [ ptr, ec ] = std::to_chars( first, last, value, base );
-	return { ptr, ec == std::errc{} };
+	const auto result = std::to_chars( first, last, value, base );
+	return { result.ptr, result.ec == std::errc{} };
 
 #else
 
@@ -127,7 +128,7 @@ inline IntToCharsResult intToChars( char* first, char* last, std::uint64_t value
 
 	return { first, true };
 
-#endif // NOVA_HAS_CHARCONV
+#endif // NOVA_HAS_INT_CHARCONV
 }
 
 /**
@@ -149,10 +150,10 @@ inline IntToCharsResult intToChars( char* first, char* last, std::uint64_t value
  */
 inline IntToCharsResult intToChars( char* first, char* last, std::int64_t value ) noexcept
 {
-#if NOVA_HAS_CHARCONV
+#if NOVA_HAS_INT_CHARCONV
 
-	auto [ ptr, ec ] = std::to_chars( first, last, value );
-	return { ptr, ec == std::errc{} };
+	const auto result = std::to_chars( first, last, value );
+	return { result.ptr, result.ec == std::errc{} };
 
 #else
 
@@ -170,7 +171,7 @@ inline IntToCharsResult intToChars( char* first, char* last, std::int64_t value 
 
 	return intToChars( first, last, static_cast< std::uint64_t >( value ) );
 
-#endif // NOVA_HAS_CHARCONV
+#endif // NOVA_HAS_INT_CHARCONV
 }
 
 // ============================================================================
@@ -244,6 +245,8 @@ intToChars( char* first, char* last, unsigned long long value ) noexcept
 	return intToChars( first, last, static_cast< std::uint64_t >( value ) );
 }
 
-} // namespace kmac::nova::platform
+} // namespace platform
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_PLATFORM_INT_TO_CHARS_H

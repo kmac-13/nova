@@ -33,7 +33,7 @@ TEST_F( NovaSinks, OStreamSink )
 	std::ostringstream oss;
 	kmac::nova::extras::OStreamSink sink( oss );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &sink );
 
 	NOVA_LOG( SinkTag ) << "test output";
@@ -47,7 +47,7 @@ TEST_F( NovaSinks, OStreamSinkMultipleMessages )
 	std::ostringstream oss;
 	kmac::nova::extras::OStreamSink sink( oss );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &sink );
 
 	NOVA_LOG( SinkTag ) << "message 1";
@@ -64,7 +64,7 @@ TEST_F( NovaSinks, NullSink )
 {
 	kmac::nova::extras::NullSink& sink = kmac::nova::extras::NullSink::instance();
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &sink );
 
 	// log messages, which should be silently discarded
@@ -81,15 +81,13 @@ TEST_F( NovaSinks, FilterSinkAccepts )
 	kmac::nova::extras::OStreamSink baseSink( oss );
 
 	// filter that accepts messages containing "accept"
-	kmac::nova::extras::FilterSink filterSink(
-		baseSink,
-		[]( const kmac::nova::Record& rec ) {
-			std::string msg( rec.message, rec.messageSize );
-			return msg.find( "accept" ) != std::string::npos;
-		}
-	);
+	auto filterFn = []( const kmac::nova::Record& rec ) {
+		std::string msg( rec.message, rec.messageSize );
+		return msg.find( "accept" ) != std::string::npos;
+	};
+	kmac::nova::extras::FilterSink< decltype( filterFn ) > filterSink( baseSink, filterFn );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &filterSink );
 
 	NOVA_LOG( SinkTag ) << "accept this message";
@@ -108,12 +106,10 @@ TEST_F( NovaSinks, FilterSinkRejects )
 	kmac::nova::extras::OStreamSink baseSink( oss );
 
 	// filter that rejects all messages
-	kmac::nova::extras::FilterSink filterSink(
-		baseSink,
-		[]( const kmac::nova::Record& ) { return false; }
-	);
+	auto filterFn = []( const kmac::nova::Record& ) { return false; };
+	kmac::nova::extras::FilterSink< decltype( filterFn ) > filterSink( baseSink, filterFn );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &filterSink );
 
 	NOVA_LOG( SinkTag ) << "should not appear";
@@ -128,12 +124,10 @@ TEST_F( NovaSinks, FilterSinkAcceptsAll )
 	kmac::nova::extras::OStreamSink baseSink( oss );
 
 	// filter that accepts all messages
-	kmac::nova::extras::FilterSink filterSink(
-		baseSink,
-		[]( const kmac::nova::Record& ) { return true; }
-	);
+	auto filterFn = []( const kmac::nova::Record& ) { return true; };
+	kmac::nova::extras::FilterSink< decltype( filterFn ) > filterSink( baseSink, filterFn );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &filterSink );
 
 	NOVA_LOG( SinkTag ) << "message 1";
@@ -150,18 +144,21 @@ TEST_F( NovaSinks, FilterSinkByLineNumber )
 	kmac::nova::extras::OStreamSink baseSink( oss );
 
 	// filter that only accepts records from specific line numbers
-	const uint32_t targetLine = __LINE__ + 11;  // points to first NOVA_LOG
-	kmac::nova::extras::FilterSink filterSink(
-		baseSink,
-		[ targetLine ]( const kmac::nova::Record& rec ) {
-			return rec.line == targetLine;
-		}
-	);
+	uint32_t capturedLine = 0;
+	auto filterFn = [ &capturedLine ]( const kmac::nova::Record& rec ) {
+		return capturedLine != 0 && rec.line == capturedLine;
+	};
+	kmac::nova::extras::FilterSink< decltype( filterFn ) > filterSink( baseSink, filterFn );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &filterSink );
 
+	// update captured line to be correct for the filter
+	capturedLine = __LINE__ + 1;
 	NOVA_LOG( SinkTag ) << "this line should appear";
+
+	// update captured line to be incorrect for the filter
+	capturedLine = 0;
 	NOVA_LOG( SinkTag ) << "this line should not";
 
 	std::string output = oss.str();
@@ -175,15 +172,13 @@ TEST_F( NovaSinks, FilterSinkComplex )
 	kmac::nova::extras::OStreamSink baseSink( oss );
 
 	// complex filter: accept if message contains "error" OR line > 1000
-	kmac::nova::extras::FilterSink filterSink(
-		baseSink,
-		[]( const kmac::nova::Record& rec ) {
-			std::string msg( rec.message, rec.messageSize );
-			return msg.find( "error" ) != std::string::npos || rec.line > 1000;
-		}
-	);
+	auto filterFn = []( const kmac::nova::Record& rec ) {
+		std::string msg( rec.message, rec.messageSize );
+		return msg.find( "error" ) != std::string::npos || rec.line > 1000;
+	};
+	kmac::nova::extras::FilterSink< decltype( filterFn ) > filterSink( baseSink, filterFn );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &filterSink );
 
 	NOVA_LOG( SinkTag ) << "error occurred";
@@ -201,7 +196,7 @@ TEST_F( NovaSinks, OStreamSinkWithCout )
 	// test with std::cout (just verify no crash)
 	kmac::nova::extras::OStreamSink sink( std::cout );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &sink );
 
 	NOVA_LOG( SinkTag ) << "to stdout";
@@ -214,7 +209,7 @@ TEST_F( NovaSinks, OStreamSinkWithCerr )
 	// test with std::cerr (just verify no crash)
 	kmac::nova::extras::OStreamSink sink( std::cerr );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &sink );
 
 	NOVA_LOG( SinkTag ) << "to stderr";
@@ -228,23 +223,19 @@ TEST_F( NovaSinks, SinkChaining )
 	kmac::nova::extras::OStreamSink baseSink( oss );
 
 	// chain filters
-	kmac::nova::extras::FilterSink filter1(
-		baseSink,
-		[]( const kmac::nova::Record& rec ) {
-			std::string msg( rec.message, rec.messageSize );
-			return msg.find( "pass" ) != std::string::npos;
-		}
-	);
+	auto filterFn1 = []( const kmac::nova::Record& rec ) {
+		std::string msg( rec.message, rec.messageSize );
+		return msg.find( "pass" ) != std::string::npos;
+	};
+	kmac::nova::extras::FilterSink< decltype( filterFn1 ) > filter1( baseSink, filterFn1 );
 
-	kmac::nova::extras::FilterSink filter2(
-		filter1,
-		[]( const kmac::nova::Record& rec ) {
-			std::string msg( rec.message, rec.messageSize );
-			return msg.find( "test" ) != std::string::npos;
-		}
-	);
+	auto filterFn2 = []( const kmac::nova::Record& rec ) {
+		std::string msg( rec.message, rec.messageSize );
+		return msg.find( "test" ) != std::string::npos;
+	};
+	kmac::nova::extras::FilterSink< decltype( filterFn2 ) > filter2( filter1, filterFn2 );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< SinkTag >( &filter2 );
 
 	NOVA_LOG( SinkTag ) << "pass test";      // both filters pass

@@ -9,9 +9,10 @@
 #include "platform/atomic.h"
 
 #include <cstring>
+#include <type_traits>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 /**
  * @brief Compile-time logging endpoint for a specific tag.
@@ -86,6 +87,15 @@ public:
 	 * @param record
 	 */
 	static void log( const Record& record ) noexcept;
+
+private:
+	static void route( const char* file, const char* function, std::uint32_t line, const char* message, std::true_type ) noexcept;
+
+	static void route( const char*, const char*, std::uint32_t, const char*, std::false_type ) noexcept;
+
+	static void route( const Record& record, std::true_type ) noexcept;
+
+	static void route( const Record&, std::false_type ) noexcept;
 };
 
 template< typename Tag >
@@ -112,36 +122,53 @@ Sink* Logger< Tag >::getSink() noexcept
 template< typename Tag >
 void Logger< Tag >::log( const char* file, const char* function, std::uint32_t line, const char* message ) noexcept
 {
-	if constexpr ( logger_traits< Tag >::enabled )
-	{
-		Record record {
-			logger_traits< Tag >::timestamp(),
-			logger_traits< Tag >::tagId,
-			logger_traits< Tag >::tagName,
-			file,
-			function,
-			line,
-			static_cast< std::uint32_t >( std::strlen( message ) ),
-			message
-		};
-		log( record );
-	}
+	route( file, function, line, message, std::integral_constant< bool, logger_traits< Tag >::enabled >{} );
 }
 
 template< typename Tag >
 void Logger< Tag >::log( const Record& record ) noexcept
 {
-	if constexpr ( logger_traits< Tag >::enabled )
-	{
-		Sink* sink = _sink.load();
-		if ( sink == nullptr )
-		{
-			return;
-		}
-		sink->process( record );
-	}
+	route( record, std::integral_constant< bool, logger_traits< Tag >::enabled >{} );
 }
 
-} // namespace kmac::nova
+template< typename Tag >
+void Logger< Tag >::route( const char* file, const char* function, std::uint32_t line, const char* message, std::true_type ) noexcept
+{
+	Record record {
+		logger_traits< Tag >::timestamp(),
+		logger_traits< Tag >::tagId,
+		logger_traits< Tag >::tagName,
+		file,
+		function,
+		line,
+		static_cast< std::uint32_t >( std::strlen( message ) ),
+		message
+	};
+	log( record );
+}
+
+template< typename Tag >
+void Logger< Tag >::route( const char*, const char*, std::uint32_t, const char*, std::false_type ) noexcept
+{
+}
+
+template< typename Tag >
+void Logger< Tag >::route( const Record& record, std::true_type ) noexcept
+{
+	Sink* sink = _sink.load();
+	if ( sink == nullptr )
+	{
+		return;
+	}
+	sink->process( record );
+}
+
+template< typename Tag >
+void Logger< Tag >::route( const Record&, std::false_type ) noexcept
+{
+}
+
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_LOGGER_H

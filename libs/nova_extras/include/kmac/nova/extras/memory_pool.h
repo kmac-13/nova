@@ -10,8 +10,9 @@
 #include <memory>
 #include <type_traits>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Memory allocation strategy for pool storage.
@@ -356,6 +357,8 @@ auto MemoryPool< Capacity, Allocator >::initializePool() noexcept
 	}
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_MEMORY_POOL_H

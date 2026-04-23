@@ -2,6 +2,12 @@
 #ifndef KMAC_NOVA_EXTRAS_BUILDER_STREAM_QT_H
 #define KMAC_NOVA_EXTRAS_BUILDER_STREAM_QT_H
 
+#ifdef __has_include
+#if __has_include( <QtCore/QtGlobal> )
+#include <QtCore/QtGlobal>
+#endif  // QtCore/QtGlobal
+#endif  // __has_include
+
 #ifdef QT_VERSION
 
 /**
@@ -110,6 +116,16 @@ template< std::size_t N > \
 	template< std::size_t N > \
 	kmac::nova::extras::ContinuationRecordBuilder< N >& operator<<( \
 		kmac::nova::extras::ContinuationRecordBuilder< N >& builder, Signature ) Body
+
+// QString
+// Explicit overload to avoid ambiguity with QStringView and QVariant
+// implicit conversions.
+NOVA_QT_OVERLOADS(
+	const QString& value,
+	{
+		return builder << QStringView( value );
+	}
+)
 
 // ============================================================================
 // QStringView

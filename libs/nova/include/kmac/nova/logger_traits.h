@@ -7,13 +7,17 @@
 
 #include <cstdint>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 /**
  * @brief Customization point for per-tag logging behavior.
  *
  * logger_traits<Tag> controls compile-time and runtime behavior for each tag type.
+ * The lowercase_underscore naming follows the C++ standard library convention for
+ * traits classes (e.g. std::char_traits, std::iterator_traits), signalling that
+ * this is a policy/traits template intended for specialization rather than a
+ * regular class.
  *
  * Customizable properties:
  * - tagName: string identifier for the tag (default: stringified tag type)
@@ -30,10 +34,11 @@ namespace kmac::nova
 template< typename Tag >
 struct logger_traits;
 
-} // namespace kmac::nova
+} // namespace nova
+} // namespace kmac
 
 //
-// void SPECIALIZATION
+// void specialization
 //
 
 /**
@@ -79,10 +84,13 @@ struct kmac::nova::logger_traits< void >
 };
 // specialize
 template<>
-inline constexpr std::uint64_t kmac::nova::details::tagIdVal< kmac::nova::logger_traits< void >::tagId > = kmac::nova::logger_traits< void >::tagId;
+struct kmac::nova::details::TagIdVal< kmac::nova::logger_traits< void >::tagId >
+{
+	static constexpr std::uint64_t value = kmac::nova::logger_traits< void >::tagId;
+};
 
 //
-// Customization macros
+// customization macros
 //
 
 // NOTE: These macro cannot be replaced with a constexpr template function -
@@ -104,11 +112,11 @@ inline constexpr std::uint64_t kmac::nova::details::tagIdVal< kmac::nova::logger
  *
  * ### Hash collision detection
  *
- * Each invocation registers the tag with the tagIdVal guard (see details.h).
+ * Each invocation registers the tag with the TagIdVal guard (see details.h).
  * If two tags in the same binary hash to the same tagId, the compiler produces
  * a redefinition error.  For cross-binary collision detection across independently
  * compiled shared libraries, provide a validation translation unit - see the
- * documentation on details::tagIdVal for the recommended pattern.
+ * documentation on details::TagIdVal for the recommended pattern.
  *
  * Usage:
  *   NOVA_LOGGER_TRAITS(MyTag, MYtag, true, TimestampHelper::systemNanosecs)
@@ -127,10 +135,12 @@ inline constexpr std::uint64_t kmac::nova::details::tagIdVal< kmac::nova::logger
 		} \
 	}; \
 	template<> \
-	inline constexpr std::uint64_t kmac::nova::details::tagIdVal< kmac::nova::logger_traits< TagType >::tagId > = \
-		kmac::nova::logger_traits< TagType >::tagId; \
+	struct kmac::nova::details::TagIdVal< kmac::nova::logger_traits< TagType >::tagId > \
+	{ \
+		static constexpr std::uint64_t value = kmac::nova::logger_traits< TagType >::tagId; \
+	}; \
 	static_assert( \
-		kmac::nova::details::tagIdVal< kmac::nova::logger_traits< TagType >::tagId > == \
+		kmac::nova::details::TagIdVal< kmac::nova::logger_traits< TagType >::tagId >::value == \
 		kmac::nova::logger_traits< TagType >::tagId, \
 		"Nova tagId collision detected" )
 

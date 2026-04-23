@@ -8,10 +8,10 @@
 #include <kmac/nova/platform/int_to_chars.h>
 
 #include <cstring>
-#include <iterator>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 MultilineFormatter::MultilineFormatter( bool addLineNumbers, bool preserveEmptyLines ) noexcept
 	: _addLineNumbers( addLineNumbers )
@@ -39,7 +39,7 @@ void MultilineFormatter::formatLineNumberPrefix(
 	*prefixEnd++ = '[';
 
 	// attempt to format the line number into the buffer
-	const auto result1 = kmac::nova::platform::intToChars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 10, lineNumber );
+	const auto result1 = kmac::nova::platform::intToChars( prefixEnd, prefix.data() + sizeof( prefix ) - 10, lineNumber );
 	if ( ! result1.ok )
 	{
 		return;
@@ -49,7 +49,7 @@ void MultilineFormatter::formatLineNumberPrefix(
 	*prefixEnd++ = '/';
 
 	// attemp to format the line count into the buffer
-	const auto result2 = kmac::nova::platform::intToChars( prefixEnd, std::data( prefix ) + sizeof( prefix ) - 3, totalLines );
+	const auto result2 = kmac::nova::platform::intToChars( prefixEnd, prefix.data() + sizeof( prefix ) - 3, totalLines );
 	if ( ! result2.ok )
 	{
 		return;
@@ -60,8 +60,8 @@ void MultilineFormatter::formatLineNumberPrefix(
 	*prefixEnd++ = ' ';
 
 	// copy the local prefix buffer into the specified buffer
-	const std::size_t prefixLen = prefixEnd - std::data( prefix );
-	(void) buffer.append( std::data( prefix ), prefixLen );
+	const std::size_t prefixLen = prefixEnd - prefix.data();
+	(void) buffer.append( prefix.data(), prefixLen );
 }
 
 void MultilineFormatter::formatAndWrite(
@@ -219,4 +219,6 @@ const char* MultilineFormatter::findNextLine(
 	return nullptr;
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

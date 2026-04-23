@@ -6,8 +6,9 @@
 
 #include <mutex>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 SynchronizedCompositeSink::SynchronizedCompositeSink( CompositeSink& composite ) noexcept
 	: _composite( &composite )
@@ -32,4 +33,6 @@ void SynchronizedCompositeSink::process( const kmac::nova::Record& record ) noex
 	_composite->process( record );
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

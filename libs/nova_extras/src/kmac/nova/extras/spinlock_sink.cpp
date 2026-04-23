@@ -9,8 +9,9 @@
 #include <immintrin.h>  // For _mm_pause()
 #endif
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 SpinlockSink::SpinlockSink( kmac::nova::Sink& downstream ) noexcept
 	: _downstream( &downstream )
@@ -38,4 +39,6 @@ void SpinlockSink::process( const kmac::nova::Record& record ) noexcept
 	_lock.clear( std::memory_order_release );
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac

@@ -35,8 +35,8 @@ void extractRegisters( const ucontext_t* uctx, kmac::flare::FaultContext& ctx ) 
 
 } // anonymous namespace
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 // ============================================================================
 // static member definitions
@@ -228,7 +228,8 @@ void SignalHandlerBase::buildFaultContext( const siginfo_t* info, const void* uc
 	extractRegisters( ucontextTyped, ctx );
 }
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 namespace
 {

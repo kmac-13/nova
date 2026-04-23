@@ -12,7 +12,7 @@
  * - TruncatingRecordBuilder<BufferSize>  : the builder itself
  * - TlsTruncBuilderStorage<Size>         : TLS storage (when NOVA_HAS_TLS)
  * - TlsTruncBuilderWrapper<Tag, Size>    : TLS RAII wrapper (when NOVA_HAS_TLS)
- * - StackTruncatingBuilder<Tag, Size>    : stack-based RAII wrapper
+ * - StackTruncBuilderWrapper<Tag, Size>  : stack-based RAII wrapper
  *
  * The NOVA_LOG* macros that drive these types are defined in nova.h.
  *
@@ -23,8 +23,9 @@
 #include "immovable.h"
 #include "logger.h"
 #include "logger_traits.h"
-#include "platform/array.h"
+#include "record.h"
 #include "platform/config.h"
+#include "platform/array.h"
 #include "platform/float_to_chars.h"
 #include "platform/int_to_chars.h"
 #include "platform/string_view.h"
@@ -32,8 +33,8 @@
 #include <cstddef>
 #include <cstring>
 
-namespace kmac::nova
-{
+namespace kmac {
+namespace nova {
 
 // ============================================================================
 // TruncatingRecordBuilder
@@ -60,7 +61,7 @@ namespace kmac::nova
  * - nested logging detection: NOVA_ASSERT on re-entry, silent drop in release
  *
  * Stack-based usage (opt-in via macros or direct usage):
- * - NOVA_LOG_STACK uses StackTruncatingBuilder wrapper
+ * - NOVA_LOG_STACK uses StackTruncBuilderWrapper
  * - required for signal handlers (avoids stack overflow)
  * - required for functions called within log expressions
  *
@@ -115,7 +116,7 @@ private:
 	const char* _tagName = nullptr;
 	std::uint64_t _tagId = 0;
 
-	using LogFunc = void (*)( const Record& ) noexcept;
+	using LogFunc = void (*)( const Record& );  // noexcept not allowed before C++17
 	LogFunc _logFunc = nullptr;
 
 public:
@@ -281,8 +282,8 @@ TruncatingRecordBuilder< BufferSize >& TruncatingRecordBuilder< BufferSize >::op
 	// this overload avoids a -Wstringop-overread warning that occurs when the
 	// string_view overload is called with a length-1 literal (e.g. "\n") and
 	// the compiler loses track of the source bound after inlining
-	static_assert( N > 0 );
-	if constexpr ( N > 1 )
+	static_assert( N > 0, "string literal length must be greater than zero" );
+	NOVA_IF_CONSTEXPR ( N > 1 )
 	{
 		return operator<<( platform::StringView( lit, N - 1 ) );
 	}
@@ -544,10 +545,10 @@ struct TlsTruncBuilderStorage
  * @tparam BufferSize size of the builder buffer in bytes
  */
 template< typename Tag, std::size_t BufferSize >
-struct TlsTruncBuilderWrapper
+struct TlsTruncBuilderWrapper : private Immovable
 {
-	TlsTruncBuilderWrapper( const char* file, const char* function, std::uint32_t line );
-	~TlsTruncBuilderWrapper();
+	TlsTruncBuilderWrapper( const char* file, const char* function, std::uint32_t line ) noexcept;
+	~TlsTruncBuilderWrapper() noexcept;
 	inline TruncatingRecordBuilder< BufferSize >& builder() noexcept;
 };
 
@@ -568,19 +569,16 @@ struct TlsTruncBuilderWrapper
  * @tparam BufferSize size of the builder buffer in bytes
  */
 template< typename Tag, std::size_t BufferSize >
-class StackTruncatingBuilder : private Immovable
+class StackTruncBuilderWrapper : private Immovable
 {
 private:
 	TruncatingRecordBuilder< BufferSize > _builder;
 
 public:
-	StackTruncatingBuilder( const char* file, const char* function, std::uint32_t line ) noexcept;
-	~StackTruncatingBuilder() noexcept;
+	StackTruncBuilderWrapper( const char* file, const char* function, std::uint32_t line ) noexcept;
+	~StackTruncBuilderWrapper() noexcept;
 
-	template< typename T >
-	StackTruncatingBuilder& operator<<( const T& value ) noexcept;
-
-	bool wasTruncated() const noexcept;
+	inline TruncatingRecordBuilder< BufferSize >& builder() noexcept;
 };
 
 // ============================================================================
@@ -593,13 +591,13 @@ template< std::size_t BufferSize >
 thread_local TruncatingRecordBuilder< BufferSize > TlsTruncBuilderStorage< BufferSize >::builder;
 
 template< typename Tag, std::size_t BufferSize >
-TlsTruncBuilderWrapper< Tag, BufferSize >::TlsTruncBuilderWrapper( const char* file, const char* function, std::uint32_t line )
+TlsTruncBuilderWrapper< Tag, BufferSize >::TlsTruncBuilderWrapper( const char* file, const char* function, std::uint32_t line )  noexcept
 {
 	builder().template setContext< Tag >( file, function, line );
 }
 
 template< typename Tag, std::size_t BufferSize >
-TlsTruncBuilderWrapper< Tag, BufferSize >::~TlsTruncBuilderWrapper()
+TlsTruncBuilderWrapper< Tag, BufferSize >::~TlsTruncBuilderWrapper()  noexcept
 {
 	auto& builder = TlsTruncBuilderStorage< BufferSize >::builder;
 	builder.commit();
@@ -619,31 +617,24 @@ TruncatingRecordBuilder< BufferSize >& TlsTruncBuilderWrapper< Tag, BufferSize >
 // ============================================================================
 
 template< typename Tag, std::size_t BufferSize >
-StackTruncatingBuilder< Tag, BufferSize >::StackTruncatingBuilder( const char* file, const char* function, std::uint32_t line ) noexcept
+StackTruncBuilderWrapper< Tag, BufferSize >::StackTruncBuilderWrapper( const char* file, const char* function, std::uint32_t line ) noexcept
 {
 	_builder.template setContext< Tag >( file, function, line );
 }
 
 template< typename Tag, std::size_t BufferSize >
-StackTruncatingBuilder< Tag, BufferSize >::~StackTruncatingBuilder() noexcept
+StackTruncBuilderWrapper< Tag, BufferSize >::~StackTruncBuilderWrapper() noexcept
 {
 	_builder.commit();
 }
 
 template< typename Tag, std::size_t BufferSize >
-template< typename T >
-StackTruncatingBuilder< Tag, BufferSize >& StackTruncatingBuilder< Tag, BufferSize >::operator<<( const T& value ) noexcept
+TruncatingRecordBuilder< BufferSize >& StackTruncBuilderWrapper< Tag, BufferSize >::builder() noexcept
 {
-	_builder << value;
-	return *this;
+	return _builder;
 }
 
-template< typename Tag, std::size_t BufferSize >
-bool StackTruncatingBuilder< Tag, BufferSize >::wasTruncated() const noexcept
-{
-	return _builder.wasTruncated();
-}
-
-} // namespace kmac::nova
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_TRUNCATING_LOGGING_H

@@ -8,8 +8,9 @@
 #include <atomic>
 #include <cstddef>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 /**
  * @brief Lock-free Multi-Producer-Single-Consumer bounded queue.
@@ -230,6 +231,8 @@ std::size_t MPSCQueue< T, Capacity >::popBatch( T* items, std::size_t maxCount )
 	return count;
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_MPSC_QUEUE_H

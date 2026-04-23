@@ -6,8 +6,8 @@
 
 #include <cstddef>
 
-namespace kmac::flare
-{
+namespace kmac {
+namespace flare {
 
 /**
  * @file uart_writer.h
@@ -77,12 +77,12 @@ public:
 	 * @param size number of bytes to write
 	 * @return number of bytes actually written
 	 */
-	using WriteFn = std::size_t (*)( const void* data, std::size_t size ) noexcept;
+	using WriteFn = std::size_t (*)( const void* data, std::size_t size );  // noexcept not allowed before C++17
 
 	/**
 	 * @brief Function pointer type for the optional flush callback.
 	 */
-	using FlushFn = void (*)() noexcept;
+	using FlushFn = void (*)();  // noexcept not allowed before C++17
 
 private:
 	WriteFn _writeFn = nullptr;     ///< required write callback
@@ -116,6 +116,7 @@ public:
 	void flush() noexcept override;
 };
 
-} // namespace kmac::flare
+} // namespace flare
+} // namespace kmac
 
 #endif // KMAC_FLARE_UART_WRITER_H

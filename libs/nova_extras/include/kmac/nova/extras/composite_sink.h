@@ -48,13 +48,12 @@
 
 #include <vector>
 
-namespace kmac::nova
-{
-struct Record;
-} // namespace kmac::nova
+namespace kmac {
+namespace nova {
 
-namespace kmac::nova::extras
-{
+struct Record;
+
+namespace extras {
 
 /**
  * @brief Sink that fans out log records to multiple child sinks.
@@ -154,6 +153,8 @@ public:
 	void process( const kmac::nova::Record& record ) noexcept override;
 };
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 #endif // KMAC_NOVA_EXTRAS_COMPOSITE_SINK_H

@@ -56,8 +56,9 @@
 #include <cstddef>
 #include <cstring>
 
-namespace kmac::nova::extras
-{
+namespace kmac {
+namespace nova {
+namespace extras {
 
 // ============================================================================
 // ContinuationRecordBuilder
@@ -249,7 +250,7 @@ template< std::size_t N >
 ContinuationRecordBuilder< BufferSize >& ContinuationRecordBuilder< BufferSize >::operator<<( const char ( &lit )[ N ] ) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 {
 	static_assert( N > 0 );
-	if constexpr ( N > 1 )
+	NOVA_IF_CONSTEXPR ( N > 1 )
 	{
 		return operator<<( platform::StringView( lit, N - 1 ) );
 	}
@@ -582,7 +583,9 @@ std::size_t StackContinuationBuilder< Tag, BufferSize >::continuationCount() con
 	return _builder.continuationCount();
 }
 
-} // namespace kmac::nova::extras
+} // namespace extras
+} // namespace nova
+} // namespace kmac
 
 // ============================================================================
 // Continuation Logging Macros
@@ -616,7 +619,7 @@ std::size_t StackContinuationBuilder< Tag, BufferSize >::continuationCount() con
  */
 #if NOVA_HAS_TLS
 #define NOVA_LOG_CONT_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
+	NOVA_IF_CONSTEXPR ( ::kmac::nova::logger_traits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::extras::TlsContBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
 #else
@@ -641,7 +644,7 @@ std::size_t StackContinuationBuilder< Tag, BufferSize >::continuationCount() con
  * @param BufferSize buffer size in bytes (16-65536, keep <2KB for signal handlers)
  */
 #define NOVA_LOG_CONT_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
+	NOVA_IF_CONSTEXPR ( ::kmac::nova::logger_traits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::extras::StackContinuationBuilder< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ )
 
