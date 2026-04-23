@@ -3,7 +3,7 @@
  * @brief LibFuzzer target for TruncatingRecordBuilder.
  *
  * Feeds arbitrary fuzzer-supplied bytes into TruncatingRecordBuilder via the
- * public StackTruncatingBuilder wrapper, exercising:
+ * public StackTruncBuilderWrapper, exercising:
  *   - truncation boundary logic (USABLE_SIZE - _offset clamping)
  *   - the null-termination and "..." marker appended on truncation
  *   - commit() path: Record construction and sink delivery
@@ -65,14 +65,14 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
 		bound = true;
 	}
 
-	// StackTruncatingBuilder is the public-facing RAII wrapper around TruncatingRecordBuilder,
+	// StackTruncBuilderWrapper is the public-facing RAII wrapper around TruncatingRecordBuilder,
 	// constructor calls setContext<Tag>(); destructor calls commit(), which delivers the Record
 	// to the bound sink
 	//
 	// a 64-byte buffer is specified so truncation is triggered even on short
 	// inputs; the default (1024 bytes) would rarely truncate with -max_len=1024
 	{
-		kmac::nova::StackTruncatingBuilder< FuzzTag, 64 > builder(
+		kmac::nova::StackTruncBuilderWrapper< FuzzTag, 64 > builder(
 			__FILE__, __func__, static_cast< std::uint32_t >( __LINE__ ) );
 
 		const size_t mid = size / 2;
