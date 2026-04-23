@@ -1,6 +1,10 @@
 #pragma once
-#ifndef KMAC_NOVA_EXTRAS_NULL_LOGGING_H
-#define KMAC_NOVA_EXTRAS_NULL_LOGGING_H
+#ifndef KMAC_NOVA_NULL_LOGGING_H
+#define KMAC_NOVA_NULL_LOGGING_H
+
+#include "immovable.h"
+
+#include <cstdint>
 
 /**
  * @file null_logging.h
@@ -14,12 +18,12 @@
  * - NOVA_LOG_NULL(Tag)  : always a no-op regardless of tag or sink state
  *
  * Usage:
- *   #include <kmac/nova/extras/null_logging.h>
+ *   #include <kmac/nova/null_logging.h>
  *
- *   // Unconditional no-op at call site
+ *   // unconditional no-op at call site
  *   NOVA_LOG_NULL( VerboseTag ) << "never emitted";
  *
- *   // Generic builder-templated code
+ *   // generic builder-templated code
  *   template< typename Builder >
  *   void algorithm( Builder& log )
  *   {
@@ -28,15 +32,12 @@
  *       log << "Step 2";
  *   }
  *
- *   kmac::nova::extras::NullRecordBuilder nullBuilder;
+ *   kmac::nova::NullRecordBuilder nullBuilder;
  *   algorithm( nullBuilder );  // zero overhead
  */
 
-// #include <kmac/nova/nova.h>
-
 namespace kmac {
 namespace nova {
-namespace extras {
 
 /**
  * @brief No-op record builder that compiles to nothing.
@@ -45,12 +46,12 @@ namespace extras {
  * by the compiler.  Useful for builder-generic template code that needs a
  * discard variant, or for explicitly silencing a logging call site.
  *
- * NOTE: The NOVA_LOG_* macros do not use this type - they use `if constexpr`
- * on logger_traits<Tag>::enabled to eliminate disabled tags entirely without
- * needing a null builder.  NullRecordBuilder is for advanced use cases where
- * explicit builder selection outside the macro system is required.
+ * NOTE: The NOVA_LOG_* macros use this type in conjunction with std::conditional
+ * on logger_traits<Tag>::enabled to eliminate disabled tags entirely.
+ * NullRecordBuilder is for advanced use cases where explicit builder selection
+ * outside the macro system is required.
  */
-class NullRecordBuilder
+class NullRecordBuilder : private Immovable
 {
 public:
 	/**
@@ -61,16 +62,42 @@ public:
 	 * @return reference to this builder (for chaining)
 	 */
 	template< typename T >
-	inline constexpr NullRecordBuilder& operator<<( const T& ) noexcept;
+	inline NullRecordBuilder& operator<<( const T& ) noexcept;
+};
+
+/**
+ * @brief RAII wrapper returning a NullRecordBuilder from builder().
+ *
+ * Used by NOVA_LOG_BUF and NOVA_LOG_BUF_STACK as the disabled-tag path of
+ * std::conditional, providing a uniform .builder() interface with the real
+ * wrapper types.  Constructed as a temporary at the call site and never
+ * copied or moved.
+ */
+class NullBuilderWrapper
+{
+private:
+	NullRecordBuilder _builder;
+public:
+	NullBuilderWrapper() noexcept = default;
+	inline NullBuilderWrapper( const char* /*file*/, const char* /*function*/, std::uint32_t /*line*/ )  noexcept;
+	inline NullRecordBuilder& builder() noexcept;
 };
 
 template< typename T >
-constexpr NullRecordBuilder& NullRecordBuilder::operator<<( const T& ) noexcept
+NullRecordBuilder& NullRecordBuilder::operator<<( const T& ) noexcept
 {
 	return *this;
 }
 
-} // namespace extras
+NullBuilderWrapper::NullBuilderWrapper( const char* /*file*/, const char* /*function*/, std::uint32_t /*line*/ )  noexcept
+{
+}
+
+NullRecordBuilder& NullBuilderWrapper::builder() noexcept
+{
+	return _builder;
+}
+
 } // namespace nova
 } // namespace kmac
 
@@ -94,6 +121,6 @@ constexpr NullRecordBuilder& NullRecordBuilder::operator<<( const T& ) noexcept
  * @param TagType the logging tag type (evaluated but result discarded)
  */
 #define NOVA_LOG_NULL( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	::kmac::nova::extras::NullRecordBuilder{}
+	::kmac::nova::NullBuilderWrapper().builder()
 
-#endif // KMAC_NOVA_EXTRAS_NULL_LOGGING_H
+#endif // KMAC_NOVA_NULL_LOGGING_H

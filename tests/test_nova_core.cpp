@@ -116,7 +116,7 @@ TEST_F( NovaCore, LoggerBinding )
 	CaptureSink sink;
 
 	{
-		kmac::nova::ScopedConfigurator config;
+		kmac::nova::ScopedConfigurator<> config;
 		config.bind< TestTag1 >( &sink );
 
 		// log a message
@@ -138,7 +138,7 @@ TEST_F( NovaCore, MultipleTagsSeparateSinks )
 	CaptureSink sink1;
 	CaptureSink sink2;
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< TestTag1 >( &sink1 );
 	config.bind< TestTag2 >( &sink2 );
 
@@ -155,7 +155,7 @@ TEST_F( NovaCore, MultipleTagsSharedSink )
 {
 	CaptureSink sink;
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< TestTag1 >( &sink );
 	config.bind< TestTag2 >( &sink );
 
@@ -171,7 +171,7 @@ TEST_F( NovaCore, DisabledTag )
 {
 	CaptureSink sink;
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< DisabledTag >( &sink );
 
 	// logging with disabled tag should not produce output
@@ -202,13 +202,13 @@ TEST_F( NovaCore, ScopedConfiguratorNesting )
 	CaptureSink sink2;
 
 	{
-		kmac::nova::ScopedConfigurator config1;
+		kmac::nova::ScopedConfigurator<> config1;
 		config1.bind< TestTag1 >( &sink1 );
 
 		kmac::nova::Logger< TestTag1 >::log( __FILE__, __FUNCTION__, __LINE__, "outer" );
 
 		{
-			kmac::nova::ScopedConfigurator config2;
+			kmac::nova::ScopedConfigurator<> config2;
 			config2.bind< TestTag1 >( &sink2 );
 
 			kmac::nova::Logger< TestTag1 >::log( __FILE__, __FUNCTION__, __LINE__, "inner" );
@@ -231,7 +231,7 @@ TEST_F( NovaCore, FileLineFunction )
 {
 	CaptureSink sink;
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< TestTag1 >( &sink );
 
 	const char* expectedFile = __FILE__;

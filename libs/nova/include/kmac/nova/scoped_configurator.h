@@ -74,7 +74,7 @@ template< size_t MaxBindings = 16 >
 class ScopedConfigurator : private Immovable
 {
 private:
-	using UnbindFn = void ( * )( );  // noexcept not allowed in C++14
+	using UnbindFn = void ( * )( );  // noexcept not allowed before C++17
 
 	platform::Array< UnbindFn, MaxBindings > _boundList;  ///< registered unbind functions
 	size_t _count = 0;  ///< number of registered unbind functions

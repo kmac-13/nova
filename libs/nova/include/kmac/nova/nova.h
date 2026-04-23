@@ -2,7 +2,10 @@
 #ifndef KMAC_NOVA_MACROS_H
 #define KMAC_NOVA_MACROS_H
 
+#include "null_logging.h"
 #include "truncating_logging.h"
+
+#include <type_traits>
 
 namespace kmac {
 namespace nova {
@@ -25,11 +28,10 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
 
 // The following macros cannot be replaced with constexpr template functions:
 // - __FILE__, __func__, __LINE__ require macro expansion at the call site (C++20
-//   std::source_location would allow functions, but Nova targets C++14/17)
-// - if constexpr (C++17 and later) eliminates disabled tag branches entirely; a
-//   function call cannot suppress evaluation of its own arguments
-// - if (pre-C++17) is not guaranteed to disable tag branches, relying on
-//   compiler optimizations to compile out the code
+//   std::source_location would allow functions, but Nova targets C++11/C++14/17)
+// - std::conditional on logger_traits<Tag>::enabled selects between a real builder
+//   wrapper and NullBuilderWrapper at compile time, guaranteeing the disabled branch
+//   is never instantiated - equivalent to if constexpr but compatible with C++11
 // - alias macros expand to the above and inherit the same constraints
 // NOLINT comments suppress cppcoreguidelines-macro-usage on each definition.
 
@@ -72,7 +74,8 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
  *
  * @see NOVA_LOG_BUF for custom buffer sizes
  * @see NOVA_LOG_STACK for stack-based logging (signal handlers, nested contexts)
- * @see TlsTruncBuilderWrapper for implementation details
+ * @see TlsTruncBuilderWrapper, StackTruncBuilderWrapper, NullBuilderWrapper for
+ *      implementation details for implementation details
  */
 #define NOVA_LOG( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_LOG_BUF( TagType, ::kmac::nova::NOVA_DEFAULT_BUFFER_SIZE )
@@ -99,9 +102,10 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
  */
 #if NOVA_HAS_TLS
 #define NOVA_LOG_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_IF_CONSTEXPR ( ::kmac::nova::logger_traits< TagType >::enabled ) \
-		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
-			::kmac::nova::TlsTruncBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
+	typename std::conditional< \
+		::kmac::nova::logger_traits< TagType >::enabled, \
+		::kmac::nova::TlsTruncBuilderWrapper< TagType, BufferSize >, \
+		::kmac::nova::NullBuilderWrapper >::type( FILE_NAME, __func__, __LINE__ ).builder()
 #else
 // NOVA_NO_TLS: fall through to stack-based builder transparently
 #define NOVA_LOG_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
@@ -145,7 +149,7 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
  * @param TagType the logging tag type
  *
  * @see NOVA_LOG_BUF_STACK for custom buffer sizes
- * @see StackTruncatingBuilder for implementation details
+ * @see StackTruncBuilderWrapper for implementation details
  */
 #define NOVA_LOG_STACK( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_LOG_BUF_STACK( TagType, ::kmac::nova::NOVA_DEFAULT_BUFFER_SIZE )
@@ -165,9 +169,10 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
  * @param BufferSize buffer size in bytes (16-65536, but keep <2KB for signal handlers)
  */
 #define NOVA_LOG_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_IF_CONSTEXPR ( ::kmac::nova::logger_traits< TagType >::enabled ) \
-		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
-			::kmac::nova::StackTruncatingBuilder< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ )
+	typename std::conditional< \
+		::kmac::nova::logger_traits< TagType >::enabled, \
+		::kmac::nova::StackTruncBuilderWrapper< TagType, BufferSize >, \
+		::kmac::nova::NullBuilderWrapper >::type( FILE_NAME, __func__, __LINE__ ).builder()
 
 //
 // Convenience Aliases for Common Buffer Sizes

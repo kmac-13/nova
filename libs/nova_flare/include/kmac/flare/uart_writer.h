@@ -77,12 +77,12 @@ public:
 	 * @param size number of bytes to write
 	 * @return number of bytes actually written
 	 */
-	using WriteFn = std::size_t (*)( const void* data, std::size_t size );  // noexcept not allowed in C++14
+	using WriteFn = std::size_t (*)( const void* data, std::size_t size );  // noexcept not allowed before C++17
 
 	/**
 	 * @brief Function pointer type for the optional flush callback.
 	 */
-	using FlushFn = void (*)();  // noexcept not allowed in C++14
+	using FlushFn = void (*)();  // noexcept not allowed before C++17
 
 private:
 	WriteFn _writeFn = nullptr;     ///< required write callback

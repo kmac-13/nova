@@ -64,7 +64,7 @@ protected:
 
 TEST_F( NovaRecordBuilders, TruncatingBuilderBasic )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	{
@@ -81,7 +81,7 @@ TEST_F( NovaRecordBuilders, TruncatingBuilderBasic )
 
 TEST_F( NovaRecordBuilders, TruncatingBuilderNumbers )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	{
@@ -100,7 +100,7 @@ TEST_F( NovaRecordBuilders, TruncatingBuilderNumbers )
 
 TEST_F( NovaRecordBuilders, TruncatingBuilderTruncation )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	{
@@ -116,7 +116,7 @@ TEST_F( NovaRecordBuilders, TruncatingBuilderTruncation )
 
 TEST_F( NovaRecordBuilders, TruncatingBuilderEmpty )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	{
@@ -132,7 +132,7 @@ TEST_F( NovaRecordBuilders, TruncatingBuilderEmpty )
 
 TEST_F( NovaRecordBuilders, ContinuationBuilderBasic )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	{
@@ -149,7 +149,7 @@ TEST_F( NovaRecordBuilders, ContinuationBuilderBasic )
 
 TEST_F( NovaRecordBuilders, ContinuationBuilderOverflow )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	{
@@ -175,7 +175,7 @@ TEST_F( NovaRecordBuilders, ContinuationBuilderOverflow )
 
 TEST_F( NovaRecordBuilders, ContinuationBuilderMultipleOverflows )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	{
@@ -217,7 +217,7 @@ TEST_F( NovaRecordBuilders, BuilderWithoutSink )
 
 TEST_F( NovaRecordBuilders, BuilderMixedTypes )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	{
@@ -241,7 +241,7 @@ TEST_F( NovaRecordBuilders, BuilderMixedTypes )
 
 TEST_F( NovaRecordBuilders, BuilderPreservesMetadata )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	const char* testFile = "test_file.cpp";
@@ -265,7 +265,7 @@ TEST_F( NovaRecordBuilders, BuilderPreservesMetadata )
 
 TEST_F( NovaRecordBuilders, ContinuationBuilderRespectsBufferSize )
 {
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< BuilderTag >( &sink );
 
 	{

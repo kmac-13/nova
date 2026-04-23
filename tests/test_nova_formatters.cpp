@@ -295,9 +295,9 @@ TEST_F( NovaFormatters, ISO8601FormattingSink )
 	std::ostringstream oss;
 	kmac::nova::extras::OStreamSink baseSink( oss );
 	kmac::nova::extras::ISO8601Formatter formatter;
-	kmac::nova::extras::FormattingSink iso8601Sink( baseSink, formatter );
+	kmac::nova::extras::FormattingSink<> iso8601Sink( baseSink, formatter );
 
-	kmac::nova::ScopedConfigurator config;
+	kmac::nova::ScopedConfigurator<> config;
 	config.bind< FormatterTag >( &iso8601Sink );
 
 	NOVA_LOG( FormatterTag ) << "iso8601 test";

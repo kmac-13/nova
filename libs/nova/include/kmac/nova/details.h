@@ -143,17 +143,16 @@ struct TagIdVal { static constexpr std::uint64_t value = 0; };
 // IMPLEMENTATION
 //
 
+constexpr const char* recurseFileName( const char* path, const char* last ) noexcept
+{
+	return *path == '\0'
+		? last
+		: recurseFileName( path + 1, ( *path == '/' || *path == '\\' ) ? path + 1 : last );
+}
+
 constexpr const char* fileName( const char* path )
 {
-	const char* file = path;
-	for ( const char* ptr = path; *ptr != '\0'; ++ptr )
-	{
-		if ( *ptr == '/' || *ptr == '\\' )
-		{
-			file = ptr + 1;
-		}
-	}
-	return file;
+	return recurseFileName( path, path );
 }
 
 // FNV-1a constants
@@ -161,44 +160,29 @@ constexpr std::uint64_t FNV_OFFSET = 14695981039346656037ULL;
 constexpr std::uint64_t FNV_PRIME = 1099511628211ULL;
 constexpr std::uint64_t FNV_FINAL = 0xd6e8feb86659fd93ULL;
 
+constexpr std::uint64_t fnv1aAvalanche( std::uint64_t hash ) noexcept
+{
+	return ( ( hash ^ ( hash >> 32U ) ) * FNV_FINAL ) ^ ( ( ( hash ^ ( hash >> 32U ) ) * FNV_FINAL ) >> 32U );
+}
+
+constexpr std::uint64_t recurseFnv1a( const char* str, std::uint64_t hash ) noexcept
+{
+	return *str == '\0'
+		? fnv1aAvalanche( hash )
+		: recurseFnv1a( str + 1, ( hash ^ static_cast< std::uint8_t >( *str ) ) * FNV_PRIME );
+}
+
 // string hash
 constexpr std::uint64_t fnv1a( const char* str ) noexcept
 {
-	std::uint64_t hash = FNV_OFFSET;
-
-	while ( *str != '\0' )
-	{
-		hash ^= static_cast< unsigned char >( *str );
-		hash *= FNV_PRIME;
-		++str;
-	}
-
-	// final avalanche mix (improves distribution for short strings)
-	hash ^= hash >> 32U;
-	hash *= FNV_FINAL;
-	hash ^= hash >> 32U;
-
-	return hash;
+	return recurseFnv1a( str, FNV_OFFSET );
 }
 
 // string literal hash
 template< std::size_t N >
 constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 {
-	std::uint64_t hash = FNV_OFFSET;
-
-	for ( std::size_t i = 0; i < N - 1; ++i )
-	{
-		hash ^= static_cast< std::uint8_t >( str[ i ] );
-		hash *= FNV_PRIME;
-	}
-
-	// final avalanche mix (improves distribution for short strings)
-	hash ^= hash >> 32U;
-	hash *= FNV_FINAL;
-	hash ^= hash >> 32U;
-
-	return hash;
+	return fnv1a( static_cast< const char* >( str ) );
 }
 
 } // namespace details

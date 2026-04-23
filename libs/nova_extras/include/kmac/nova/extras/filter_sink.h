@@ -19,14 +19,14 @@ namespace extras {
  * only if the filter predicate returns true.
  *
  * This is useful for:
- * - Filtering by tag name
- * - Filtering by message content
- * - Filtering by source file/function
- * - Dynamic log level filtering
- * - Temporary debugging filters
+ * - filtering by tag name
+ * - filtering by message content
+ * - filtering by source file/function
+ * - dynamic log level filtering
+ * - temporary debugging filters
  *
  * Example:
- *   // Only forward errors
+ *   // only forward errors
  *   auto errorFilter = [](const Record& r) {
  *       return strstr(r.message, "ERROR") != nullptr;
  *   };
@@ -63,18 +63,6 @@ public:
 	 */
 	void process( const kmac::nova::Record& record ) noexcept override;
 };
-
-/**
- * @brief Helper function to create FilterSink with template argument deduction.
- *
- * Usage:
- *   auto filtered = makeFilterSink(downstream, [](const Record& r) { ... });
- */
-template< typename FilterFn >
-FilterSink< FilterFn > makeFilterSink( kmac::nova::Sink& downstream, FilterFn filter ) noexcept
-{
-	return FilterSink< FilterFn >( downstream, filter );
-}
 
 template< typename FilterFn >
 FilterSink< FilterFn >::FilterSink( kmac::nova::Sink& downstream, FilterFn filter ) noexcept

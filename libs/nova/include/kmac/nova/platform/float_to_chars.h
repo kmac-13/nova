@@ -54,7 +54,7 @@ struct FloatToCharsResult
 // IMPLEMENTATION DETAIL (bare-metal fallback only)
 // ============================================================================
 
-#if ! NOVA_HAS_CHARCONV
+#if ! NOVA_HAS_FLOAT_CHARCONV
 
 namespace details
 {
@@ -100,7 +100,7 @@ inline char* writeUInt( char* buf, char* end, std::uint64_t value ) noexcept
 
 } // namespace details
 
-#endif // ! NOVA_HAS_CHARCONV
+#endif // ! NOVA_HAS_FLOAT_CHARCONV
 
 // ============================================================================
 // PUBLIC INTERFACE
@@ -135,7 +135,7 @@ inline char* writeUInt( char* buf, char* end, std::uint64_t value ) noexcept
  */
 inline FloatToCharsResult floatToChars( char* first, char* last, double value ) noexcept
 {
-#if NOVA_HAS_CHARCONV
+#if NOVA_HAS_FLOAT_CHARCONV
 
 	const auto result = std::to_chars( first, last, value );
 	return { result.ptr, result.ec == std::errc{} };
@@ -269,7 +269,7 @@ inline FloatToCharsResult floatToChars( char* first, char* last, double value ) 
 
 	return { p, true };
 
-#endif // NOVA_HAS_CHARCONV
+#endif // NOVA_HAS_FLOAT_CHARCONV
 }
 
 /**

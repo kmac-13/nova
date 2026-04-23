@@ -29,7 +29,7 @@
  * - length() - number of characters (not including any null terminator)
  * - empty()  - true if length() == 0
  *
- * No heap allocation.  C++14 compatible.
+ * No heap allocation.  C++11 compatible.
  */
 
 namespace kmac {

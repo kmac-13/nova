@@ -80,7 +80,7 @@ private:
 	const char* _tagName = nullptr;
 	std::uint64_t _tagId = 0;
 
-	using LogFunc = void (*)( const Record& );  // noexcept not allowed in C++14
+	using LogFunc = void (*)( const Record& );  // noexcept not allowed before C++17
 	LogFunc _logFunc = nullptr;
 
 public:

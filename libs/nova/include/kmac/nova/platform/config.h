@@ -15,9 +15,9 @@
  * manual override via preprocessor defines for bare-metal and RTOS environments.
  *
  * C++ Version Requirements:
- * - C++17 or later: required (enforced with #error)
+ * - C++11 or later: required (enforced with #error)
  *
- * Nova uses C++17 features including if constexpr, std::string_view, and
+ * Nova uses C++11+ features including if constexpr, std::string_view, and
  * std::to_chars for zero-cost abstractions and optimal performance, and
  * __has_include for automatic configuration.
  *
@@ -114,7 +114,16 @@
  * NOVA_HAS_STD_STRING_VIEW : 1 if std::string_view is available, 0 otherwise
  * NOVA_HAS_TLS             : 1 if thread_local is available, 0 otherwise
  * NOVA_HAS_THREADING       : 1 if threading primitives are available, 0 otherwise
- * NOVA_HAS_CHARCONV        : 1 if <charconv> (std::to_chars) is available, 0 otherwise
+ * NOVA_HAS_CHARCONV        : 1 if <charconv> header is present, 0 otherwise.
+ *                            Does not imply that all to_chars overloads are
+ *                            available (see NOVA_HAS_INT_CHARCONV and
+ *                            NOVA_HAS_FLOAT_CHARCONV for usable overloads)
+ * NOVA_HAS_INT_CHARCONV    : 1 if std::to_chars for integers is available
+ *                            (requires C++17 on MinGW/GCC), 0 otherwise
+ *                            (platform/int_to_chars.h fallback is used instead)
+ * NOVA_HAS_FLOAT_CHARCONV  : 1 if std::to_chars for floating-point is
+ *                            available (requires C++17), 0 otherwise
+ *                            (platform/float_to_chars.h fallback is used instead)
  *
  * Platform markers (set when detected, undefined otherwise):
  * NOVA_PLATFORM_ARM_BAREMETAL, NOVA_PLATFORM_FREERTOS, NOVA_PLATFORM_ZEPHYR,
@@ -281,13 +290,13 @@
 // C++ VERSION DETECTION
 // ============================================================================
 
-// C++17 is 201703L, C++14 is 201402L
+// C++17 is 201703L, C++14 is 201402L, C++11 is 201103L
 #if defined( _MSVC_LANG )
-	#if _MSVC_LANG < 201402L
-		#error "Nova requires C++17 or later. Use /std:c++17 or newer."
+	#if _MSVC_LANG < 201103L
+		#error "Nova requires C++11 or later. Use /std:c++11 or newer."
 	#endif
-#elif __cplusplus < 201402L
-	#error "Nova requires C++17 or later. Use -std=c++17 or newer."
+#elif __cplusplus < 201103L
+	#error "Nova requires C++11 or later. Use -std=c++11 or newer."
 #endif
 
 // ============================================================================
@@ -425,16 +434,38 @@
 // When disabled, platform/int_to_chars.h and platform/float_to_chars.h provide
 // fallback implementations without any libc dependency.
 // Implied by NOVA_BARE_METAL; can also be set independently.
+// Presence does not guarantee all to_chars overloads are available (int and
+// float support are gated separately below)
 #if ! defined( NOVA_NO_CHARCONV )
 	#define NOVA_HAS_CHARCONV 1
 #else
 	#define NOVA_HAS_CHARCONV 0
 #endif
 
+// std::to_chars for integers available?
+// Technically C++17; absent on MinGW/GCC in C++11/14 mode even when
+// <charconv> is present.
+#if NOVA_HAS_CHARCONV && ( __cplusplus >= 201703L || _MSVC_LANG >= 201703L )
+	#define NOVA_HAS_INT_CHARCONV 1
+#else
+	#define NOVA_HAS_INT_CHARCONV 0
+#endif
+
+// std::to_chars for floating-point available?
+// Requires C++17; floating-point overloads were not included in earlier
+// standards even on platforms that provide integer to_chars.
+#if NOVA_HAS_CHARCONV && ( __cplusplus >= 201703L || _MSVC_LANG >= 201703L )
+	#define NOVA_HAS_FLOAT_CHARCONV 1
+#else
+	#define NOVA_HAS_FLOAT_CHARCONV 0
+#endif
+
 // NOVA_IF_CONSTEXPR expands to 'if constexpr' on C++17 and later,
-// and plain 'if' on C++14.  The condition must be a constexpr expression
-// in both cases; on C++14 the compiler will optimise away the dead branch
-// but instantiation of the disabled branch is not guaranteed to be suppressed.
+// and plain 'if' on C++14 and earlier.  The condition must be a constexpr
+// expression in both cases; on C++14 the compiler will optimise away the dead
+// branch but instantiation of the disabled branch is not guaranteed to be suppressed.
+// Used for non-logging compile-time branches where the non-instantiation
+// guarantee of if constexpr is not required.
 #if __cplusplus >= 201703L || _MSVC_LANG >= 201703L
 	#define NOVA_IF_CONSTEXPR if constexpr
 	#define NOVA_INLINE_VAR inline
@@ -541,16 +572,6 @@
 		#pragma message( "  __has_include: NOT supported (manual configuration required)" )
 	#endif
 #endif // NOVA_ENABLE_DIAGNOSTICS
-
-// ============================================================================
-// COMPILER FEATURE DETECTION
-// ============================================================================
-
-// constexpr support (C++17 required)
-// #define NOVA_CONSTEXPR constexpr
-
-// inline namespace support (C++17 has this)
-// #define NOVA_INLINE_NAMESPACE inline namespace
 
 // ============================================================================
 // ASSERTIONS

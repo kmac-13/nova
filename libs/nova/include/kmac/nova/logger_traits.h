@@ -14,6 +14,10 @@ namespace nova {
  * @brief Customization point for per-tag logging behavior.
  *
  * logger_traits<Tag> controls compile-time and runtime behavior for each tag type.
+ * The lowercase_underscore naming follows the C++ standard library convention for
+ * traits classes (e.g. std::char_traits, std::iterator_traits), signalling that
+ * this is a policy/traits template intended for specialization rather than a
+ * regular class.
  *
  * Customizable properties:
  * - tagName: string identifier for the tag (default: stringified tag type)
