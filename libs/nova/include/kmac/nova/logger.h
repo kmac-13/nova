@@ -9,6 +9,7 @@
 #include "platform/atomic.h"
 
 #include <cstring>
+#include <type_traits>
 
 namespace kmac {
 namespace nova {
