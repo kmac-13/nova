@@ -143,10 +143,10 @@ struct TagIdVal { static constexpr std::uint64_t value = 0; };
 // IMPLEMENTATION
 //
 
-// NOLINT(misc-no-recursion) - intentional tail recursion required for
-// constexpr compatibility with C++11, which does not permit loops in
-// constexpr functions; recursion depth is bounded by string length
-constexpr const char* recurseFileName( const char* path, const char* last ) noexcept
+// NOLINT NOTE - intentional tail recursion required for constexpr
+// compatibility with C++11, which does not permit loops in constexpr
+// functions; recursion depth is bounded by string length
+constexpr const char* recurseFileName( const char* path, const char* last ) noexcept  // NOLINT(misc-no-recursion)
 {
 	return *path == '\0'
 		? last
@@ -168,10 +168,10 @@ constexpr std::uint64_t fnv1aAvalanche( std::uint64_t hash ) noexcept
 	return ( ( hash ^ ( hash >> 32U ) ) * FNV_FINAL ) ^ ( ( ( hash ^ ( hash >> 32U ) ) * FNV_FINAL ) >> 32U );
 }
 
-// NOLINT(misc-no-recursion) - intentional tail recursion required for
-// constexpr compatibility with C++11, which does not permit loops in
-// constexpr functions; recursion depth is bounded by string length
-constexpr std::uint64_t recurseFnv1a( const char* str, std::uint64_t hash ) noexcept
+// NOLINT NOTE - intentional tail recursion required for constexpr
+// compatibility with C++11, which does not permit loops in constexp
+// functions; recursion depth is bounded by string length
+constexpr std::uint64_t recurseFnv1a( const char* str, std::uint64_t hash ) noexcept  // NOLINT(misc-no-recursion)
 {
 	return *str == '\0'
 		? fnv1aAvalanche( hash )
