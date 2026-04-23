@@ -2,6 +2,12 @@
 #ifndef KMAC_NOVA_EXTRAS_QT_LOG_SINK_H
 #define KMAC_NOVA_EXTRAS_QT_LOG_SINK_H
 
+#ifdef __has_include
+#if __has_include( <QtCore/QtGlobal> )
+#include <QtCore/QtGlobal>
+#endif  // QtCore/QtGlobal
+#endif  // __has_include
+
 #ifdef QT_VERSION
 
 /**
