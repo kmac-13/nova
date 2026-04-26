@@ -144,32 +144,72 @@ void crashHandler( int signal )
 
 ```
 .
-├── nova/                  # Nova library
-│   └── include/           # header-only core
+├── libs/
+│   ├── nova/                      # Nova core (header-only)
+│   │   └── include/
+│   │       └── kmac/nova/
+│   │           └── platform/      # platform abstraction headers
+│   │
+│   ├── nova_extras/               # Nova Extras (sinks, formatters, async)
+│   │   ├── include/
+│   │   └── src/
+│   │
+│   └── nova_flare/                # Flare emergency/crash logging
+│       ├── include/
+│       ├── src/
+│       └── scripts/               # flare_reader.py, test_flare_reader.py
 │
-├── nova_extras/           # Nova Extras library
-│   ├── include/           # Extras headers
-│   └── src/               # Extras implementations
+├── examples/                      # complete working examples
+│   ├── 01_basic_usage/
+│   ├── 02_multiple_sinks/
+│   ├── 03_custom_clock/
+│   ├── 04_multithreading/
+│   ├── 05_filtering/
+│   ├── 06_hierarchical_tags/
+│   ├── 07_flare/                  # Flare crash capture demo
+│   ├── 08_bare_metal/             # ARM Cortex-M bare-metal example
+│   └── 09_diagnostics/            # NOVA_ENABLE_DIAGNOSTICS example
 │
-├── flare/                 # Flare emergency logging
-│   ├── include/           # Flare headers
-│   ├── src/               # Flare implementations
-│   └── scripts/           # Python analysis tools
+├── tests/                         # unit and integration tests
+│   ├── test_nova_*.cpp            # Nova core and Extras tests
+│   ├── test_flare_*.cpp           # Flare tests
+│   ├── test_integration.cpp       # integration tests
+│   ├── nova_c11_check.cpp         # strict C++11 conformance check
+│   ├── bare_metal/                # bare-metal QEMU test harness
+│   └── rtos/                      # FreeRTOS QEMU test harness
 │
-├── examples/              # complete working examples
+├── benchmarks/                    # performance benchmarks
+│   └── benchmark_*.cpp            # Nova, Extras, Flare, and comparisons
 │
-├── tests/                 # comprehensive unit tests
-│   ├── test_nova_*.cpp    # Nova tests
-│   ├── test_flare_*.cpp   # Flare tests
-│   └── test_integration.cpp  # integration tests
+├── fuzz/                          # LibFuzzer targets
+│   ├── fuzz_record_builder.cpp
+│   ├── fuzz_continuation_builder.cpp
+│   ├── fuzz_flare_reader.cpp
+│   ├── fuzz_flare_scanner.cpp
+│   ├── flare.dict                 # Flare binary format dictionary
+│   └── corpus/                    # seed corpus per target
 │
-├── benchmark/             # benchmark tests
+├── cmake/                         # CMake modules and toolchains
+│   ├── Sanitizers.cmake
+│   ├── NovaConfig.cmake.in
+│   └── toolchains/                # cross-compile toolchain files
+│       ├── arm-none-eabi-cortex-m3.cmake
+│       ├── arm-none-eabi-cortex-m4.cmake
+│       └── android-ndk.cmake
 │
-├── docs/                  # high-level documentation
+├── docs/                          # additional documentation
+│   ├── CPP_VERSION_COMPATIBILITY.md
+│   ├── FLARE_README.md
+│   ├── FLARE_USE_CASES.md
+│   ├── LIBRARY_MIGRATION.md
+│   └── SAFETY_CRITICAL_GUIDELINES.md
 │
-└── ./                     # root
-    ├── README.md          # high-level readme
-    └── LICENSE            # BSD-3-Clause license
+├── .github/
+│   └── workflows/                 # CI workflows (sanitizers, static analysis,
+│                                  # bare-metal, RTOS, fuzzing, multi-platform)
+│
+├── README.md
+└── LICENSE                        # BSD-3-Clause
 ```
 
 ## Architecture
@@ -200,31 +240,45 @@ The compiler knows at each call site which tag is being logged to, enabling:
 
 ### Logger Traits
 
-Each tag's behavior is customized via `logger_traits< Tag >`:
+Each tag's behaviour is customized via `logger_traits< Tag >`. The recommended
+way is the `NOVA_LOGGER_TRAITS` macro:
+
+```cpp
+// timestamp function (must match signature: std::uint64_t() noexcept)
+std::uint64_t gameTimestamp() noexcept
+{
+    return GameEngine::getFrameNanoseconds();
+}
+
+// defines all properties: name, enabled flag, and timestamp source
+NOVA_LOGGER_TRAITS( GameTag, GAME, true, gameTimestamp );
+
+// disabled tag - all logging compiles to nothing
+NOVA_LOGGER_TRAITS( DebugTag, DEBUG, false, gameTimestamp );
+```
+
+Or as a manual specialization:
 
 ```cpp
 template<>
 struct kmac::nova::logger_traits< GameTag >
 {
-	static constexpr const char* tagName = "GAME";
-	static constexpr bool enabled = true;  // false = compile-time disable
-	static constexpr char tagIdStorage = '\0';
+    static constexpr const char* tagName = "GAME";
+    static constexpr std::uint64_t tagId = kmac::nova::details::fnv1a( "GameTag" );
+    static constexpr bool enabled = true;
 
-	static std::uintptr_t tagId() noexcept
-	{
-		return reinterpret_cast< std::uintptr_t >( &tagIdStorage );
-	}
-
-	static std::uint64_t timestamp() noexcept
-	{
-		return GameEngine::getFrameNumber();  // custom timestamp source
-	}
+    static std::uint64_t timestamp() noexcept
+    {
+        return GameEngine::getFrameNanoseconds();
+    }
 };
-
-OR
-
-NOVA_LOGGER_TRAITS( GameTag, GAME, true, GameEngine::getFrameNumber );
 ```
+
+Tag IDs are generated as FNV-1a 64-bit hashes of the fully-qualified tag type
+name string passed to `NOVA_LOGGER_TRAITS`.  Collisions between tags in the
+same translation unit are detected at compile time via a `TagIdVal` struct
+specialization guard - a duplicate tag ID produces a redefinition error.
+
 
 ### Sink Architecture
 
@@ -315,11 +369,11 @@ NOVA_LOG( VerboseTag ) << "Never executed";  // compiled out entirely
 
 **Explicit costs**
 ```cpp
-// Nova: explicit buffer size, visible in code
-NOVA_LOG( Tag ) << "Message";  // 256-byte stack buffer (configurable)
-
 // traditional loggers: hidden string building
 logger->info( "Message {}", longString );  // may allocate, format, lock
+
+// Nova: explicit buffer size, visible in code
+NOVA_LOG( Tag ) << "Message";  // 1024-byte stack buffer (configurable)
 ```
 
 **No hidden global state**
@@ -332,9 +386,9 @@ NOVA_LOG( NetworkTag ) << "Message";  // NetworkTag's sink determines cost
 ```
 
 The key difference: Nova makes costs **visible and controllable**.  You choose:
-- which tags are enabled (compile-time)
+- which tags exist, which are enabled (compile-time)
 - which sink is bound for each tag (explicit binding)
-- which record builder to use (truncating=stack, continuation=stack, streaming=heap)
+- which record builder to use (truncating=stack, continuation=stack, streaming=heap, custom=?)
 - buffer sizes (template parameters, no hidden defaults)
 
 Traditional loggers optimize for ease of use with defaults and global configuration.  Nova optimizes for explicit control where you decide the tradeoffs.
@@ -459,7 +513,7 @@ using ComCompanyModule = HierarchicalTag< CompanyTag, ModuleTag >;
 - applications where explicitness and type safety matter
 
 ⚠️ **Consider trade-offs for:**
-- systems requiring unbounded dynamic loggers (can use custom routing sink, but less convenient than string-based)
+- systems requiring unbounded dynamic loggers (can use custom routing sink, but might less convenient than string-based)
 - applications with many third-party libraries using other logging frameworks (adapter pattern works, but adds integration effort)
 - teams preferring configuration-file-driven logging (can implement config loader, but not built-in)
 
@@ -509,69 +563,44 @@ using ComCompanyModule = HierarchicalTag< CompanyTag, ModuleTag >;
 
 | Scenario | Nova Approach | String-Based Approach | Verdict |
 |----------|---------------|----------------------|---------|
-| **Zero-cost disabled logs** | ✅ `if constexpr` eliminates code and arguments (C++17); optimiser-dependent in release builds (C++11/14) | ❌ Runtime checks always present* | **Nova unique** |
-| **Selective disabling** | ✅ Per-tag granularity | ❌ All-or-nothing by severity** | **Nova unique** |
-| **Compile-time safety** | ✅ Types catch errors | ❌ Strings fail at runtime | Nova wins |
-| **Runtime config files** | ⚠️ Requires app code | ✅ Built-in | String wins (convenience) |
-| **Dynamic loggers (unbounded)** | ⚠️ Custom sink needed | ✅ Natural | String wins (convenience) |
-| **Third-party integration** | ⚠️ Adapter pattern | ✅ Direct support | String wins (ecosystem) |
-| **Hierarchical inheritance** | ⚠️ Explicit configuration | ✅ Automatic | String wins (convenience) |
-| **Scoped configuration** | ✅ Local lifetime, no global state | ❌ Global registry singleton | Nova wins |
-| **Type safety** | ✅ Compiler enforced | ❌ Runtime validation | Nova wins |
-| **Performance (enabled logs)** | ✅ Direct dispatch | ⚠️ Map lookup + string compare | Nova wins |
-| **Per-user/per-connection** | ✅ Custom sink works | ✅ Native support | Both work |
-| **Operational flexibility** | ✅ FilterSink + control interface | ✅ Built-in admin tools | Both work |
+| **Zero-cost disabled logs** | ✅ `if constexpr` eliminates code and arguments (C++17); optimiser-dependent in release builds (C++11/14) | ⚠️ Some support compile-time level disabling but not per-named-logger<sup>1</sup> | — |
+| **Selective disabling** | ✅ Per-tag compile-time granularity | ⚠️ Per-named-logger runtime only | **Compile-time type-safe control is Nova unique** |
+| **Compile-time safety** | ✅ Types catch errors | ❌ Strings fail at runtime | Nova advantage |
+| **Runtime config files** | ⚠️ Requires app code | ✅ Built-in | String advantage (convenience) |
+| **Dynamic loggers (unbounded)** | ⚠️ Custom sink needed | ✅ Natural | String advantage (convenience) |
+| **Configuration isolation** | ✅ Tags are types — third-party code cannot interfere with your sink bindings | ❌ Global registry — any library can reconfigure loggers | Nova advantage |
+| **Shared logging protocol** | ✅ Both using Nova: app can configure library tags via public tag types; library cannot affect app tags | ⚠️ Both using same framework: app can configure library loggers by name; library can also affect app loggers via shared registry | Nova advantage when both parties use it |
+| **Initialization order safety** | ✅ No static init races; each component can only rebind its own tag types — cannot affect other components' bindings | ⚠️ Global registry subject to static init order issues; any component can reconfigure any named logger | Nova advantage on isolation; both require care during runtime reconfiguration |
+| **Hierarchical inheritance** | ⚠️ Explicit per-tag binding — predictable, no implicit inheritance side effects | ✅ Automatic propagation through naming hierarchy | String advantage (convenience) |
+| **Logger access at call site** | ✅ Tag type resolved at compile time — no instance to pass or cache | ⚠️ Cached pointer: comparable to Nova; uncached: map lookup + string compare per call | Nova advantage (ergonomics + performance) |
+| **Scoped configuration** | ✅ Local lifetime, no global state | ❌ Global registry singleton | Nova advantage |
+| **Stale logger references** | ✅ No logger instances held — atomic sink lookup on every call guarantees current configuration | ❌ Cached logger instances can become stale if registry is reconfigured after caching | Nova advantage (correctness) |
+| **Type safety** | ✅ Compiler enforced | ❌ Runtime validation | Nova advantage |
+| **Performance (enabled logs)** | ✅ Direct compile-time dispatch, atomic sink lookup | ⚠️ Cached pointer: comparable; uncached: map lookup + string compare per call | Nova advantage (uncached); comparable (cached) |
+| **Per-user/per-connection** | ✅ Custom sink works | ✅ Native support | String advantage (convenience) |
+| **Operational flexibility** | ✅ FilterSink + control interface | ✅ Built-in admin tools | — |
 
-\* Some string-based loggers (glog, spdlog) support compile-time disabling via preprocessor macros, but it's **all-or-nothing** (removes entire severity levels globally).  They cannot selectively disable individual loggers while keeping others at the same severity level.
+<sup>1</sup> Some string-based loggers (glog, spdlog) support compile-time disabling via preprocessor macros, but only at coarse severity level granularity — removing all DEBUG logs globally. They cannot selectively disable an individual named logger while keeping others at the same severity level enabled.
 
-\*\* Example: glog's `GOOGLE_STRIP_LOG=1` removes all DEBUG logs globally.  You cannot disable `network.tcp.debug` while keeping `database.debug` enabled.  Nova allows per-tag control: `logger_traits<NetworkTcpDebugTag>::enabled = false` while `logger_traits<DatabaseDebugTag>::enabled = true`.
-
-**Key insight:** Nova's zero-cost selective disabling is genuinely unique - no string-based logger can eliminate individual logger overhead at compile time while keeping others.  Nova can achieve similar functionality to string-based loggers through custom sinks, FilterSink, and explicit configuration.  The trade-off is convenience vs. performance/safety.  Choose based on your priorities and constraints.
+**Key insight:** The combination of zero-cost disabled logging with per-tag granularity is genuinely unique to Nova - string-based loggers can achieve compile-time elimination only at coarse severity level boundaries, not per individual tag type.
 
 ## Performance
 
-Nova is designed for zero-cost abstractions:
+Nova is designed around zero-cost abstractions:
 
-```cpp
-// performance test: 1 million logs
-void benchmark()
-{
-	auto start = steady_clock::now();
+- **Disabled tags** compile to nothing on C++17 (language guarantee) or are
+  eliminated by the optimiser in release builds on C++11/14
+- **Enabled tags** incur only an atomic sink pointer load plus the cost of the
+  sink itself — no string formatting, no map lookup, no registry access
+- **Async logging** via `MemoryPoolAsyncSink` decouples the hot path from I/O
 
-	for ( int i = 0; i < 1000000; ++i )
-	{
-		NOVA_LOG( Tag ) << "Message " << i;
-	}
+For measured latency and throughput figures comparing Nova against spdlog,
+Quill, and easylogging++, see the `benchmarks/` directory.  Run the benchmark
+suite on your target hardware for results relevant to your use case.
 
-	auto elapsed = duration_cast< nanoseconds >( steady_clock::now() - start );
-	std::cout << elapsed.count() / 1000000 << " ns/log\n";
-}
-```
+## Benchmarks
 
-**Typical Results:**
-- disabled tag: 0 ns (compiled out)
-- nullptr sink: 50-75 ns (validation checks)
-- NullSink: 50-100 ns (builder overhead only)
-- OStreamSink: 500-1000 ns (including I/O)
-- SynchronizedSink: +20-50 ns (mutex overhead)
-- EmergencySink: 1-5 µs (syscall + flush)
-
-See `nova/include/kmac/nova/performance_metrics.h` for verification tools.
-
-## Comparison with Other Frameworks
-
-| Feature | Nova | spdlog | glog | Boost.Log | easylogging++ | log4cpp |
-|---------|------|--------|------|-----------|---------------|---------|
-| Routing | Compile-time | Runtime | Runtime | Runtime | Runtime | Runtime |
-| Overhead (disabled) | 0 ns | ~10 ns | ??? ns | ??? ns | ??? ns | ??? ns |
-| Tag types | Any type | Strings | Strings | Attributes | Strings | Strings |
-| Configuration | Explicit | Global | Global | Global | Global | Config files |
-| Header-only core | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| No exceptions | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Async-signal-safe | ✅ (Flare) | ❌ | ❌ | ❌ | ❌ | ❌ |
-| License | BSD-3 | MIT | Apache 2.0 | Boost | MIT | LGPL |
-
-See `docs/LOGGING_COMPARISON.md` for detailed analysis.
+TBD
 
 ## Building
 
@@ -706,8 +735,7 @@ public:
 	void process( const kmac::nova::Record& record ) noexcept override
 	{
 		// serialize and send over network
-		std::string msg( record.message, record.messageSize );
-		send( _socket, msg.c_str(), msg.size(), 0 );
+		send( _socket, record.message, record.messageSize, 0 );
 	}
 };
 ```
@@ -723,13 +751,8 @@ template<>
 struct kmac::nova::logger_traits< GameTag >
 {
 	static constexpr const char* tagName = "GAME";
+	static constexpr std::uint64_t tagId = kmac::nova::details::fnv1a( "GameTag" );
 	static constexpr bool enabled = true;
-	static constexpr char tagIdStorage = '\0';
-
-	static std::uintptr_t tagId() noexcept
-	{
-		return reinterpret_cast< std::uintptr_t >( &tagIdStorage );
-	}
 
 	static std::uint64_t timestamp() noexcept
 	{
@@ -821,14 +844,14 @@ NOVA_LOG( NetworkError ) << "Connection failed";  // logged
 
 **Option 3: Custom severity tags**:
 ```cpp
-namespace LoggingSeverity {
+namespace LogSeverity {
 struct D {};
 struct I {};
 struct W {};
 struct E {};
 }
 
-NOVA_LOG( LoggingSeverity::D ) << "custom debug tag";
+NOVA_LOG( LogSeverity::D ) << "custom debug tag";
 ```
 
 **Option 4: Custom combined tags (explicit context)**:
@@ -903,7 +926,7 @@ A: Logger binding is atomic.  Thread safety is per sink, either through wrapping
 A: See [LIBRARY_MIGRATION.md](docs/LIBRARY_MIGRATION.md) for step-by-step guides.
 
 **Q: What's the performance overhead?**  
-A: Disabled tags: 0 ns (compiled out).  Enabled tags: 50-1000 ns depending on sink complexity.  See Performance section above.
+A: Disabled tags: 0 ns (compiled out).  See Performance/Benchmark sections above.
 
 **Q: Can I log by both severity AND subsystem?**  
 A: Yes!  Combine concepts into a single tag: `NetworkError` OR use HierarchicalTag: `HierarchicalTag<NetworkTag, Error>`.
