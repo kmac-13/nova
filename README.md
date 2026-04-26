@@ -36,7 +36,7 @@ Nova's distinguishing approach:
 **Type-based routing instead of string lookups**
 - logging domains are represented by tags, which are C++ types (e.g. struct NetworkTag {};), not runtime strings
 - Logger<NetworkTag> resolved at compile time - no runtime map lookups or string comparisons
-- disabled tags optimized to zero overhead via `std::conditional` (compatible with C++11 and later)
+- disabled tags optimized to zero overhead in release builds; on C++17 this is a language guarantee via `if constexpr`, on C++11/14 it is optimiser-dependent
 
 **Severity is optional, not mandatory**
 - core Nova has no concept of DEBUG/INFO/ERROR levels
@@ -509,7 +509,7 @@ using ComCompanyModule = HierarchicalTag< CompanyTag, ModuleTag >;
 
 | Scenario | Nova Approach | String-Based Approach | Verdict |
 |----------|---------------|----------------------|---------|
-| **Zero-cost disabled logs** | ✅ `std::conditional` eliminates code (C++11 and later) | ❌ Runtime checks always present* | **Nova unique** |
+| **Zero-cost disabled logs** | ✅ `if constexpr` eliminates code and arguments (C++17); optimiser-dependent in release builds (C++11/14) | ❌ Runtime checks always present* | **Nova unique** |
 | **Selective disabling** | ✅ Per-tag granularity | ❌ All-or-nothing by severity** | **Nova unique** |
 | **Compile-time safety** | ✅ Types catch errors | ❌ Strings fail at runtime | Nova wins |
 | **Runtime config files** | ⚠️ Requires app code | ✅ Built-in | String wins (convenience) |
