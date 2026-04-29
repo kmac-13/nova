@@ -38,27 +38,6 @@ static constexpr std::uint32_t SCB_BFAR_ADDR  = 0xE000ED38UL;
 // LR is set to 0xFFFFFFFD by the processor on exception entry from Thread mode / PSP
 static constexpr std::uint32_t EXC_RETURN_THREAD_PSP = 0xFFFFFFFDUL;
 
-// ============================================================================
-// Assembler mode directives (ARM cross-compile only)
-//
-// The external GNU assembler (as) may not receive -mcpu/-mthumb from the
-// compiler driver when processing the temporary .s file it emits for this
-// translation unit.  Setting arch, ISA mode, and syntax at file scope
-// ensures the entire .s file is assembled correctly regardless of how
-// the assembler was invoked.
-//
-// These must appear before any compiler-generated instructions, so they
-// are placed at namespace scope rather than inside a function body.
-// ============================================================================
-#if defined( __arm__ ) || defined( __thumb__ )
-// NOLINTNEXTLINE(hicpp-no-assembler)
-__asm__ (
-	".arch armv7-m    \n"  // processor that supports mrs msp/psp
-	".thumb           \n"  // Thumb ISA mode (required after .arch resets state)
-	".syntax unified  \n"  // UAL encoding (Thumb-2 mnemonics)
-);
-#endif
-
 namespace kmac {
 namespace flare {
 
@@ -116,19 +95,20 @@ void BareMetalFaultHandler::extractExceptionFrame( FaultContext& ctx ) noexcept
 {
 #if defined( __arm__ ) || defined( __thumb__ )
 
+	// flare_read_exception_regs is implemented in bare_metal_fault_handler_asm.s
+	// using a dedicated assembly file so the assembler directives (.arch, .thumb,
+	// .syntax unified) take full effect without relying on compiler-driver
+	// flag-forwarding to the external GNU assembler.
+	extern "C" void flare_read_exception_regs(
+		std::uint32_t* msp,
+		std::uint32_t* psp,
+		std::uint32_t* lr
+	) noexcept;
+
 	std::uint32_t msp = 0;
 	std::uint32_t psp = 0;
-	std::uint32_t lr = 0;
-
-	// NOLINTNEXTLINE(hicpp-no-assembler)
-	__asm volatile (
-		"mrs %0, msp      \n"
-		"mrs %1, psp      \n"
-		"mov %2, lr       \n"
-		: "=r" ( msp ), "=r" ( psp ), "=r" ( lr )
-		:
-		: "memory"
-	);
+	std::uint32_t lr  = 0;
+	flare_read_exception_regs( &msp, &psp, &lr );
 
 	// determine which stack holds the exception frame:
 	// EXC_RETURN in LR tells us whether the exception was taken from

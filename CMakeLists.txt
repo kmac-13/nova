@@ -196,6 +196,16 @@ if( NOVA_BUILD_FLARE )
 	if( FLARE_EXCLUDE_POSIX_WRITERS )
 		list( FILTER FLARE_SOURCES EXCLUDE REGEX ".*/fd_writer\\.cpp$" )
 		list( FILTER FLARE_SOURCES EXCLUDE REGEX ".*/file_writer\\.cpp$" )
+
+		# include the ARM register-read assembly stub when cross-compiling for ARM;
+		# on hosted bare-metal builds (x86-64 with NOVA_BARE_METAL) the .cpp guards
+		# exclude the call site so the stub is not needed
+		if( CMAKE_SYSTEM_PROCESSOR MATCHES "arm|ARM" )
+			enable_language( ASM )
+			list( APPEND FLARE_SOURCES
+				"libs/nova_flare/src/kmac/flare/bare_metal_fault_handler_asm.s"
+			)
+		endif()
 	endif()
 
 	add_library( nova_flare ${FLARE_SOURCES} ${FLARE_HEADERS} )
