@@ -95,12 +95,24 @@ void BareMetalFaultHandler::extractExceptionFrame( FaultContext& ctx ) noexcept
 {
 #if defined( __arm__ ) || defined( __thumb__ )
 
-	register std::uint32_t msp __asm( "msp" ); // NOLINT(cppcoreguidelines-init-variables)
-	register std::uint32_t psp __asm( "psp" ); // NOLINT(cppcoreguidelines-init-variables)
-	register std::uint32_t lr __asm( "lr" ); // NOLINT(cppcoreguidelines-init-variables)
+	std::uint32_t msp = 0;
+	std::uint32_t psp = 0;
+	std::uint32_t lr = 0;
 
+	// .syntax unified forces the assembler into Thumb-2 (UAL) mode so mrs
+	// accepts msp/psp regardless of whether -mthumb is forwarded to the
+	// external assembler by the compiler driver.  mov captures lr before
+	// any compiler prologue can overwrite it.
 	// NOLINTNEXTLINE(hicpp-no-assembler)
-	__asm volatile ( "" : "=r" ( msp ), "=r" ( psp ), "=r" ( lr ) );
+	__asm volatile (
+		".syntax unified  \n"
+		"mrs %0, msp      \n"
+		"mrs %1, psp      \n"
+		"mov %2, lr       \n"
+		: "=r" ( msp ), "=r" ( psp ), "=r" ( lr )
+		:
+		: "memory"
+	);
 
 	// determine which stack holds the exception frame:
 	// EXC_RETURN in LR tells us whether the exception was taken from
