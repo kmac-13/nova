@@ -91,23 +91,23 @@ void BareMetalFaultHandler::handleFault() noexcept
 // private implementation
 // ============================================================================
 
+// forward declaration for the ARM assembly helper in bare_metal_fault_handler_asm.s;
+// guarded to match the call site - not linked on non-ARM bare-metal builds
+#if defined( __arm__ ) || defined( __thumb__ )
+extern "C" void flare_read_exception_regs(
+	std::uint32_t* msp,
+	std::uint32_t* psp,
+	std::uint32_t* lr
+) noexcept;
+#endif
+
 void BareMetalFaultHandler::extractExceptionFrame( FaultContext& ctx ) noexcept
 {
 #if defined( __arm__ ) || defined( __thumb__ )
 
-	// flare_read_exception_regs is implemented in bare_metal_fault_handler_asm.s
-	// using a dedicated assembly file so the assembler directives (.arch, .thumb,
-	// .syntax unified) take full effect without relying on compiler-driver
-	// flag-forwarding to the external GNU assembler.
-	extern "C" void flare_read_exception_regs(
-		std::uint32_t* msp,
-		std::uint32_t* psp,
-		std::uint32_t* lr
-	) noexcept;
-
 	std::uint32_t msp = 0;
 	std::uint32_t psp = 0;
-	std::uint32_t lr  = 0;
+	std::uint32_t lr = 0;
 	flare_read_exception_regs( &msp, &psp, &lr );
 
 	// determine which stack holds the exception frame:
