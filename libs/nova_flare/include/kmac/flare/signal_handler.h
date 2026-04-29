@@ -8,6 +8,7 @@
 #define FLARE_HAVE_FAULT_CONTEXT 1 /* NOLINT(cppcoreguidelines-macro-usage) */
 
 #include "emergency_sink.h"
+#include "fault_context.h"
 
 #include <kmac/nova/record.h>
 #include <kmac/nova/platform/array.h>
@@ -18,29 +19,6 @@
 
 namespace kmac {
 namespace flare {
-
-/**
- * @brief Fault context captured from a signal handler.
- *
- * Passed to EmergencySinkBase::processWithFaultContext() to write crash
- * records that include the faulting address, ASLR offset, and CPU registers.
- * All fields are async-signal-safe to populate from within a signal handler.
- */
-struct FaultContext
-{
-	std::uint64_t faultAddress = 0;    // si_addr cast to uint64_t; 0 if unavailable
-	bool hasFaultAddress = false;      // true when faultAddress is meaningful
-
-	std::uint64_t aslrOffset = 0;      // ASLR slide for the main executable
-
-	// CPU registers at the point of fault.
-	// Layout is architecture-specific; see RegisterLayoutId in tlv.h.
-	// Maximum size covers the largest supported layout (ARM64: 34 registers).
-	static constexpr std::size_t MAX_REGISTERS = 34;
-	kmac::nova::platform::Array< std::uint64_t, MAX_REGISTERS > registers {};
-	std::size_t registerCount = 0;
-	std::uint8_t layoutId = 0;         // RegisterLayoutId value
-};
 
 /**
  * @brief Non-templated base for SignalHandler.

@@ -2,6 +2,7 @@
 #ifndef KMAC_FLARE_EMERGENCY_SINK_H
 #define KMAC_FLARE_EMERGENCY_SINK_H
 
+#include "fault_context.h"
 #include "iwriter.h"
 
 #include <kmac/nova/record.h>
@@ -13,9 +14,6 @@
 
 namespace kmac {
 namespace flare {
-
-// forward declarations
-struct FaultContext;  // full definition in signal_handler.h
 
 /**
  * @brief Non-templated base for EmergencySink.
