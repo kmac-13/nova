@@ -99,12 +99,15 @@ void BareMetalFaultHandler::extractExceptionFrame( FaultContext& ctx ) noexcept
 	std::uint32_t psp = 0;
 	std::uint32_t lr = 0;
 
-	// .syntax unified forces the assembler into Thumb-2 (UAL) mode so mrs
-	// accepts msp/psp regardless of whether -mthumb is forwarded to the
-	// external assembler by the compiler driver.  mov captures lr before
-	// any compiler prologue can overwrite it.
+	// .arch armv7-m selects a processor that supports mrs with msp/psp;
+	// .syntax unified switches to UAL (Thumb-2) instruction encoding.
+	// Both directives are needed because the external assembler may not
+	// receive -mcpu/-mthumb from the compiler driver when processing the
+	// temporary .s file emitted for inline assembly.  mov captures lr
+	// before any compiler prologue can overwrite it.
 	// NOLINTNEXTLINE(hicpp-no-assembler)
 	__asm volatile (
+		".arch armv7-m    \n"
 		".syntax unified  \n"
 		"mrs %0, msp      \n"
 		"mrs %1, psp      \n"
