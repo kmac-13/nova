@@ -95,21 +95,12 @@ void BareMetalFaultHandler::extractExceptionFrame( FaultContext& ctx ) noexcept
 {
 #if defined( __arm__ ) || defined( __thumb__ )
 
-	// read MSP and PSP via inline assembly; these are banked registers not
-	// accessible as normal C variables
-	std::uint32_t msp = 0;
-	std::uint32_t psp = 0;
-	std::uint32_t lr = 0;
+	register std::uint32_t msp __asm( "msp" ); // NOLINT(cppcoreguidelines-init-variables)
+	register std::uint32_t psp __asm( "psp" ); // NOLINT(cppcoreguidelines-init-variables)
+	register std::uint32_t lr __asm( "lr" ); // NOLINT(cppcoreguidelines-init-variables)
 
 	// NOLINTNEXTLINE(hicpp-no-assembler)
-	__asm volatile (
-		"mrs %0, msp \n"
-		"mrs %1, psp \n"
-		"mov %2, lr  \n"
-		: "=r" ( msp ), "=r" ( psp ), "=r" ( lr )
-		:
-		: "memory"
-	);
+	__asm volatile ( "" : "=r" ( msp ), "=r" ( psp ), "=r" ( lr ) );
 
 	// determine which stack holds the exception frame:
 	// EXC_RETURN in LR tells us whether the exception was taken from
