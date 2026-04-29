@@ -38,6 +38,27 @@ static constexpr std::uint32_t SCB_BFAR_ADDR  = 0xE000ED38UL;
 // LR is set to 0xFFFFFFFD by the processor on exception entry from Thread mode / PSP
 static constexpr std::uint32_t EXC_RETURN_THREAD_PSP = 0xFFFFFFFDUL;
 
+// ============================================================================
+// Assembler mode directives (ARM cross-compile only)
+//
+// The external GNU assembler (as) may not receive -mcpu/-mthumb from the
+// compiler driver when processing the temporary .s file it emits for this
+// translation unit.  Setting arch, ISA mode, and syntax at file scope
+// ensures the entire .s file is assembled correctly regardless of how
+// the assembler was invoked.
+//
+// These must appear before any compiler-generated instructions, so they
+// are placed at namespace scope rather than inside a function body.
+// ============================================================================
+#if defined( __arm__ ) || defined( __thumb__ )
+// NOLINTNEXTLINE(hicpp-no-assembler)
+__asm__ (
+	".arch armv7-m    \n"  // processor that supports mrs msp/psp
+	".thumb           \n"  // Thumb ISA mode (required after .arch resets state)
+	".syntax unified  \n"  // UAL encoding (Thumb-2 mnemonics)
+);
+#endif
+
 namespace kmac {
 namespace flare {
 
@@ -99,16 +120,8 @@ void BareMetalFaultHandler::extractExceptionFrame( FaultContext& ctx ) noexcept
 	std::uint32_t psp = 0;
 	std::uint32_t lr = 0;
 
-	// .arch armv7-m selects a processor that supports mrs with msp/psp;
-	// .syntax unified switches to UAL (Thumb-2) instruction encoding.
-	// Both directives are needed because the external assembler may not
-	// receive -mcpu/-mthumb from the compiler driver when processing the
-	// temporary .s file emitted for inline assembly.  mov captures lr
-	// before any compiler prologue can overwrite it.
 	// NOLINTNEXTLINE(hicpp-no-assembler)
 	__asm volatile (
-		".arch armv7-m    \n"
-		".syntax unified  \n"
 		"mrs %0, msp      \n"
 		"mrs %1, psp      \n"
 		"mov %2, lr       \n"
