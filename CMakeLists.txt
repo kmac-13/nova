@@ -41,13 +41,15 @@ if( NOVA_PLATFORM_BARE_METAL )
 		set( NOVA_BUILD_EXTRAS OFF CACHE BOOL "Build Nova Extras library" FORCE )
 	endif()
 
-	# Flare's FileWriter depends on POSIX file descriptors.  Bare-metal targets
-	# must provide their own IWriter implementation.  Disable the compiled library
-	# so users are not forced to stub out FileWriter; they link against Nova core
-	# and Flare headers directly with their own IWriter.
+	# Flare's FileWriter and FdWriter depend on POSIX file descriptors and
+	# stdio.  Exclude those two translation units on bare-metal; everything
+	# else (EmergencySink, RamWriter, UartWriter, BareMetalFaultHandler, TLV
+	# encoder, scanner, record) compiles without any OS dependency.
+	# The headers already guard themselves with platform #if blocks, so no
+	# additional compile definitions are required here.
 	if( NOVA_BUILD_FLARE )
-		message( STATUS "  Flare: disabled (FileWriter requires POSIX; provide IWriter instead)" )
-		set( NOVA_BUILD_FLARE OFF CACHE BOOL "Build Flare library" FORCE )
+		message( STATUS "  Flare: FileWriter and FdWriter excluded (POSIX not available)" )
+		set( FLARE_EXCLUDE_POSIX_WRITERS ON )
 	endif()
 
 	# Tests and examples both depend on Nova Extras - disable them too.
@@ -188,6 +190,14 @@ if( NOVA_BUILD_FLARE )
 		"libs/nova_flare/src/*.cpp"
 	)
 
+	# exclude POSIX-only writers when targeting bare-metal; the headers already
+	# guard themselves with platform #if checks so no compile definitions are
+	# needed - only the translation units are removed from the build
+	if( FLARE_EXCLUDE_POSIX_WRITERS )
+		list( FILTER FLARE_SOURCES EXCLUDE REGEX ".*/fd_writer\\.cpp$" )
+		list( FILTER FLARE_SOURCES EXCLUDE REGEX ".*/file_writer\\.cpp$" )
+	endif()
+
 	add_library( nova_flare ${FLARE_SOURCES} ${FLARE_HEADERS} )
 	add_library( Nova::Flare ALIAS nova_flare )
 
@@ -199,6 +209,12 @@ if( NOVA_BUILD_FLARE )
 	target_link_libraries( nova_flare PUBLIC nova )
 
 	target_compile_features( nova_flare PUBLIC cxx_std_17 )
+
+	# propagate NOVA_BARE_METAL to Flare so bare_metal_fault_handler.cpp
+	# and the guarded headers activate the correct code paths
+	if( NOVA_PLATFORM_BARE_METAL )
+		target_compile_definitions( nova_flare PUBLIC NOVA_BARE_METAL )
+	endif()
 
 	# Signal handler support - POSIX only; silently ignored on non-POSIX targets
 	# because signal_handler.cpp guards its entire body behind the same platform check

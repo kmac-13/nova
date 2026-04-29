@@ -78,12 +78,16 @@ enum class TlvType : uint16_t
 	// little-endian, register count = tlv_length / 8.
 	// Architecture-specific field order is documented in RegisterLayoutId.
 	// Supported layouts:
-	//   x86-64: rax, rbx, rcx, rdx, rsi, rdi, rbp, rsp, r8-r15, rip, rflags
-	//           (18 registers, 144 bytes)
-	//   ARM64:  x0-x30, sp, pc, pstate
-	//           (34 registers, 272 bytes)
-	//   ARM32:  r0-r15, cpsr
-	//           (17 registers, 136 bytes)
+	//   x86-64:    rax, rbx, rcx, rdx, rsi, rdi, rbp, rsp, r8-r15, rip, rflags
+	//              (18 registers, 144 bytes)
+	//   ARM64:     x0-x30, sp, pc, pstate
+	//              (34 registers, 272 bytes)
+	//   ARM32:     r0-r15, cpsr
+	//              (17 registers, 136 bytes)
+	//   CortexM:   r0-r3, r12, lr, pc, xpsr  (hardware exception frame only)
+	//              (8 registers, 64 bytes)
+	//              callee-saved r4-r11 are not included unless the fault handler
+	//              entry stub captures them before branching to C code
 	CpuRegisters        = 35,
 
 	// record terminator
@@ -102,6 +106,7 @@ enum class RegisterLayoutId : uint8_t
 	X86_64  = 1,  ///< see TlvType::CpuRegisters for field order
 	Arm64   = 2,  ///< see TlvType::CpuRegisters for field order
 	Arm32   = 3,  ///< see TlvType::CpuRegisters for field order
+	CortexM = 4,  ///< hardware exception frame: r0-r3, r12, lr, pc, xpsr
 };
 
 /**
