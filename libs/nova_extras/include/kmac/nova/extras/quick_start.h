@@ -118,7 +118,7 @@ public:
 	 * Tags below the threshold are not bound - they produce no output and
 	 * incur no runtime cost beyond the unbound logger check.
 	 */
-	enum class Severity
+	enum class Severity : std::uint8_t
 	{
 		Trace,    ///< bind all six tags (most verbose)
 		Debug,    ///< bind Debug through Fatal
