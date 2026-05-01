@@ -8,6 +8,7 @@
 #include "kmac/nova/extras/filter_sink.h"
 #include "kmac/nova/extras/ostream_sink.h"
 #include "kmac/nova/extras/null_sink.h"
+#include "kmac/nova/extras/quick_start.h"
 
 #include <gtest/gtest.h>
 
@@ -200,6 +201,17 @@ TEST_F( NovaSinks, OStreamSinkWithCout )
 	config.bind< SinkTag >( &sink );
 
 	NOVA_LOG( SinkTag ) << "to stdout";
+
+	SUCCEED();
+}
+
+TEST_F( NovaSinks, QuickStartLogging )
+{
+	// test the quick start mechanism
+	kmac::nova::extras::QuickStart logging( std::cout, kmac::nova::extras::QuickStart::Severity::Info );
+
+	NOVA_LOG_DEBUG() << "to stdout";  // shouldn't log
+	NOVA_LOG_INFO() << "to stdout";  // should log
 
 	SUCCEED();
 }
