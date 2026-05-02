@@ -126,10 +126,10 @@ StreamingRecordBuilder& StreamingRecordBuilder::setContext( const char* file, co
 	_file = file;
 	_function = function;
 	_line = line;
-	_timestamp = ::kmac::nova::logger_traits< Tag >::timestamp();
+	_timestamp = ::kmac::nova::LoggerTraits< Tag >::timestamp();
 
-	_tagName = ::kmac::nova::logger_traits< Tag >::tagName;
-	_tagId = ::kmac::nova::logger_traits< Tag >::tagId;
+	_tagName = ::kmac::nova::LoggerTraits< Tag >::tagName;
+	_tagId = ::kmac::nova::LoggerTraits< Tag >::tagId;
 
 	_logFunc = &::kmac::nova::Logger< Tag >::log;
 
@@ -198,10 +198,10 @@ void StreamingRecordBuilder::commit()
  * Usage:
  *   NOVA_LOG_STREAM( DiagTag ) << "Value: " << complexObject;
  *
- * @param TagType the logging tag type (must have logger_traits specialization)
+ * @param TagType the logging tag type (must have LoggerTraits specialization)
  */
 #define NOVA_LOG_STREAM( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	if constexpr ( ::kmac::nova::logger_traits< TagType >::enabled ) \
+	if constexpr ( ::kmac::nova::LoggerTraits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::extras::StreamingRecordBuilder().setContext< TagType >( \
 				FILE_NAME, __func__, __LINE__ \

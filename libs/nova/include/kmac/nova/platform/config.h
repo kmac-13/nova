@@ -139,7 +139,7 @@
  *
  * LOG_LEVEL_*, MIN_LOG_LEVEL, MAX_LOG_LEVEL and similar severity flags:
  *   Nova uses types, not severity levels.  Compile-time filtering is controlled
- *   by logger_traits<Tag>::enabled.  Runtime filtering is via sink binding and
+ *   by LoggerTraits<Tag>::enabled.  Runtime filtering is via sink binding and
  *   unbinding, or a filtering sink (e.g. FilterSink from Nova Extras, or your
  *   own Sink implementation).
  *

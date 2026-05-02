@@ -35,7 +35,7 @@ namespace nova {
  *
  * Runtime enabling and disabling of logging is achieved by binding or unbinding
  * sinks.  This is independent of compile-time enablement controlled by
- * logger_traits::enabled.
+ * LoggerTraits::enabled.
  *
  * Logger<Tag> is not instantiated and does not represent an object with
  * lifetime.  All interaction is performed through static member functions.
@@ -122,22 +122,22 @@ Sink* Logger< Tag >::getSink() noexcept
 template< typename Tag >
 void Logger< Tag >::log( const char* file, const char* function, std::uint32_t line, const char* message ) noexcept
 {
-	route( file, function, line, message, std::integral_constant< bool, logger_traits< Tag >::enabled >{} );
+	route( file, function, line, message, std::integral_constant< bool, LoggerTraits< Tag >::enabled >{} );
 }
 
 template< typename Tag >
 void Logger< Tag >::log( const Record& record ) noexcept
 {
-	route( record, std::integral_constant< bool, logger_traits< Tag >::enabled >{} );
+	route( record, std::integral_constant< bool, LoggerTraits< Tag >::enabled >{} );
 }
 
 template< typename Tag >
 void Logger< Tag >::route( const char* file, const char* function, std::uint32_t line, const char* message, std::true_type ) noexcept
 {
 	Record record {
-		logger_traits< Tag >::timestamp(),
-		logger_traits< Tag >::tagId,
-		logger_traits< Tag >::tagName,
+		LoggerTraits< Tag >::timestamp(),
+		LoggerTraits< Tag >::tagId,
+		LoggerTraits< Tag >::tagName,
 		file,
 		function,
 		line,

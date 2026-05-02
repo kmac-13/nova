@@ -79,9 +79,9 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;  // NOLINT(c
  *         std::uint64_t id = 0;
  *         switch ( id )
  *         {
- *         case kmac::nova::logger_traits< sensorslib::DebugTag >::tagId: break;
- *         case kmac::nova::logger_traits< sensorslib::ErrorTag >::tagId: break;
- *         case kmac::nova::logger_traits< app::ui::RenderTag >::tagId:   break;
+ *         case kmac::nova::LoggerTraits< sensorslib::DebugTag >::tagId: break;
+ *         case kmac::nova::LoggerTraits< sensorslib::ErrorTag >::tagId: break;
+ *         case kmac::nova::LoggerTraits< app::ui::RenderTag >::tagId:   break;
  *         // ... one case per tag ...
  *         }
  *     }
@@ -101,7 +101,7 @@ constexpr std::uint64_t fnv1a( const char ( &str )[ N ] ) noexcept;  // NOLINT(c
  *      X( app::net::PacketTag )
  *   switch ( id ) {
  *   #define NOVA_TAG_CASE(Tag) \
- *      case kmac::nova::logger_traits< Tag >::tagId: break;
+ *      case kmac::nova::LoggerTraits< Tag >::tagId: break;
  *      NOVA_TAG_LIST( NOVA_TAG_CASE )
  *   #undef NOVA_TAG_CASE
  *   }

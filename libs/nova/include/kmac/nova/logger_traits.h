@@ -13,7 +13,7 @@ namespace nova {
 /**
  * @brief Customization point for per-tag logging behavior.
  *
- * logger_traits<Tag> controls compile-time and runtime behavior for each tag type.
+ * LoggerTraits<Tag> controls compile-time and runtime behavior for each tag type.
  * The lowercase_underscore naming follows the C++ standard library convention for
  * traits classes (e.g. std::char_traits, std::iterator_traits), signalling that
  * this is a policy/traits template intended for specialization rather than a
@@ -32,7 +32,7 @@ namespace nova {
  * @tparam Tag User-defined tag type representing logging context
  */
 template< typename Tag >
-struct logger_traits;
+struct LoggerTraits;
 
 } // namespace nova
 } // namespace kmac
@@ -45,7 +45,7 @@ struct logger_traits;
  * @brief Specialization for void tag (used internally).
  */
 template<>
-struct kmac::nova::logger_traits< void >
+struct kmac::nova::LoggerTraits< void >
 {
 	/**
 	 * @brief String identifier for this tag.
@@ -84,9 +84,9 @@ struct kmac::nova::logger_traits< void >
 };
 // specialize
 template<>
-struct kmac::nova::details::TagIdVal< kmac::nova::logger_traits< void >::tagId >
+struct kmac::nova::details::TagIdVal< kmac::nova::LoggerTraits< void >::tagId >
 {
-	static constexpr std::uint64_t value = kmac::nova::logger_traits< void >::tagId;
+	static constexpr std::uint64_t value = kmac::nova::LoggerTraits< void >::tagId;
 };
 
 //
@@ -99,7 +99,7 @@ struct kmac::nova::details::TagIdVal< kmac::nova::logger_traits< void >::tagId >
 // NOLINT is used to suppress the cppcoreguidelines-macro-usage diagnostic accordingly.
 
 /**
- * @brief Full logger_traits specialization macro.
+ * @brief Full LoggerTraits specialization macro.
  *
  * Defines all properties: type, name, enabled, and timestamp.
  *
@@ -125,7 +125,7 @@ struct kmac::nova::details::TagIdVal< kmac::nova::logger_traits< void >::tagId >
  */
 #define NOVA_LOGGER_TRAITS( TagType, Name, Enabled, TimestampExpr ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	template<> \
-	struct kmac::nova::logger_traits< TagType > \
+	struct kmac::nova::LoggerTraits< TagType > \
 	{ \
 		static constexpr const char* tagName = #Name; \
 		static constexpr std::uint64_t tagId = kmac::nova::details::fnv1a( #TagType ); \
@@ -135,17 +135,17 @@ struct kmac::nova::details::TagIdVal< kmac::nova::logger_traits< void >::tagId >
 		} \
 	}; \
 	template<> \
-	struct kmac::nova::details::TagIdVal< kmac::nova::logger_traits< TagType >::tagId > \
+	struct kmac::nova::details::TagIdVal< kmac::nova::LoggerTraits< TagType >::tagId > \
 	{ \
-		static constexpr std::uint64_t value = kmac::nova::logger_traits< TagType >::tagId; \
+		static constexpr std::uint64_t value = kmac::nova::LoggerTraits< TagType >::tagId; \
 	}; \
 	static_assert( \
-		kmac::nova::details::TagIdVal< kmac::nova::logger_traits< TagType >::tagId >::value == \
-		kmac::nova::logger_traits< TagType >::tagId, \
+		kmac::nova::details::TagIdVal< kmac::nova::LoggerTraits< TagType >::tagId >::value == \
+		kmac::nova::LoggerTraits< TagType >::tagId, \
 		"Nova tagId collision detected" )
 
 /**
- * @brief Simplified logger_traits macro with defaults.
+ * @brief Simplified LoggerTraits macro with defaults.
  *
  * Uses steady_clock and enabled=true by default.
  *
@@ -159,7 +159,7 @@ struct kmac::nova::details::TagIdVal< kmac::nova::logger_traits< void >::tagId >
 	NOVA_LOGGER_TRAITS( TagType, Name, true, ::kmac::nova::TimestampHelper::systemNanosecs )
 
 /**
- * @brief Disabled logger_traits macro.
+ * @brief Disabled LoggerTraits macro.
  *
  * Creates a disabled logger (enabled=false).
  *

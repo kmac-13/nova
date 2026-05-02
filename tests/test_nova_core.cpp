@@ -103,12 +103,12 @@ TEST_F( NovaCore, RecordStructure )
 TEST_F( NovaCore, LoggerTraits )
 {
 	// test enabled tag
-	EXPECT_TRUE( kmac::nova::logger_traits< TestTag1 >::enabled );
-	EXPECT_STREQ( kmac::nova::logger_traits< TestTag1 >::tagName, "TEST1" );
-	EXPECT_EQ( kmac::nova::logger_traits< TestTag1 >::timestamp(), 12345ULL );
+	EXPECT_TRUE( kmac::nova::LoggerTraits< TestTag1 >::enabled );
+	EXPECT_STREQ( kmac::nova::LoggerTraits< TestTag1 >::tagName, "TEST1" );
+	EXPECT_EQ( kmac::nova::LoggerTraits< TestTag1 >::timestamp(), 12345ULL );
 
 	// test disabled tag
-	EXPECT_FALSE( kmac::nova::logger_traits< DisabledTag >::enabled );
+	EXPECT_FALSE( kmac::nova::LoggerTraits< DisabledTag >::enabled );
 }
 
 TEST_F( NovaCore, LoggerBinding )

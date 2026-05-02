@@ -131,7 +131,7 @@ TEST_F( Integration, FilteredLoggingPipeline )
 			// new switch-based conditions on traits' tagId
 			switch ( rec.tagId )
 			{
-			case kmac::nova::logger_traits< DebugTag >::tagId:
+			case kmac::nova::LoggerTraits< DebugTag >::tagId:
 				return false;
 			}
 			return true;

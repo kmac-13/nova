@@ -229,10 +229,10 @@ void ContinuationRecordBuilder< BufferSize >::setContext( const char* file, cons
 	_file = file;
 	_function = function;
 	_line = line;
-	_timestamp = logger_traits< Tag >::timestamp();
+	_timestamp = LoggerTraits< Tag >::timestamp();
 
-	_tagName = logger_traits< Tag >::tagName;
-	_tagId = logger_traits< Tag >::tagId;
+	_tagName = LoggerTraits< Tag >::tagName;
+	_tagId = LoggerTraits< Tag >::tagId;
 
 	_logFunc = &Logger< Tag >::log;
 }
@@ -619,7 +619,7 @@ std::size_t StackContinuationBuilder< Tag, BufferSize >::continuationCount() con
  */
 #if NOVA_HAS_TLS
 #define NOVA_LOG_CONT_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_IF_CONSTEXPR ( ::kmac::nova::logger_traits< TagType >::enabled ) \
+	NOVA_IF_CONSTEXPR ( ::kmac::nova::LoggerTraits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::extras::TlsContBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
 #else
@@ -644,7 +644,7 @@ std::size_t StackContinuationBuilder< Tag, BufferSize >::continuationCount() con
  * @param BufferSize buffer size in bytes (16-65536, keep <2KB for signal handlers)
  */
 #define NOVA_LOG_CONT_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_IF_CONSTEXPR ( ::kmac::nova::logger_traits< TagType >::enabled ) \
+	NOVA_IF_CONSTEXPR ( ::kmac::nova::LoggerTraits< TagType >::enabled ) \
 		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
 			::kmac::nova::extras::StackContinuationBuilder< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ )
 

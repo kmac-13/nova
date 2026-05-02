@@ -36,9 +36,9 @@
  *   {
  *       switch ( tagId )
  *       {
- *       case kmac::nova::logger_traits< NetworkErrorTag >::tagId:
+ *       case kmac::nova::LoggerTraits< NetworkErrorTag >::tagId:
  *           return QtCriticalMsg;
- *       case kmac::nova::logger_traits< UiWarningTag >::tagId:
+ *       case kmac::nova::LoggerTraits< UiWarningTag >::tagId:
  *           return QtWarningMsg;
  *       default:
  *           return QtInfoMsg;
