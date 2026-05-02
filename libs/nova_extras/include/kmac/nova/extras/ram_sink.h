@@ -269,8 +269,7 @@ inline void RamSink< 0 >::reset() noexcept
 
 template< std::size_t InternalSize >
 RamSink< InternalSize >::RamSink() noexcept
-	: _internalBuf {}
-	, _buf( _internalBuf.data() )
+	: _buf( _internalBuf.data() )
 	, _capacity( InternalSize )
 {
 	static_assert( InternalSize >= 16, "InternalSize must be at least 16 bytes" );
