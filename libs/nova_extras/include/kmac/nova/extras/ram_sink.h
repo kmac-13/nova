@@ -120,6 +120,13 @@ namespace extras {
 template< std::size_t InternalSize = 0 >
 class RamSink final : public kmac::nova::Sink
 {
+private:
+	kmac::nova::platform::Array< char, InternalSize > _internalBuf {};  ///< internal buffer (zero-size array when unused)
+	char* _buf = nullptr;            ///< pointer to active buffer (internal or external)
+	std::size_t _capacity = 0;       ///< total buffer capacity in bytes
+	std::size_t _bytesWritten = 0;   ///< bytes written since last reset
+	std::size_t _overflowCount = 0;  ///< records dropped due to full buffer
+
 public:
 	/**
 	 * @brief Construct with an internally-owned buffer.
@@ -178,13 +185,6 @@ public:
 	 * overwritten by subsequent log calls.
 	 */
 	void reset() noexcept;
-
-private:
-	kmac::nova::platform::Array< char, InternalSize > _internalBuf;  ///< internal buffer (zero-size array when unused)
-	char* _buf = nullptr;            ///< pointer to active buffer (internal or external)
-	std::size_t _capacity = 0;       ///< total buffer capacity in bytes
-	std::size_t _bytesWritten = 0;   ///< bytes written since last reset
-	std::size_t _overflowCount = 0;  ///< records dropped due to full buffer
 };
 
 // ----- external buffer specialisation (InternalSize == 0) -------------------
@@ -192,6 +192,12 @@ private:
 template<>
 class RamSink< 0 > final : public kmac::nova::Sink
 {
+private:
+	char* _buf = nullptr;
+	std::size_t _capacity = 0;
+	std::size_t _bytesWritten = 0;
+	std::size_t _overflowCount = 0;
+
 public:
 	/**
 	 * @brief Construct with a user-supplied external buffer.
@@ -209,19 +215,11 @@ public:
 	void process( const kmac::nova::Record& record ) noexcept override;
 
 	void reset() noexcept;
-
-private:
-	char* _buf = nullptr;
-	std::size_t _capacity = 0;
-	std::size_t _bytesWritten = 0;
-	std::size_t _overflowCount = 0;
 };
 
 inline RamSink< 0 >::RamSink( char* buf, std::size_t capacity ) noexcept
 	: _buf( buf )
 	, _capacity( capacity )
-	, _bytesWritten( 0 )
-	, _overflowCount( 0 )
 {
 	NOVA_ASSERT( buf != nullptr && "RamSink: buf must not be null" );
 	NOVA_ASSERT( capacity > 0 && "RamSink: capacity must be greater than zero" );
@@ -272,13 +270,11 @@ inline void RamSink< 0 >::reset() noexcept
 template< std::size_t InternalSize >
 RamSink< InternalSize >::RamSink() noexcept
 	: _internalBuf {}
-	, _buf( _internalBuf )
+	, _buf( _internalBuf.data() )
 	, _capacity( InternalSize )
-	, _bytesWritten( 0 )
-	, _overflowCount( 0 )
 {
 	static_assert( InternalSize >= 16, "InternalSize must be at least 16 bytes" );
-	static_assert( InternalSize <= 1024 * 1024, "InternalSize must not exceed 1MB (stack safety)" );
+	static_assert( InternalSize <= std::size_t( 1024 ) * 1024, "InternalSize must not exceed 1MB (stack safety)" );
 }
 
 template< std::size_t InternalSize >

@@ -96,7 +96,7 @@ template< std::size_t BufferSize = 1024 >
 class UartSink final : public kmac::nova::Sink
 {
 	static_assert( BufferSize >= 16, "BufferSize must be at least 16 bytes" );
-	static_assert( BufferSize <= 64 * 1024, "BufferSize must not exceed 64KB" );
+	static_assert( BufferSize <= std::size_t( 64 ) * 1024, "BufferSize must not exceed 64KB" );
 
 public:
 	/**
