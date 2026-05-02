@@ -59,7 +59,7 @@ namespace nova {
  */
 struct Record
 {
-	std::uint64_t timestamp;   ///< timestamp from logger_traits<Tag>::timestamp() (typically nanoseconds)
+	std::uint64_t timestamp;   ///< timestamp from LoggerTraits<Tag>::timestamp() (typically nanoseconds)
 
 	std::uint64_t tagId;       ///< unique tag identifier (hash)
 	const char* tag;           ///< tag name string (e.g., "ERROR", "DEBUG")

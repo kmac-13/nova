@@ -56,7 +56,7 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
  * Usage:
  *   NOVA_LOG(InfoTag) << "User " << username << " logged in";
  *
- * When TagType is compile-time disabled (logger_traits<TagType>::enabled == false),
+ * When TagType is compile-time disabled (LoggerTraits<TagType>::enabled == false),
  * the entire statement including all streaming operations is completely compiled out.
  *
  * Important warnings:
@@ -70,7 +70,7 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
  * For complete data preservation without truncation, include
  * <kmac/nova/extras/continuation_logging.h> and use NOVA_LOG_CONT.
  *
- * @param TagType the logging tag type (must have logger_traits specialization)
+ * @param TagType the logging tag type (must have LoggerTraits specialization)
  *
  * @see NOVA_LOG_BUF for custom buffer sizes
  * @see NOVA_LOG_STACK for stack-based logging (signal handlers, nested contexts)
@@ -101,7 +101,7 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
  */
 #if NOVA_HAS_TLS
 #define NOVA_LOG_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_IF_CONSTEXPR ( ! ::kmac::nova::logger_traits< TagType >::enabled ) { } \
+	NOVA_IF_CONSTEXPR ( ! ::kmac::nova::LoggerTraits< TagType >::enabled ) { } \
 	else ::kmac::nova::TlsTruncBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
 #else
 // NOVA_NO_TLS: fall through to stack-based builder transparently
@@ -166,7 +166,7 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
  * @param BufferSize buffer size in bytes (16-65536, but keep <2KB for signal handlers)
  */
 #define NOVA_LOG_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_IF_CONSTEXPR ( ! ::kmac::nova::logger_traits< TagType >::enabled ) { } \
+	NOVA_IF_CONSTEXPR ( ! ::kmac::nova::LoggerTraits< TagType >::enabled ) { } \
 	else ::kmac::nova::StackTruncBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
 
 //

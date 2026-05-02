@@ -31,9 +31,9 @@
  *   {
  *       switch ( tagId )
  *       {
- *       case kmac::nova::logger_traits< NetworkErrorTag >::tagId:
+ *       case kmac::nova::LoggerTraits< NetworkErrorTag >::tagId:
  *           return ANDROID_LOG_ERROR;
- *       case kmac::nova::logger_traits< UiWarningTag >::tagId:
+ *       case kmac::nova::LoggerTraits< UiWarningTag >::tagId:
  *           return ANDROID_LOG_WARN;
  *       default:
  *           return ANDROID_LOG_INFO;

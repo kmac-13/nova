@@ -45,7 +45,7 @@
  *   // if constexpr does on C++17.  Use only where argument evaluation cost
  *   // is acceptable or arguments are guaranteed side-effect-free.
  *   typename std::conditional<
- *       ::kmac::nova::logger_traits< TagType >::enabled,
+ *       ::kmac::nova::LoggerTraits< TagType >::enabled,
  *       ::kmac::nova::TlsTruncBuilderWrapper< TagType, BufferSize >,
  *       ::kmac::nova::extras::NullBuilderWrapper >::type(
  *           file, func, line ).builder() << value;
@@ -63,7 +63,7 @@ namespace extras {
  * discard variant, or for explicitly silencing a logging call site.
  *
  * The NOVA_LOG_* macros do not use this type directly - they use
- * NOVA_IF_CONSTEXPR on logger_traits<Tag>::enabled to eliminate disabled
+ * NOVA_IF_CONSTEXPR on LoggerTraits<Tag>::enabled to eliminate disabled
  * tags.  NullRecordBuilder is for advanced use cases where explicit builder
  * selection outside the macro system is required.
  */
@@ -97,7 +97,7 @@ public:
  * Example:
  * @code
  *   typename std::conditional<
- *       ::kmac::nova::logger_traits< TagType >::enabled,
+ *       ::kmac::nova::LoggerTraits< TagType >::enabled,
  *       ::kmac::nova::TlsTruncBuilderWrapper< TagType, BufferSize >,
  *       ::kmac::nova::extras::NullBuilderWrapper >::type(
  *           file, func, line ).builder() << value;
@@ -146,7 +146,7 @@ inline NullRecordBuilder& NullBuilderWrapper::builder() noexcept
  * Useful for explicitly silencing a logging call site without removing it,
  * or for temporarily disabling a log statement during development.
  *
- * Unlike NOVA_LOG which respects logger_traits<Tag>::enabled and sink
+ * Unlike NOVA_LOG which respects LoggerTraits<Tag>::enabled and sink
  * binding, NOVA_LOG_NULL discards everything unconditionally.
  *
  * Usage:

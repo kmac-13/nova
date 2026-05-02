@@ -34,7 +34,7 @@ using NetworkError = nova_extras::HierarchicalTag< Network, nova_extras::Error >
 using RenderDebug  = nova_extras::HierarchicalTag< Rendering, nova_extras::Debug >;
 using RenderError  = nova_extras::HierarchicalTag< Rendering, nova_extras::Error >;
 
-// Specialize logger_traits with clean names
+// Specialize LoggerTraits with clean names
 NOVA_LOGGER_TRAITS( AudioDebug, Audio.Debug, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
 NOVA_LOGGER_TRAITS( AudioInfo, Audio.Info, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
 NOVA_LOGGER_TRAITS( AudioError, Audio.Error, true, ::kmac::nova::TimestampHelper::steadyNanosecs );
@@ -131,7 +131,7 @@ void bindAllAudioTags( Sink& sink )
 // disable all Debug tags in release builds
 #ifdef NDEBUG
 	template< typename Subsystem >
-	struct logger_traits< HierarchicalTag< Subsystem, Debug > >
+	struct LoggerTraits< HierarchicalTag< Subsystem, Debug > >
 	{
 		static constexpr bool enabled = false;
 	};

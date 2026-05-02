@@ -27,7 +27,7 @@ namespace extras {
  *
  * Timestamp precision is milliseconds, always expressed in UTC (Z suffix).
  * The timestamp in the Record is assumed to be in nanoseconds - the caller
- * controls the clock source via logger_traits<Tag>::timestamp().
+ * controls the clock source via LoggerTraits<Tag>::timestamp().
  *
  * ### Design
  *

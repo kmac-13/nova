@@ -50,7 +50,7 @@ struct HierarchicalTag
 
 	// compile-time name generation
 	// result format: "Subsystem.Severity"
-	// static constexpr const char* tagName = /* generated for associated logger_traits below */;
+	// static constexpr const char* tagName = /* generated for associated LoggerTraits below */;
 };
 
 } // namespace extras
@@ -65,7 +65,7 @@ struct HierarchicalTag
 #define TAG_NAME( tag ) #tag /* NOLINT(cppcoreguidelines-macro-usage) */
 
 template< typename Subsystem, typename Severity >
-struct kmac::nova::logger_traits< kmac::nova::extras::HierarchicalTag< Subsystem, Severity > >
+struct kmac::nova::LoggerTraits< kmac::nova::extras::HierarchicalTag< Subsystem, Severity > >
 {
 	// generate tag name as "Subsystem.Severity"
 	static constexpr const char* tagName = TAG_NAME( Subsystem ) "." TAG_NAME( Severity );

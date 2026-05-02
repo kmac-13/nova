@@ -292,7 +292,7 @@ int main()
 		const char* msg = "SIGSEGV: Segmentation fault at 0xdeadbeef";
 		kmac::nova::Record manualRecord {
 			1704067200000000000ULL,
-			kmac::nova::logger_traits< CrashTag >::tagId,
+			kmac::nova::LoggerTraits< CrashTag >::tagId,
 			"CRASH",
 			"crash_handler.cpp",
 			"signal_handler",
@@ -423,7 +423,7 @@ int main()
 
 		kmac::nova::Record largeRecord {
 			1704067200000000000ULL,
-			kmac::nova::logger_traits< CrashTag >::tagId,
+			kmac::nova::LoggerTraits< CrashTag >::tagId,
 			"CRASH",
 			"test.cpp",
 			"testLarge",

@@ -248,10 +248,10 @@ void TruncatingRecordBuilder< BufferSize >::setContext( const char* file, const 
 	_file = file;
 	_function = function;
 	_line = line;
-	_timestamp = logger_traits< Tag >::timestamp();
+	_timestamp = LoggerTraits< Tag >::timestamp();
 
-	_tagName = logger_traits< Tag >::tagName;
-	_tagId = logger_traits< Tag >::tagId;
+	_tagName = LoggerTraits< Tag >::tagName;
+	_tagId = LoggerTraits< Tag >::tagId;
 
 	_logFunc = &Logger< Tag >::log;
 }
