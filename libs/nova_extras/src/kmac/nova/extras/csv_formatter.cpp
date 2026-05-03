@@ -70,8 +70,8 @@ bool CsvFormatter::needsQuoting( const char* str, std::size_t len ) const noexce
 {
 	for ( std::size_t i = 0; i < len; ++i )
 	{
-		const char ch = str[ i ];
-		if ( ch == _delimiter || ch == '"' || ch == '\r' || ch == '\n' )
+		const char chr = str[ i ];
+		if ( chr == _delimiter || chr == '"' || chr == '\r' || chr == '\n' )
 		{
 			return true;
 		}
@@ -96,12 +96,11 @@ bool CsvFormatter::appendField(
 		}
 		if ( isNull )
 		{
-			// null field - delimiter only, unquoted empty
 			return true;
 		}
 		if ( len == 0 )
 		{
-			// empty non-null field - always quoted per null/empty distinction
+			// empty non-null field - always quoted to distinguish from null
 			return buffer.append( "\"\"", 2 );
 		}
 		_field = quoting ? FieldStage::OpenQuote : FieldStage::Content;
@@ -121,24 +120,9 @@ bool CsvFormatter::appendField(
 		// [[fallthrough]];
 
 	case FieldStage::Content:
-		while ( _offset < len )
+		if ( ! writeQuotedContent( str, len, buffer ) )
 		{
-			const char ch = str[ _offset ];
-			if ( ch == '"' )
-			{
-				if ( ! buffer.append( "\"\"", 2 ) )
-				{
-					return false;
-				}
-			}
-			else
-			{
-				if ( ! buffer.appendChar( ch ) )
-				{
-					return false;
-				}
-			}
-			++_offset;
+			return false;
 		}
 		if ( ! quoting )
 		{
@@ -153,6 +137,33 @@ bool CsvFormatter::appendField(
 			return false;
 		}
 		break;
+	}
+
+	return true;
+}
+
+bool CsvFormatter::writeQuotedContent(
+	const char* str,
+	std::size_t len,
+	Buffer& buffer ) noexcept
+{
+	while ( _offset < len )
+	{
+		if ( str[ _offset ] == '"' )
+		{
+			if ( ! buffer.append( "\"\"", 2 ) )
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if ( ! buffer.appendChar( str[ _offset ] ) )
+			{
+				return false;
+			}
+		}
+		++_offset;
 	}
 
 	return true;

@@ -259,6 +259,22 @@ private:
 		Buffer& buffer ) noexcept;
 
 	/**
+	 * @brief Write quoted field content bytes, doubling embedded double quotes.
+	 *
+	 * Resumes from _offset.  Returns true when all content bytes have been
+	 * written.  The opening and closing quotes are written by appendField.
+	 *
+	 * @param str pointer to field content bytes
+	 * @param len byte length of the field
+	 * @param buffer destination buffer
+	 * @return true if all content bytes were written
+	 */
+	bool writeQuotedContent(
+		const char* str,
+		std::size_t len,
+		Buffer& buffer ) noexcept;
+
+	/**
 	 * @brief Incremental formatter - drives the stage machine.
 	 *
 	 * Suspends and returns false if the buffer fills mid-record, resuming

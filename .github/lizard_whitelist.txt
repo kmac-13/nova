@@ -1,4 +1,8 @@
 kmac::nova::platform::floatToChars # float-to-chars algorithm; complexity inherent to IEEE 754 decimal conversion
 kmac::nova::extras::ISO8601Formatter::formatSlow # ISO8601 state machine; complexity inherent to timestamp parsing
+kmac::nova::extras::JsonFormatter::formatSlow # JSON stage machine; one branch per field, complexity is structural not algorithmic
+kmac::nova::extras::JsonFormatter::appendField # template method; lizard overcounts complexity across instantiations
+kmac::nova::extras::XmlFormatter::formatSlow # XML stage machine; one branch per field, complexity is structural not algorithmic
+kmac::nova::extras::CsvFormatter::formatSlow # CSV stage machine; one branch per field, complexity is structural not algorithmic
 kmac::nova::extras::writeSpecPhase1 # if constexpr dispatch over Field enum; complexity is compile-time branching, not runtime
 TlvFieldParseHelper::parseFixedField # TLV type dispatch; complexity inherent to the TLV schema
