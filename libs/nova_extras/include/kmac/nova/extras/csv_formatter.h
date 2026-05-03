@@ -128,8 +128,7 @@ private:
 	// the delimiter, optional opening quote, content bytes, and closing quote
 	enum class FieldStage : std::uint8_t
 	{
-		Delimiter,  ///< writing the preceding delimiter character
-		OpenQuote,  ///< writing the opening '"' (quoted fields only)
+		Delimiter,  ///< writing the preceding delimiter and optional opening quote
 		Content,    ///< writing field content bytes (resumable)
 		CloseQuote  ///< writing the closing '"' (quoted fields only)
 	};

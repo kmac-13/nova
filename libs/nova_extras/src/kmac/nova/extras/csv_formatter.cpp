@@ -80,7 +80,7 @@ bool CsvFormatter::needsQuoting( const char* str, std::size_t len ) const noexce
 	return false;
 }
 
-bool CsvFormatter::appendField(
+bool CsvFormatter::appendField(  // NOLINT(readability-function-cognitive-complexity)
 	const char* str,
 	std::size_t len,
 	bool isNull,
@@ -103,20 +103,15 @@ bool CsvFormatter::appendField(
 			// empty non-null field - always quoted to distinguish from null
 			return buffer.append( "\"\"", 2 );
 		}
-		_field = quoting ? FieldStage::OpenQuote : FieldStage::Content;
-		_offset = 0;
-		// [[fallthrough]];
-
-	case FieldStage::OpenQuote:
 		if ( quoting )
 		{
 			if ( ! buffer.appendChar( '"' ) )
 			{
 				return false;
 			}
-			_field = FieldStage::Content;
-			_offset = 0;
 		}
+		_field = FieldStage::Content;
+		_offset = 0;
 		// [[fallthrough]];
 
 	case FieldStage::Content:
@@ -169,7 +164,7 @@ bool CsvFormatter::writeQuotedContent(
 	return true;
 }
 
-bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer ) noexcept
+bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer ) noexcept  // NOLINT(readability-function-cognitive-complexity)
 {
 	switch ( _stage )  // NOLINT(hicpp-multiway-paths-covered)
 	{

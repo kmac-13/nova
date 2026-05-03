@@ -67,7 +67,7 @@ void XmlFormatter::buildLine( std::uint32_t line ) noexcept
 	_lineLen = static_cast< std::size_t >( out - start );
 }
 
-bool XmlFormatter::appendEscaped(
+bool XmlFormatter::appendEscaped(  // NOLINT(readability-function-cognitive-complexity)
 	const char* content,
 	std::size_t len,
 	std::size_t& offset,
@@ -75,24 +75,16 @@ bool XmlFormatter::appendEscaped(
 {
 	while ( offset < len )
 	{
-		const auto ch = static_cast< unsigned char >( content[ offset ] );
+		const auto byte = static_cast< unsigned char >( content[ offset ] );
 
-		// fast path - plain ASCII requiring no escaping in element content;
-		// tab (0x09), LF (0x0A), CR (0x0D) are legal and pass through unmodified
-		if ( ch > 0x0D && ch != '&' && ch != '<' && ch != '>' )
-		{
-			if ( ! buffer.appendChar( static_cast< char >( ch ) ) )
-			{
-				return false;
-			}
-			++offset;
-			continue;
-		}
+		// pass through: plain ASCII with no special XML meaning, plus tab/LF/CR
+		// which are legal XML 1.0 element content characters
+		const bool isPassThrough = ( byte >= 0x09 && byte <= 0x0D )
+			|| ( byte > 0x0D && byte != '&' && byte != '<' && byte != '>' );
 
-		// tab, LF, CR - legal XML 1.0 element content, pass through
-		if ( ch == 0x09 || ch == 0x0A || ch == 0x0D )
+		if ( isPassThrough )
 		{
-			if ( ! buffer.appendChar( static_cast< char >( ch ) ) )
+			if ( ! buffer.appendChar( static_cast< char >( byte ) ) )
 			{
 				return false;
 			}
@@ -104,7 +96,7 @@ bool XmlFormatter::appendEscaped(
 		const char* entity = nullptr;
 		std::size_t entityLen = 0;
 
-		switch ( ch )
+		switch ( byte )
 		{
 		case '&':
 			entity = "&amp;";
@@ -184,7 +176,7 @@ bool XmlFormatter::appendElement(
 	return true;
 }
 
-bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer ) noexcept
+bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer ) noexcept  // NOLINT(readability-function-cognitive-complexity)
 {
 	switch ( _stage )  // NOLINT(hicpp-multiway-paths-covered)
 	{

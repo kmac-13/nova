@@ -101,13 +101,27 @@ bool JsonFormatter::appendEscaped(
 
 		switch ( ch )
 		{
-		case '"':  esc[ 1 ] = '"';  break;
-		case '\\': esc[ 1 ] = '\\'; break;
-		case '\b': esc[ 1 ] = 'b';  break;
-		case '\f': esc[ 1 ] = 'f';  break;
-		case '\n': esc[ 1 ] = 'n';  break;
-		case '\r': esc[ 1 ] = 'r';  break;
-		case '\t': esc[ 1 ] = 't';  break;
+		case '"':
+			esc[ 1 ] = '"';
+			break;
+		case '\\':
+			esc[ 1 ] = '\\';
+			break;
+		case '\b':
+			esc[ 1 ] = 'b';
+			break;
+		case '\f':
+			esc[ 1 ] = 'f';
+			break;
+		case '\n':
+			esc[ 1 ] = 'n';
+			break;
+		case '\r':
+			esc[ 1 ] = 'r';
+			break;
+		case '\t':
+			esc[ 1 ] = 't';
+			break;
 		default:
 			// control character U+0000-U+001F - emit \uXXXX
 			esc[ 1 ] = 'u';
@@ -119,7 +133,7 @@ bool JsonFormatter::appendEscaped(
 			break;
 		}
 
-		if ( ! buffer.append( esc, escLen ) )
+		if ( ! buffer.append( static_cast< const char* >( esc ), escLen ) )  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
 		{
 			return false;
 		}
@@ -130,7 +144,7 @@ bool JsonFormatter::appendEscaped(
 	return true;
 }
 
-bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer ) noexcept
+bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer ) noexcept  // NOLINT(readability-function-cognitive-complexity)
 {
 	switch ( _stage )  // NOLINT(hicpp-multiway-paths-covered)
 	{
