@@ -157,6 +157,12 @@ char* FormattingHelper::formatTimestamp( char* out, std::uint64_t timestamp ) no
 	gmtime_r( &timeVal, &time );
 #endif
 
+	// NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay,cppcoreguidelines-pro-bounds-constant-array-index)
+	// DIGITS_2/DIGITS_3 are 2D C-style arrays of string literals; each element
+	// decays to const char* on access and is indexed with a runtime value.
+	// Converting to std::array would require replacing all string literal
+	// initialisers with explicit char lists.
+
 	// YYYY-MM-DD
 	const int year = 1900 + time.tm_year;
 	out[ 0 ] = char( '0' + ( year / 1000 ) );
@@ -186,8 +192,8 @@ char* FormattingHelper::formatTimestamp( char* out, std::uint64_t timestamp ) no
 	*out++ = '.';
 	std::memcpy( out, detail::DIGITS_3[ millis ], 3 );
 	out += 3;
+	// NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay,cppcoreguidelines-pro-bounds-constant-array-index)
 
-	// end of formatted datetime
 	*out++ = 'Z';
 
 	return out;
@@ -197,7 +203,8 @@ char* FormattingHelper::formatTagId( char* out, std::uint64_t tagId ) noexcept
 {
 	for ( int i = 60; i >= 0; i -= 4 )
 	{
-		*out++ = detail::HEX_CHARS[ ( tagId >> static_cast< unsigned >( i ) ) & 0xFu ];
+		// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+		*out++ = detail::HEX_CHARS[ ( tagId >> static_cast< unsigned >( i ) ) & 0xFU ];
 	}
 
 	return out;
@@ -205,29 +212,29 @@ char* FormattingHelper::formatTagId( char* out, std::uint64_t tagId ) noexcept
 
 char* FormattingHelper::formatLine( char* out, std::uint32_t line ) noexcept
 {
-	std::uint32_t n = line;
+	std::uint32_t rem = line;
 
-	if ( n == 0 )
+	if ( rem == 0 )
 	{
 		*out++ = '0';
 		return out;
 	}
 
 	char* digitStart = out;
-	while ( n > 0 )
+	while ( rem > 0 )
 	{
-		*out++ = char( '0' + ( n % 10 ) );
-		n /= 10;
+		*out++ = char( '0' + ( rem % 10 ) );
+		rem /= 10;
 	}
 
 	// reverse digits in place
-	char* lo = digitStart;
-	char* hi = out - 1;
-	while ( lo < hi )
+	char* low  = digitStart;
+	char* high = out - 1;
+	while ( low < high )
 	{
-		const char tmp = *lo;
-		*lo++ = *hi;
-		*hi-- = tmp;
+		const char tmp = *low;
+		*low++ = *high;
+		*high-- = tmp;
 	}
 
 	return out;

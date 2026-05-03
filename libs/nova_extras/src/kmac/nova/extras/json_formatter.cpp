@@ -1,6 +1,8 @@
 #include "kmac/nova/extras/json_formatter.h"
 #include "kmac/nova/extras/formatting_helper.h"
 
+#include <kmac/nova/platform/array.h>
+
 #include <cstring>
 
 namespace kmac {
@@ -82,12 +84,12 @@ bool JsonFormatter::appendEscaped(
 {
 	while ( offset < len )
 	{
-		const auto ch = static_cast< unsigned char >( str[ offset ] );
+		const auto byte = static_cast< unsigned char >( str[ offset ] );
 
 		// fast path - plain ASCII that needs no escaping
-		if ( ch >= 0x20 && ch != '"' && ch != '\\' )
+		if ( byte >= 0x20 && byte != '"' && byte != '\\' )
 		{
-			if ( ! buffer.appendChar( static_cast< char >( ch ) ) )
+			if ( ! buffer.appendChar( static_cast< char >( byte ) ) )
 			{
 				return false;
 			}
@@ -95,11 +97,11 @@ bool JsonFormatter::appendEscaped(
 			continue;
 		}
 
-		// escape sequences
-		char esc[ 6 ] = { '\\', '\0', '\0', '\0', '\0', '\0' };
+		// escape sequences - platform::Array avoids C-style array decay warnings
+		kmac::nova::platform::Array< char, 6 > esc { '\\', '\0', '\0', '\0', '\0', '\0' };
 		std::size_t escLen = 2;
 
-		switch ( ch )
+		switch ( byte )
 		{
 		case '"':
 			esc[ 1 ] = '"';
@@ -123,17 +125,21 @@ bool JsonFormatter::appendEscaped(
 			esc[ 1 ] = 't';
 			break;
 		default:
+		{
 			// control character U+0000-U+001F - emit \uXXXX
+			// NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
 			esc[ 1 ] = 'u';
 			esc[ 2 ] = '0';
 			esc[ 3 ] = '0';
-			esc[ 4 ] = detail::HEX_CHARS[ ( ch >> 4 ) & 0xFu ];
-			esc[ 5 ] = detail::HEX_CHARS[ ch & 0xFu ];
+			esc[ 4 ] = detail::HEX_CHARS[ ( byte >> 4U ) & 0xFU ];
+			esc[ 5 ] = detail::HEX_CHARS[ byte & 0xFU ];
+			// NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
 			escLen = 6;
 			break;
 		}
+		}
 
-		if ( ! buffer.append( static_cast< const char* >( esc ), escLen ) )  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+		if ( ! buffer.append( esc.data(), escLen ) )
 		{
 			return false;
 		}
