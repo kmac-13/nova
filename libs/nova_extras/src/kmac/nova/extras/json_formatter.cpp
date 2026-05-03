@@ -131,8 +131,8 @@ bool JsonFormatter::appendEscaped(
 			esc[ 1 ] = 'u';
 			esc[ 2 ] = '0';
 			esc[ 3 ] = '0';
-			esc[ 4 ] = detail::HEX_CHARS[ ( byte >> 4U ) & 0xFU ];
-			esc[ 5 ] = detail::HEX_CHARS[ byte & 0xFU ];
+			esc[ 4 ] = detail::HEX_CHARS[ ( static_cast< unsigned >( byte ) >> 4U ) & 0xFU ];
+			esc[ 5 ] = detail::HEX_CHARS[ static_cast< unsigned >( byte ) & 0xFU ];
 			// NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
 			escLen = 6;
 			break;
