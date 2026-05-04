@@ -3,8 +3,7 @@
  * @brief Google Test unit tests for Nova extras formatters
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/formatting_sink.h"
 #include "kmac/nova/extras/iso8601_formatter.h"
 #include "kmac/nova/extras/ostream_sink.h"

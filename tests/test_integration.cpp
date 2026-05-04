@@ -5,8 +5,7 @@
 
 #include "test_helpers.h"
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/composite_sink.h"
 #include "kmac/nova/extras/filter_sink.h"
 #include "kmac/nova/extras/formatting_sink.h"

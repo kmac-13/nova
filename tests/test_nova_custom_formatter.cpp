@@ -16,9 +16,7 @@
  *  - integration through FormattingSink
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/record.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/buffer.h"
 #include "kmac/nova/extras/custom_formatter.h"
 #include "kmac/nova/extras/formatting_sink.h"

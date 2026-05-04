@@ -3,11 +3,10 @@
  * @brief Unit tests for RamWriter and UartWriter IWriter implementations.
  */
 
+#include "kmac/nova.h"
 #include "kmac/flare/emergency_sink.h"
 #include "kmac/flare/ram_writer.h"
 #include "kmac/flare/uart_writer.h"
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
 
 #include <gtest/gtest.h>
 

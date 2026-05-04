@@ -1,15 +1,14 @@
 /**
  * @file 04_multithreading.cpp
  * @brief Thread-safe logging with Nova
- * 
+ *
  * This example demonstrates:
  * - Using SynchronizedSink for thread-safe logging
  * - Logging from multiple threads
  * - Preventing interleaved output
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/ostream_sink.h"
 #include "kmac/nova/extras/synchronized_sink.h"
 
@@ -28,10 +27,10 @@ void doWork( int workerId, int iterations )
 {
 	for ( int i = 0; i < iterations; ++i )
 	{
-		NOVA_LOG( WorkerTag ) 
+		NOVA_LOG( WorkerTag )
 			<< "Worker " << workerId
 			<< " iteration " << i << '\n';
-		
+
 		// simulate work
 		std::this_thread::sleep_for( std::chrono::milliseconds( 10 ) );
 	}
@@ -40,42 +39,42 @@ void doWork( int workerId, int iterations )
 int main()
 {
 	std::cout << "=== Multithreading Example ===\n\n";
-	
+
 	// create base sink
 	kmac::nova::extras::OStreamSink consoleSink( std::cout );
-	
+
 	// wrap in synchronized sink for thread safety
 	kmac::nova::extras::SynchronizedSink threadSafeSink( consoleSink );
-	
+
 	{
 		kmac::nova::ScopedConfigurator config;
 		config.bind< WorkerTag >( &threadSafeSink );
-		
+
 		std::cout << "--- Launching 3 worker threads ---\n\n";
-		
+
 		// launch multiple worker threads
 		std::vector< std::thread > workers;
-		
+
 		for ( int i = 0; i < 3; ++i )
 		{
 			workers.emplace_back( doWork, i, 5 );
 		}
-		
+
 		// wait for all workers
 		for ( auto& worker : workers )
 		{
 			worker.join();
 		}
-		
+
 		std::cout << "\n--- All workers complete ---\n";
 	}
-	
+
 	std::cout << "\n=== Example Complete ===\n";
 	std::cout << "\nNotes:\n";
 	std::cout << "- SynchronizedSink prevents interleaved output\n";
 	std::cout << "- Each log message is atomic\n";
 	std::cout << "- No garbled text from concurrent writes\n";
-	
+
 	return 0;
 }
 

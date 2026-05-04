@@ -21,7 +21,7 @@
  * - NOVA_LOG_CONT_BUF_STACK(Tag, Size)     : stack-based logger with custom buffer
  *
  * Usage:
- *   #include <kmac/nova/nova.h>
+ *   #include <kmac/nova.h>
  *   #include <kmac/nova/extras/continuation_logging.h>
  *
  *   NOVA_LOG_CONT(DiagTag)
@@ -40,15 +40,12 @@
  * - message lengths are highly variable or unpredictable
  * - multi-record emission is acceptable at the sink
  *
- * @see NOVA_LOG in nova.h for the default truncating logger
+ * @see NOVA_LOG in nova/macros.h for the default truncating logger
  */
 
-#include <kmac/nova/nova.h>
+#include <kmac/nova.h>
 #include <kmac/nova/immovable.h>
-#include <kmac/nova/logger.h>
-#include <kmac/nova/logger_traits.h>
 #include <kmac/nova/platform/array.h>
-#include <kmac/nova/platform/config.h>
 #include <kmac/nova/platform/float_to_chars.h>
 #include <kmac/nova/platform/int_to_chars.h>
 #include <kmac/nova/platform/string_view.h>

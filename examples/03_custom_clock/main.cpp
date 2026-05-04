@@ -1,15 +1,14 @@
 /**
  * @file 03_custom_clock.cpp
  * @brief Using custom time sources for timestamps
- * 
+ *
  * This example demonstrates:
  * - Customizing the timestamp source per tag
  * - Using different clocks (steady, system, custom)
  * - Platform-specific timing implementations
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 
 #include <chrono>
 #include <ctime>
@@ -43,19 +42,19 @@ std::string formatTimestamp( std::uint64_t timestampNs )
 {
 	// Convert to system_clock time_point
 	auto duration = std::chrono::nanoseconds( timestampNs );
-	auto timePoint = std::chrono::system_clock::time_point( 
+	auto timePoint = std::chrono::system_clock::time_point(
 		std::chrono::duration_cast< std::chrono::system_clock::duration >( duration )
 	);
-	
+
 	std::time_t time = std::chrono::system_clock::to_time_t( timePoint );
 	std::tm tm;
-	
+
 #ifdef _WIN32
 	localtime_s( &tm, &time );
 #else
 	localtime_r( &time, &tm );
 #endif
-	
+
 	std::ostringstream oss;
 	oss << std::put_time( &tm, "%Y-%m-%d %H:%M:%S" );
 	return oss.str();
@@ -71,7 +70,7 @@ public:
 	explicit TimestampingSink( std::ostream& stream )
 		: _stream( &stream )
 	{}
-	
+
 	void process( const kmac::nova::Record& record ) noexcept override
 	{
 		( *_stream )
@@ -84,25 +83,25 @@ public:
 int main()
 {
 	std::cout << "=== Custom Clock Example ===\n\n";
-	
+
 	TimestampingSink sink( std::cout );
-	
+
 	{
 		kmac::nova::ScopedConfigurator config;
-		
+
 		config.bind< MonotonicTag >( &sink );
 		config.bind< WallClockTag >( &sink );
 		config.bind< CustomTag >( &sink );
-		
+
 		std::cout << "--- Monotonic time (steady_clock) ---\n";
 		NOVA_LOG( MonotonicTag ) << "Event 1";
 		std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
 		NOVA_LOG( MonotonicTag ) << "Event 2";
-		
+
 		std::cout << "\n--- Wall clock time (system_clock) ---\n";
 		// auto start = std::chrono::system_clock::now();
 		NOVA_LOG( WallClockTag ) << "Started at wall time";
-		
+
 		// show formatted wall time
 		std::uint64_t wallTimeNs;
 		{
@@ -110,22 +109,22 @@ int main()
 			wallTimeNs = std::chrono::duration_cast< std::chrono::nanoseconds >( now ).count();
 		}
 		std::cout << "  (Human readable: " << formatTimestamp( wallTimeNs ) << ")\n";
-		
+
 		std::cout << "\n--- Custom time source (frame counter) ---\n";
 		NOVA_LOG( CustomTag ) << "Frame 0";
 		NOVA_LOG( CustomTag ) << "Frame 1";
 		NOVA_LOG( CustomTag ) << "Frame 2";
 		NOVA_LOG( CustomTag ) << "Frame 3";
-		
+
 		std::cout << "\n";
 	}
-	
+
 	std::cout << "\n=== Example Complete ===\n";
 	std::cout << "\nNotes:\n";
 	std::cout << "- Monotonic timestamps are in nanoseconds since arbitrary epoch\n";
 	std::cout << "- Wall clock timestamps can be converted to calendar time\n";
 	std::cout << "- Custom timestamps can be anything (frames, ticks, etc.)\n";
-	
+
 	return 0;
 }
 

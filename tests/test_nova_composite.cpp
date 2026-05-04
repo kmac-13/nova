@@ -3,8 +3,7 @@
  * @brief Google Test unit tests for Nova composite sinks
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/bounded_composite_sink.h"
 #include "kmac/nova/extras/composite_sink.h"
 #include "kmac/nova/extras/fixed_composite_sink.h"

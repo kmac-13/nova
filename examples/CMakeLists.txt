@@ -27,7 +27,7 @@ endif()
 #   08_bare_metal
 #   09_diagnostics
 #
-set( EXAMPLE "09_diagnostics" CACHE STRING "Which example to build" )
+set( EXAMPLE "01_basic_usage" CACHE STRING "Which example to build" )
 set_property( CACHE EXAMPLE PROPERTY STRINGS
     "01_basic_usage"
     "02_multiple_sinks"
@@ -85,11 +85,13 @@ elseif( NOT DEFINED NOVA_FLARE_DIR )
 endif()
 
 FILE( GLOB NOVA_FILES
+	"${NOVA_INCLUDE_DIR}/kmac/*.h"
 	"${NOVA_INCLUDE_DIR}/kmac/nova/*.h"
 	"${NOVA_INCLUDE_DIR}/kmac/nova/*.cpp"
 	"${NOVA_INCLUDE_DIR}/kmac/nova/platform/*.h"
 	"${NOVA_EXTRAS_DIR}/include/kmac/nova/extras/*.h"
 	"${NOVA_EXTRAS_DIR}/src/kmac/nova/extras/*.cpp"
+	"${NOVA_FLARE_DIR}/include/kmac/*.h"
 	"${NOVA_FLARE_DIR}/include/kmac/flare/*.h"
 	"${NOVA_FLARE_DIR}/src/kmac/flare/*.cpp"
 )

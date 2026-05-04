@@ -3,8 +3,7 @@
  * @brief Google Test unit tests for Nova extras sinks
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/filter_sink.h"
 #include "kmac/nova/extras/ostream_sink.h"
 #include "kmac/nova/extras/null_sink.h"

@@ -60,7 +60,7 @@ namespace extras {
  * - application is not real-time or safety-critical
  *
  * For allocation-free, deterministic logging:
- * - NOVA_LOG (truncating) in nova.h
+ * - NOVA_LOG (truncating) in nova/macros.h
  * - NOVA_LOG_CONT (continuation) in extras/continuation_logging.h
  *
  * @tparam Tag the logging tag type

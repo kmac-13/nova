@@ -35,6 +35,7 @@ include_directories(
 
 # Collect Nova files
 file( GLOB NOVA_SOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova/include/kmac/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova/include/kmac/nova/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova/include/kmac/nova/platform/*.h
 )
@@ -47,6 +48,7 @@ file( GLOB NOVA_EXTRAS_SOURCES
 
 # Collect Flare files
 file( GLOB FLARE_SOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova_flare/include/kmac/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova_flare/include/kmac/flare/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova_flare/src/kmac/flare/*.cpp
 )
