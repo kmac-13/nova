@@ -7,7 +7,13 @@ on:
 
 jobs:
   cppcheck:
+    name: cppcheck / ${{ matrix.std }}
     runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [c++11, c++17]
 
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +26,7 @@ jobs:
       - name: Run cppcheck
         run: |
           cppcheck \
-            --std=c++17 \
+            --std=${{ matrix.std }} \
             --language=c++ \
             --enable=warning,style,performance,portability \
             --error-exitcode=1 \
@@ -35,11 +41,11 @@ jobs:
             libs/nova_extras/src \
             libs/nova_flare/include \
             libs/nova_flare/src \
-            2>&1 | tee cppcheck-report.txt
+            2>&1 | tee cppcheck-report-${{ matrix.std }}.txt
 
       - name: Upload cppcheck report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cppcheck-report
-          path: cppcheck-report.txt
+          name: cppcheck-report-${{ matrix.std }}
+          path: cppcheck-report-${{ matrix.std }}.txt
