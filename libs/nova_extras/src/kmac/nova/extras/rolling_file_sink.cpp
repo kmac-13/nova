@@ -10,18 +10,6 @@
 #include <string>
 #include <utility>
 
-namespace
-{
-
-// returns false if entryName does not match the pattern "<filename>.<integer>"
-bool parseFileSuffix(
-	const std::string& entryName,
-	const std::string& filename,
-	std::size_t& outIndex
-) noexcept;
-
-} // namespace
-
 namespace kmac {
 namespace nova {
 namespace extras {
@@ -260,40 +248,3 @@ void RollingFileSink::rotate() noexcept
 } // namespace extras
 } // namespace nova
 } // namespace kmac
-
-namespace
-{
-
-bool parseFileSuffix(
-	const std::string& entryName,
-	const std::string& filename,
-	std::size_t& outIndex
-) noexcept
-{
-	if ( entryName.size() <= filename.size() + 1 )
-	{
-		return false;
-	}
-
-	if ( entryName.substr( 0, filename.size() ) != filename )
-	{
-		return false;
-	}
-
-	if ( entryName[ filename.size() ] != '.' )
-	{
-		return false;
-	}
-
-	try
-	{
-		outIndex = std::stoull( entryName.substr( filename.size() + 1 ) );
-		return true;
-	}
-	catch ( ... )
-	{
-		return false;
-	}
-}
-
-} // namespace
