@@ -278,7 +278,7 @@ inline bool JsonFormatter::appendField(
 		}
 		_field  = FieldStage::Content;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case FieldStage::Content:
 		if ( ! appendEscaped( str, len, _offset, buffer ) )
@@ -286,7 +286,7 @@ inline bool JsonFormatter::appendField(
 			return false;
 		}
 		_field = FieldStage::CloseQuote;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case FieldStage::CloseQuote:
 		if ( ! buffer.appendChar( '"' ) )

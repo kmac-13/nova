@@ -112,7 +112,7 @@ bool CsvFormatter::appendField(  // NOLINT(readability-function-cognitive-comple
 		}
 		_field = FieldStage::Content;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case FieldStage::Content:
 		if ( ! writeQuotedContent( str, len, buffer ) )
@@ -124,7 +124,7 @@ bool CsvFormatter::appendField(  // NOLINT(readability-function-cognitive-comple
 			return true;
 		}
 		_field = FieldStage::CloseQuote;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case FieldStage::CloseQuote:
 		if ( ! buffer.appendChar( '"' ) )
@@ -176,7 +176,7 @@ bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::TagId;
 		_field = FieldStage::Delimiter;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::TagId:
 		if ( ! buffer.appendChar( _delimiter ) )
@@ -190,7 +190,7 @@ bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Tag;
 		_field = FieldStage::Delimiter;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Tag:
 		if ( ! appendField( record.tag, _tagLen, _tagIsNull, _tagNeedsQuoting, buffer ) )
@@ -200,7 +200,7 @@ bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::File;
 		_field = FieldStage::Delimiter;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::File:
 		if ( ! appendField( record.file, _fileLen, _fileIsNull, _fileNeedsQuoting, buffer ) )
@@ -210,7 +210,7 @@ bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Function;
 		_field = FieldStage::Delimiter;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Function:
 		if ( ! appendField( record.function, _funcLen, _funcIsNull, _funcNeedsQuoting, buffer ) )
@@ -220,7 +220,7 @@ bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Line;
 		_field = FieldStage::Delimiter;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Line:
 		if ( ! buffer.appendChar( _delimiter ) )
@@ -234,7 +234,7 @@ bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Message;
 		_field = FieldStage::Delimiter;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Message:
 		if ( ! appendField( record.message, _msgLen, _msgIsNull, _msgNeedsQuoting, buffer ) )
@@ -244,7 +244,7 @@ bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Crlf;
 		_field = FieldStage::Delimiter;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Crlf:
 		if ( ! buffer.appendLiteral( "\r\n" ) )
@@ -252,7 +252,7 @@ bool CsvFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 			return false;
 		}
 		_stage = Stage::Done;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Done:
 		break;
