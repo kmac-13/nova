@@ -102,6 +102,7 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
 #if NOVA_HAS_TLS
 #define NOVA_LOG_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_IF_CONSTEXPR ( ! ::kmac::nova::LoggerTraits< TagType >::enabled ) { } \
+	else if ( ::kmac::nova::Logger< TagType >::getSink() == nullptr ) { } \
 	else ::kmac::nova::TlsTruncBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
 #else
 // NOVA_NO_TLS: fall through to stack-based builder transparently
@@ -167,6 +168,7 @@ NOVA_INLINE_VAR constexpr std::size_t NOVA_DEFAULT_BUFFER_SIZE =
  */
 #define NOVA_LOG_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_IF_CONSTEXPR ( ! ::kmac::nova::LoggerTraits< TagType >::enabled ) { } \
+	else if ( ::kmac::nova::Logger< TagType >::getSink() == nullptr ) { } \
 	else ::kmac::nova::StackTruncBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
 
 //

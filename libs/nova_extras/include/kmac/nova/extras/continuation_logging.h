@@ -616,9 +616,9 @@ std::size_t StackContinuationBuilder< Tag, BufferSize >::continuationCount() con
  */
 #if NOVA_HAS_TLS
 #define NOVA_LOG_CONT_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_IF_CONSTEXPR ( ::kmac::nova::LoggerTraits< TagType >::enabled ) \
-		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
-			::kmac::nova::extras::TlsContBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
+	NOVA_IF_CONSTEXPR ( ! ::kmac::nova::LoggerTraits< TagType >::enabled ) { } \
+	else if ( ::kmac::nova::Logger< TagType >::getSink() == nullptr ) { } \
+	else ::kmac::nova::extras::TlsContBuilderWrapper< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ ).builder()
 #else
 #define NOVA_LOG_CONT_BUF( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
 	NOVA_LOG_CONT_BUF_STACK( TagType, BufferSize )
@@ -641,8 +641,8 @@ std::size_t StackContinuationBuilder< Tag, BufferSize >::continuationCount() con
  * @param BufferSize buffer size in bytes (16-65536, keep <2KB for signal handlers)
  */
 #define NOVA_LOG_CONT_BUF_STACK( TagType, BufferSize ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	NOVA_IF_CONSTEXPR ( ::kmac::nova::LoggerTraits< TagType >::enabled ) \
-		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
-			::kmac::nova::extras::StackContinuationBuilder< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ )
+	NOVA_IF_CONSTEXPR ( ! ::kmac::nova::LoggerTraits< TagType >::enabled ) { } \
+	else if ( ::kmac::nova::Logger< TagType >::getSink() == nullptr ) { } \
+	else ::kmac::nova::extras::StackContinuationBuilder< TagType, BufferSize >( FILE_NAME, __func__, __LINE__ )
 
 #endif // KMAC_NOVA_EXTRAS_CONTINUATION_LOGGING_H

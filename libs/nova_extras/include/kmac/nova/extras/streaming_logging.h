@@ -25,10 +25,10 @@
  *   NOVA_LOG_STREAM( DiagTag ) << "Value: " << complexObject << " status: " << obj.status();
  */
 
+#include <kmac/nova/platform/config.h>
 #include <kmac/nova/logger.h>
 #include <kmac/nova/logger_traits.h>
 #include <kmac/nova/record.h>
-#include <kmac/nova/platform/config.h>
 
 #include <sstream>
 #include <string>
@@ -201,10 +201,8 @@ void StreamingRecordBuilder::commit()
  * @param TagType the logging tag type (must have LoggerTraits specialization)
  */
 #define NOVA_LOG_STREAM( TagType ) /* NOLINT(cppcoreguidelines-macro-usage) */ \
-	if constexpr ( ::kmac::nova::LoggerTraits< TagType >::enabled ) \
-		if ( ::kmac::nova::Logger< TagType >::getSink() != nullptr ) \
-			::kmac::nova::extras::StreamingRecordBuilder().setContext< TagType >( \
-				FILE_NAME, __func__, __LINE__ \
-			)
+	NOVA_IF_CONSTEXPR ( ! ::kmac::nova::LoggerTraits< TagType >::enabled ) { } \
+	else if ( ::kmac::nova::Logger< TagType >::getSink() == nullptr ) { } \
+	else ::kmac::nova::extras::StreamingRecordBuilder().setContext< TagType >( FILE_NAME, __func__, __LINE__ )
 
 #endif // KMAC_NOVA_EXTRAS_STREAMING_LOGGING_H
