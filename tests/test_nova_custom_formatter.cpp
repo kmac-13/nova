@@ -311,7 +311,7 @@ TEST_F( CustomFormatterTest, NullFunctionEmitsEmpty )
 TEST_F( CustomFormatterTest, EmptyMessage )
 {
 	auto rec = _record;
-	rec.message     = "";
+	rec.message = "";
 	rec.messageSize = 0;
 	CustomFormatter< FieldSpec< '[', Field::Message, ']' > > fmt;
 	const std::string out = formatRecord( fmt, rec );
@@ -339,7 +339,7 @@ TEST_F( CustomFormatterTest, ResumesCorrectlyWithTinyBuffer )
 	FmtType fmtBig;
 	FmtType fmtTiny;
 
-	const std::string bigOut  = formatRecord( fmtBig,  _record, 4096 );
+	const std::string bigOut = formatRecord( fmtBig, _record, 4096 );
 	const std::string tinyOut = formatRecord( fmtTiny, _record, 1 );
 
 	EXPECT_EQ( bigOut, tinyOut );
@@ -381,9 +381,9 @@ TEST_F( CustomFormatterTest, MultipleRecordsInSequence )
 	auto r2 = makeRecord( TAG, SRC_FILE, FUNC_NAME, LINE_NUM, FIXED_TIMESTAMP, msg2.data(), msg2.size() );
 	auto r3 = makeRecord( TAG, SRC_FILE, FUNC_NAME, LINE_NUM, FIXED_TIMESTAMP, msg3.data(), msg3.size() );
 
-	EXPECT_EQ( formatRecord( fmt, r1 ), "first\n"  );
+	EXPECT_EQ( formatRecord( fmt, r1 ), "first\n" );
 	EXPECT_EQ( formatRecord( fmt, r2 ), "second\n" );
-	EXPECT_EQ( formatRecord( fmt, r3 ), "third\n"  );
+	EXPECT_EQ( formatRecord( fmt, r3 ), "third\n" );
 }
 
 // ===========================================================================

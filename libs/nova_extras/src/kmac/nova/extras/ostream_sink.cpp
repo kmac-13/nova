@@ -17,7 +17,6 @@ OStreamSink::OStreamSink( std::ostream& stream, bool flushOnWrite ) noexcept
 void OStreamSink::process( const kmac::nova::Record& record ) noexcept
 {
 	_stream->write( record.message, static_cast< std::streamsize >( record.messageSize ) );
-	_stream->write( "\n", 1 );
 	if ( _flushOnWrite )
 	{
 		_stream->flush();
