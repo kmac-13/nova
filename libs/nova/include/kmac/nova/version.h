@@ -6,11 +6,13 @@
 
 #include <cstddef>
 
+// NOLINT NOTE: integer macros required for preprocessor version
+// comparisons (#if NOVA_VERSION_MAJOR_INT >= 1) and stringification
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define NOVA_VERSION_MAJOR_INT 0
 #define NOVA_VERSION_MINOR_INT 1
 #define NOVA_VERSION_PATCH_INT 0
 
-// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 // two-level stringify forces macro expansion before stringification
 #define NOVA_VERSION_STRINGIFY( x ) #x
 #define NOVA_VERSION_TOSTRING( x ) NOVA_VERSION_STRINGIFY( x )
