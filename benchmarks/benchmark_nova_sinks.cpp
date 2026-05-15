@@ -16,13 +16,10 @@
 
 #include <benchmark/benchmark.h>
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
-#include "kmac/nova/timestamp_helper.h"
+#include "kmac/nova.h"
 
 #include "kmac/nova/extras/composite_sink.h"
 #include "kmac/nova/extras/filter_sink.h"
-#include "kmac/nova/extras/formatting_sink.h"
 #include "kmac/nova/extras/memory_pool_async_sink.h"
 #include "kmac/nova/extras/null_sink.h"
 #include "kmac/nova/extras/ostream_sink.h"

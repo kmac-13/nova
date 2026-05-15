@@ -32,11 +32,9 @@
 // --------------------
 // Nova Includes
 // --------------------
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
-#include "kmac/nova/timestamp_helper.h"
+#include "kmac/nova.h"
+#include "kmac/nova/extras/custom_formatter.h"
 #include "kmac/nova/extras/formatting_file_sink.h"
-#include "kmac/nova/extras/iso8601_formatter.h"
 #include "kmac/nova/extras/null_sink.h"
 #include "kmac/nova/extras/synchronized_sink.h"
 #include "kmac/nova/extras/memory_pool_async_sink.h"
@@ -44,7 +42,7 @@
 // --------------------
 // spdlog Includes
 // --------------------
-#ifdef HAVE_SPDLOG
+#if defined( HAVE_SPDLOG )
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_INFO
 #define SPDLOG_ENABLE_SOURCE_LOC
 #define SPDLOG_NO_EXCEPTIONS
@@ -57,15 +55,19 @@
 // --------------------
 // easylogging++
 // --------------------
-#ifdef HAVE_EASYLOGGINGPP
-#define ELPP_THREAD_SAFE
-#define ELPP_NO_DEFAULT_LOG_FILE
+#if defined( HAVE_EASYLOGGINGPP )
+// disable easylogging++'s default crash handler — its destructor reinstalls
+// signal handlers during CRT DLL-detach on MinGW, crashing the process
+#define ELPP_DISABLE_DEFAULT_CRASH_HANDLING
 #include <easylogging++.h>
 
-INITIALIZE_EASYLOGGINGPP
+// INITIALIZE_EASYLOGGINGPP is intentionally omitted here — it is provided by
+// easylogging_impl.cpp which is compiled into easylogging_lib and linked in.
+// Defining it here as well would be an ODR violation and causes crashes at
+// shutdown due to duplicate global state.
 #endif
 
-	namespace fs = std::filesystem;
+namespace fs = std::filesystem;
 
 // ============================================================
 // Utilities
@@ -151,7 +153,7 @@ static void BM_Nova_DisabledTag_CompileTime( benchmark::State& state )
 }
 BENCHMARK( BM_Nova_DisabledTag_CompileTime )->Threads( 1 )->Threads( 2 )->Threads( 4 )->Threads( 8 )->UseRealTime();
 
-#ifdef HAVE_SPDLOG
+#if defined( HAVE_SPDLOG )
 
 // spdlog: null sink (sink present, discards; closest to Nova NullSink binding)
 static void BM_Spdlog_NullSinkDisabled( benchmark::State& state )
@@ -223,6 +225,16 @@ NOVA_LOGGER_TRAITS( NoSyncFlushTag, NOSYNC.FLUSH, true, kmac::nova::TimestampHel
 struct NoSyncNoFlushTag {};
 NOVA_LOGGER_TRAITS( NoSyncNoFlushTag, NOSYNC.NOFLUSH, true, kmac::nova::TimestampHelper::systemNanosecs );
 
+using NovaFmtType = kmac::nova::extras::CustomFormatter<
+	kmac::nova::extras::FieldSpec< '\0', kmac::nova::extras::Field::TimestampISO, ' '  >,
+	kmac::nova::extras::FieldSpec< '[',  kmac::nova::extras::Field::Tag,      ']'  >,
+	kmac::nova::extras::FieldSpec< ' ',  kmac::nova::extras::Field::File,     ':'  >,
+	kmac::nova::extras::FieldSpec< '\0', kmac::nova::extras::Field::Line,     ' '  >,
+	kmac::nova::extras::FieldSpec< '\0', kmac::nova::extras::Field::Function, '\0' >,
+	kmac::nova::extras::FieldSpec< ' ',  kmac::nova::extras::Field::None,     '-'  >,
+	kmac::nova::extras::FieldSpec< ' ',  kmac::nova::extras::Field::Message,  '\n' >
+>;
+
 static void BM_Nova_File_Sync_Flush( benchmark::State& state )
 {
 	const int threadCount = static_cast< int >( state.range( 0 ) );
@@ -234,7 +246,7 @@ static void BM_Nova_File_Sync_Flush( benchmark::State& state )
 	FILE* file = std::fopen( filename.c_str(), "wb" );
 	std::setvbuf( file, nullptr, _IOFBF, 128 * 1024 );
 
-	auto formatter = std::make_shared< kmac::nova::extras::ISO8601Formatter >();
+	auto formatter = std::make_shared< NovaFmtType >();
 	auto fileSink = std::make_shared< kmac::nova::extras::FormattingFileSink<> >( file, formatter.get() );
 	auto lockSink = std::make_shared< kmac::nova::extras::SynchronizedSink >( *fileSink );
 
@@ -265,7 +277,7 @@ static void BM_Nova_File_Sync_NoFlush( benchmark::State& state )
 	FILE* file = std::fopen( filename.c_str(), "wb" );
 	std::setvbuf( file, nullptr, _IOFBF, 128 * 1024 );
 
-	auto formatter = std::make_shared< kmac::nova::extras::ISO8601Formatter >();
+	auto formatter = std::make_shared< NovaFmtType >();
 	auto fileSink = std::make_shared< kmac::nova::extras::FormattingFileSink<> >( file, formatter.get() );
 	auto lockSink = std::make_shared< kmac::nova::extras::SynchronizedSink >( *fileSink );
 
@@ -295,7 +307,7 @@ static void BM_Nova_File_NoSync_Flush( benchmark::State& state )
 	FILE* file = std::fopen( filename.c_str(), "wb" );
 	std::setvbuf( file, nullptr, _IOFBF, 128 * 1024 );
 
-	auto formatter = std::make_shared< kmac::nova::extras::ISO8601Formatter >();
+	auto formatter = std::make_shared< NovaFmtType >();
 	auto fileSink = std::make_shared< kmac::nova::extras::FormattingFileSink<> >( file, formatter.get() );
 
 	kmac::nova::ScopedConfigurator<> scopedConfigurator;
@@ -325,7 +337,7 @@ static void BM_Nova_File_NoSync_NoFlush( benchmark::State& state )
 	FILE* file = std::fopen( filename.c_str(), "wb" );
 	std::setvbuf( file, nullptr, _IOFBF, 128 * 1024 );
 
-	auto formatter = std::make_shared< kmac::nova::extras::ISO8601Formatter >();
+	auto formatter = std::make_shared< NovaFmtType >();
 	auto fileSink = std::make_shared< kmac::nova::extras::FormattingFileSink<> >( file, formatter.get() );
 
 	kmac::nova::ScopedConfigurator<> scopedConfigurator;
@@ -347,7 +359,7 @@ BENCHMARK( BM_Nova_File_NoSync_NoFlush )->Arg( 1 )->Arg( 2 )->Arg( 4 )->Arg( 8 )
 // spdlog Sync File Output
 // ============================================================
 
-#ifdef HAVE_SPDLOG
+#if defined( HAVE_SPDLOG )
 
 static void BM_spdlog_File_Sync_Flush( benchmark::State& state )
 {
@@ -406,7 +418,7 @@ BENCHMARK( BM_spdlog_File_Sync_NoFlush )->Arg( 1 )->Arg( 2 )->Arg( 4 )->Arg( 8 )
 // easylogging++ Sync
 // ============================================================
 
-#ifdef HAVE_EASYLOGGINGPP
+#if defined( HAVE_EASYLOGGINGPP )
 
 static void configureEasyLogging( const std::string& filename )
 {
@@ -450,10 +462,10 @@ NOVA_LOGGER_TRAITS( NovaAsyncTag, NOVA.ASYNC, true, kmac::nova::TimestampHelper:
 
 class NovaSharedFileBenchmark : public benchmark::Fixture
 {
-protected:
+public:
 	static constexpr std::size_t PoolSize = 256 * 1024;
 	static constexpr std::size_t QueueSize = 8192;
-	using Formatter = kmac::nova::extras::ISO8601Formatter;
+	using Formatter = NovaFmtType;
 	using FileSink = kmac::nova::extras::FormattingFileSink<>;
 	using AsyncSink = kmac::nova::extras::MemoryPoolAsyncSink< PoolSize, QueueSize >;
 
@@ -476,6 +488,7 @@ public:
 			_formatter = std::make_shared< Formatter >();
 			_fileSink = std::make_shared< FileSink >( _file, _formatter.get() );
 			_asyncSink = std::make_shared< AsyncSink >( *_fileSink.get() );
+			_asyncSink->start();
 
 			kmac::nova::Logger< NovaAsyncTag >::bindSink( _asyncSink.get() );
 		}
@@ -487,10 +500,7 @@ public:
 		{
 			kmac::nova::Logger< NovaAsyncTag >::unbindSink();
 			_asyncSink.reset();
-
-			_fileSink->flush();
 			_fileSink.reset();
-
 			std::fclose( _file );
 			_file = nullptr;
 		}
@@ -513,16 +523,24 @@ BENCHMARK_DEFINE_F( NovaSharedFileBenchmark, NovaAsyncNoFlush )( benchmark::Stat
 
 	if ( state.thread_index() == 0 )
 	{
+		// snapshot counters immediately after the timed loop ends, before any
+		// shutdown — this captures only what the consumer processed during the
+		// benchmark run, not records delivered after the loop
 		const uint64_t processed = _asyncSink->processedCount();
-		const uint64_t dropped = _asyncSink->droppedCount();
-		const uint64_t total = processed + dropped;
+		const uint64_t dropped   = _asyncSink->droppedCount();
+		const uint64_t total     = processed + dropped;
 
-		state.counters[ "Logged" ] = static_cast< double >( total );
+		state.counters[ "Logged" ]    = static_cast< double >( total );
 		state.counters[ "Delivered" ] = static_cast< double >( processed );
-		state.counters[ "Dropped" ] = static_cast< double >( dropped );
+		state.counters[ "Dropped" ]   = static_cast< double >( dropped );
 		state.counters[ "DropRate%" ] = total == 0
 			? 0.0
 			: 100.0 * static_cast< double >( dropped ) / static_cast< double >( total );
+
+		// discard queued records rather than draining — records sitting in the
+		// queue at benchmark end were not delivered during the timed period and
+		// should not be counted toward delivered throughput
+		_asyncSink->stopAndDiscard();
 	}
 }
 
@@ -538,11 +556,11 @@ BENCHMARK_REGISTER_F( NovaSharedFileBenchmark, NovaAsyncNoFlush )
 // spdlog Async File Output (multi-threaded fixture)
 // ============================================================
 
-#ifdef HAVE_SPDLOG
+#if defined( HAVE_SPDLOG )
 
 class SpdlogAsyncFixture : public benchmark::Fixture
 {
-protected:
+public:
 	static std::shared_ptr< spdlog::logger > _logger;
 	static std::atomic< uint64_t > _totalLogged;
 	static int _lastThreadCount;
@@ -607,15 +625,19 @@ BENCHMARK_DEFINE_F( SpdlogAsyncFixture, SpdlogAsyncNoFlush )( benchmark::State& 
 
 	if ( state.thread_index() == 0 )
 	{
+		// snapshot immediately after the timed loop — overrun_counter() reflects
+		// records overwritten in the queue during the benchmark run; the queue
+		// may still have undelivered records at this point but we do not count
+		// them to keep the measurement consistent with Nova's stopAndDiscard approach
 		auto tp = spdlog::thread_pool();
 
-		const uint64_t dropped = tp ? tp->overrun_counter() : 0;
-		const uint64_t logged = _totalLogged.load( std::memory_order_relaxed );
+		const uint64_t dropped  = tp ? tp->overrun_counter() : 0;
+		const uint64_t logged   = _totalLogged.load( std::memory_order_relaxed );
 		const uint64_t delivered = logged > dropped ? logged - dropped : 0;
 
-		state.counters[ "Logged" ] = static_cast< double >( logged );
+		state.counters[ "Logged" ]    = static_cast< double >( logged );
 		state.counters[ "Delivered" ] = static_cast< double >( delivered );
-		state.counters[ "Dropped" ] = static_cast< double >( dropped );
+		state.counters[ "Dropped" ]   = static_cast< double >( dropped );
 		state.counters[ "DropRate%" ] = logged == 0
 			? 0.0
 			: 100.0 * static_cast< double >( dropped ) / static_cast< double >( logged );
@@ -632,4 +654,230 @@ BENCHMARK_REGISTER_F( SpdlogAsyncFixture, SpdlogAsyncNoFlush )
 
 #endif // HAVE_SPDLOG
 
-BENCHMARK_MAIN();
+
+// ============================================================
+// Quill Async File Output
+// ============================================================
+//
+// Quill's frontend enqueues a type-erased descriptor and returns immediately;
+// the backend thread does all formatting and I/O.  The frontend cost is
+// therefore independent of output complexity, unlike Nova's sync path.
+//
+// Drop counting: Quill does not expose a drop counter on the logger.  Drops
+// are tracked per-thread via ThreadContext::failure_counter, which is
+// publicly iterable through ThreadContextManager::for_each_thread_context().
+// We sum and reset it in TearDown so counts reflect one benchmark run.
+//
+// Note: Quill multi-thread benchmarks are disabled here for the same reason
+// as in benchmark_throughput.cpp - Quill's thread_local ScopedThreadContext
+// is incompatible with Google Benchmark's thread pool lifecycle.  The
+// single-thread result is representative of Quill's frontend enqueue cost.
+
+#if defined( HAVE_QUILL )
+
+#include <quill/Backend.h>
+#include <quill/Frontend.h>
+#include <quill/LogMacros.h>
+#include <quill/Logger.h>
+#include <quill/core/FrontendOptions.h>
+#include <quill/core/ThreadContextManager.h>
+#include <quill/sinks/FileSink.h>
+
+struct QuillFileOptions : quill::FrontendOptions
+{
+	static constexpr quill::QueueType queue_type             = quill::QueueType::BoundedDropping;
+	static constexpr std::uint32_t    initial_queue_capacity = 256 * 1024; // 256 KB - matches Nova MemoryPoolAsyncSink pool size
+};
+
+using QuillFileFrontend = quill::FrontendImpl< QuillFileOptions >;
+using QuillFileLogger   = quill::LoggerImpl< QuillFileOptions >;
+
+namespace
+{
+
+QuillFileLogger* g_quillFileLogger = nullptr;
+std::once_flag   g_quillFileInitFlag;
+
+void initQuillFile()
+{
+	std::call_once( g_quillFileInitFlag, []()
+	{
+		quill::BackendOptions backend_options;
+		quill::Backend::start( backend_options );
+	} );
+}
+
+// sum and reset failure counters across all thread contexts
+std::uint64_t drainQuillDropCount()
+{
+	std::uint64_t total = 0;
+	quill::detail::ThreadContextManager::instance().for_each_thread_context(
+		[ &total ]( quill::detail::ThreadContext* ctx )
+		{
+			total += ctx->get_and_reset_failure_counter();
+		} );
+	return total;
+}
+
+} // namespace
+
+class QuillFileFixture : public benchmark::Fixture
+{
+protected:
+	static std::uint64_t _totalLogged;
+	static std::uint64_t _totalDropped;
+	static std::uint32_t _runCounter;
+
+public:
+	void SetUp( const ::benchmark::State& state ) override
+	{
+		if ( state.thread_index() == 0 )
+		{
+			initQuillFile();
+
+			// flush and remove the previous logger before removing the file —
+			// the Quill backend holds the file open until the logger is destroyed
+			if ( g_quillFileLogger )
+			{
+				g_quillFileLogger->flush_log();
+				QuillFileFrontend::remove_logger( g_quillFileLogger );
+				g_quillFileLogger = nullptr;
+			}
+
+			removeFileIfExists( "quill_async_file.log" );
+
+			// unique sink/logger name per run avoids stale SinkManager entries
+			// since create_or_get_sink returns the cached (closed) sink for the same name
+			const std::string runId = std::to_string( ++_runCounter );
+
+			quill::FileSinkConfig cfg;
+			cfg.set_open_mode( 'w' );
+			cfg.set_write_buffer_size( 128 * 1024 );
+
+			auto sink = QuillFileFrontend::create_or_get_sink< quill::FileSink >(
+				"quill_file_sink_" + runId, cfg, quill::FileEventNotifier{},
+				true /* do_fopen */ );
+
+			g_quillFileLogger = QuillFileFrontend::create_or_get_logger(
+				"quill_file_" + runId,
+				std::move( sink ),
+				quill::PatternFormatterOptions{ "%(time) [%(log_level_short_code)] %(file_name):%(line_number) %(caller_function) - %(message)" } );
+
+			_totalLogged  = 0;
+			_totalDropped = 0;
+
+			// reset any stale failure counters from previous benchmark runs
+			drainQuillDropCount();
+		}
+	}
+
+	void TearDown( const ::benchmark::State& state ) override
+	{
+		if ( state.thread_index() == 0 )
+		{
+			// drain the backend before collecting drop counts
+			g_quillFileLogger->flush_log();
+
+			_totalDropped += drainQuillDropCount();
+
+			const std::uint64_t delivered = _totalLogged > _totalDropped
+				? _totalLogged - _totalDropped
+				: 0;
+
+			const_cast< benchmark::State& >( state ).counters[ "Logged" ]    = static_cast< double >( _totalLogged );
+			const_cast< benchmark::State& >( state ).counters[ "Delivered" ] = static_cast< double >( delivered );
+			const_cast< benchmark::State& >( state ).counters[ "Dropped" ]   = static_cast< double >( _totalDropped );
+			const_cast< benchmark::State& >( state ).counters[ "DropRate%" ] = _totalLogged == 0
+				? 0.0
+				: 100.0 * static_cast< double >( _totalDropped ) / static_cast< double >( _totalLogged );
+
+			// remove the logger so the file sink is released before process exit;
+			// Backend::stop() (called by QuillFileStopper) must find no live loggers
+			// holding open file handles or it races with the sink destructor
+			QuillFileFrontend::remove_logger( g_quillFileLogger );
+			g_quillFileLogger = nullptr;
+		}
+	}
+};
+
+std::uint64_t QuillFileFixture::_totalLogged  = 0;
+std::uint64_t QuillFileFixture::_totalDropped = 0;
+std::uint32_t QuillFileFixture::_runCounter   = 0;
+
+// constructed after fixture statics, so destructs before them —
+// Backend::stop() drains and joins the backend thread cleanly before
+// any remaining Quill state (loggers, sinks) is torn down by the CRT
+struct QuillFileStopper
+{
+	~QuillFileStopper()
+	{
+		quill::Backend::stop();
+	}
+};
+static QuillFileStopper g_quillFileStopper;
+
+BENCHMARK_DEFINE_F( QuillFileFixture, QuillAsyncFile )( benchmark::State& state )
+{
+	for ( auto _ : state )
+	{
+		LOG_INFO( g_quillFileLogger, "Quill async file output test {} {}", 0, 0 );
+		++_totalLogged;
+	}
+
+	state.SetItemsProcessed( state.iterations() );
+}
+
+// multi-thread disabled: see note at top of Quill section
+BENCHMARK_REGISTER_F( QuillFileFixture, QuillAsyncFile )
+	->Threads( 1 )
+	->UseRealTime();
+
+#endif // HAVE_QUILL
+
+// explicit main instead of BENCHMARK_MAIN() so we can call Backend::stop()
+// before returning — on MinGW the static destructor ordering for QuillFileStopper
+// is not reliable enough to prevent the atexit crash, but an explicit call here
+// runs before any static destructors and before the CRT teardown window
+int main( int argc, char** argv )
+{
+	::benchmark::Initialize( &argc, argv );
+
+	if ( ::benchmark::ReportUnrecognizedArguments( argc, argv ) )
+	{
+		return 1;
+	}
+
+	::benchmark::RunSpecifiedBenchmarks();
+	::benchmark::Shutdown();
+
+	// explicitly tear down all static objects that own background threads or
+	// heap-allocated members before returning from main() — on MinGW, static
+	// destructors that run during CRT DLL-detach can race with heap cleanup
+	// and crash even when all benchmarks have already completed successfully
+
+	// Nova async sink owns a background thread; reset before CRT teardown
+	NovaSharedFileBenchmark::_asyncSink.reset();
+	NovaSharedFileBenchmark::_fileSink.reset();
+	NovaSharedFileBenchmark::_formatter.reset();
+
+#if defined( HAVE_SPDLOG )
+	// spdlog async logger owns a thread pool
+	SpdlogAsyncFixture::_logger.reset();
+	spdlog::shutdown();
+#endif
+
+#if defined( HAVE_QUILL )
+	quill::Backend::stop();
+#endif
+
+#if defined( HAVE_EASYLOGGINGPP )
+	el::Loggers::flushAll();
+	el::base::elStorage.reset();
+#endif
+
+	// use _Exit() rather than returning — MinGW's CRT DLL-detach window races
+	// with remaining static destructors (Google Benchmark registry, etc.) that
+	// we don't own and cannot safely sequence.  All meaningful cleanup has
+	// already been performed explicitly above.
+	_Exit( 0 );
+}

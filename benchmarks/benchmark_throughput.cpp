@@ -14,9 +14,7 @@
 
 #include <benchmark/benchmark.h>
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
-#include "kmac/nova/timestamp_helper.h"
+#include "kmac/nova.h"
 
 #include "kmac/nova/extras/continuation_logging.h"
 #include "kmac/nova/extras/null_sink.h"
@@ -24,33 +22,33 @@
 #include "kmac/nova/extras/streaming_logging.h"
 #include "kmac/nova/extras/synchronized_sink.h"
 
-#ifdef HAVE_SPDLOG
+#if defined( HAVE_SPDLOG )
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/null_sink.h>
 #include <spdlog/async.h>
 #endif
 
-#ifdef HAVE_GLOG
+#if defined( HAVE_GLOG )
 #include <glog/logging.h>
 #endif
 
-#ifdef HAVE_BOOST_LOG
+#if defined( HAVE_BOOST_LOG )
 #include <boost/log/trivial.hpp>
+#include <boost/log/core.hpp>
+#include <boost/log/expressions.hpp>
 #endif
 
-#ifdef HAVE_LOG4CPP
+#if defined( HAVE_LOG4CPP )
 #include <log4cpp/Category.hh>
 #include <log4cpp/OstreamAppender.hh>
 #include <log4cpp/Priority.hh>
 #endif
 
 #if defined( HAVE_EASYLOGGINGPP )
-#define ELPP_THREAD_SAFE
-#define ELPP_NO_DEFAULT_LOG_FILE
 #include <easylogging++.h>
 #endif
 
-#ifdef HAVE_NANOLOG
+#if defined( HAVE_NANOLOG )
 #include <NanoLog.hpp>
 #endif
 
@@ -379,7 +377,7 @@ do { \
 		static constexpr char message[] = msg; \
 		kmac::nova::Record rec; \
 		rec.timestamp = 0; \
-		rec.tagId = kmac::nova::logger_traits< Tag >::tagId; \
+		rec.tagId = kmac::nova::LoggerTraits< Tag >::tagId; \
 		rec.tag = #Tag; \
 		rec.file = __FILE__; \
 		rec.function = __func__; \
@@ -418,7 +416,7 @@ static void BM_Throughput_Nova_Optimized_Minimal( benchmark::State& state )
 	static constexpr char msg[] = "Benchmark";
 	kmac::nova::Record rec;
 	rec.timestamp = 0;
-	rec.tagId = kmac::nova::logger_traits< NovaOptimizedTag >::tagId;
+	rec.tagId = kmac::nova::LoggerTraits< NovaOptimizedTag >::tagId;
 	rec.tag = "NovaOptimizedTag";
 	rec.file = __FILE__;
 	rec.function = __func__;
@@ -436,13 +434,13 @@ static void BM_Throughput_Nova_Optimized_Minimal( benchmark::State& state )
 }
 BENCHMARK( BM_Throughput_Nova_Optimized_Minimal );
 
-#ifndef NOVA_BENCHMARKS_ONLY
+#if ! defined( NOVA_BENCHMARKS_ONLY )
 
 // ============================================================================
 // spdlog Throughput Benchmarks
 // ============================================================================
 
-#ifdef HAVE_SPDLOG
+#if defined( HAVE_SPDLOG )
 
 // spdlog's async thread pool is stored in a global shared_ptr inside spdlog's
 // registry.  On Windows/MSVC, the thread it owns races with the CRT locale
@@ -460,7 +458,7 @@ static void BM_Throughput_Spdlog_SingleThread( benchmark::State& state )
 	auto logger = std::make_shared< spdlog::logger >(
 		"throughput",
 		std::make_shared< spdlog::sinks::null_sink_mt >()
-		);
+	);
 	logger->set_level( spdlog::level::info );
 
 	std::uint64_t totalMessages = 0;
@@ -479,7 +477,7 @@ static void BM_Throughput_Spdlog_SingleThreadDisabled( benchmark::State& state )
 	auto logger = std::make_shared< spdlog::logger >(
 		"throughput",
 		std::make_shared< spdlog::sinks::null_sink_mt >()
-		);
+	);
 	logger->set_level( spdlog::level::off );
 
 	std::uint64_t totalMessages = 0;
@@ -500,7 +498,7 @@ static void BM_Throughput_Spdlog_Async( benchmark::State& state )
 		"async_throughput",
 		std::make_shared< spdlog::sinks::null_sink_mt >(),
 		spdlog::thread_pool()
-		);
+	);
 	logger->set_level( spdlog::level::info );
 
 	std::uint64_t totalMessages = 0;
@@ -521,7 +519,7 @@ static void BM_Throughput_Spdlog_MultiThread( benchmark::State& state )
 	auto logger = std::make_shared< spdlog::logger >(
 		"mt_throughput",
 		std::make_shared< spdlog::sinks::null_sink_mt >()
-		);
+	);
 	logger->set_level( spdlog::level::info );
 
 	for ( auto _ : state )
@@ -550,7 +548,7 @@ static void BM_Throughput_Spdlog_AsyncMultiThread( benchmark::State& state )
 		"async_mt_" + std::to_string( state.thread_index() ),
 		std::make_shared< spdlog::sinks::null_sink_mt >(),
 		spdlog::thread_pool()
-		);
+	);
 	logger->set_level( spdlog::level::info );
 
 	for ( auto _ : state )
@@ -571,7 +569,7 @@ BENCHMARK( BM_Throughput_Spdlog_AsyncMultiThread )->Threads( 1 )->Threads( 2 )->
 // glog Throughput Benchmarks
 // ============================================================================
 
-#ifdef HAVE_GLOG
+#if defined( HAVE_GLOG )
 
 struct GlogInit
 {
@@ -614,14 +612,15 @@ BENCHMARK( BM_Throughput_Glog_MultiThread )->Threads( 1 )->Threads( 2 )->Threads
 // Boost.Log Throughput Benchmarks
 // ============================================================================
 
-#ifdef HAVE_BOOST_LOG
+#if defined( HAVE_BOOST_LOG )
 
 struct BoostLogInit
 {
 	BoostLogInit()
 	{
 		boost::log::core::get()->set_filter(
-			boost::log::trivial::severity >= boost::log::trivial::info
+			boost::log::expressions::attr< boost::log::trivial::severity_level >( "Severity" )
+				>= boost::log::trivial::info
 			);
 	}
 
@@ -668,7 +667,7 @@ BENCHMARK( BM_Throughput_BoostLog_MultiThread )->Threads( 1 )->Threads( 2 )->Thr
 // log4cpp Throughput Benchmarks
 // ============================================================================
 
-#ifdef HAVE_LOG4CPP
+#if defined( HAVE_LOG4CPP )
 
 struct Log4cppInit
 {
@@ -751,7 +750,7 @@ BENCHMARK( BM_Throughput_Easylogging_SingleThread );
 // NanoLog Throughput Benchmarks
 // ============================================================================
 
-#ifdef HAVE_NANOLOG
+#if defined( HAVE_NANOLOG )
 
 struct NanoLogInit
 {
@@ -788,121 +787,167 @@ BENCHMARK( BM_Throughput_NanoLog_SingleThread );
 // Quill Throughput Benchmarks
 // ============================================================================
 
-#ifdef HAVE_QUILL
+#if defined( HAVE_QUILL )
 
 #include <quill/Backend.h>
 #include <quill/Frontend.h>
 #include <quill/LogMacros.h>
 #include <quill/Logger.h>
+#include <quill/core/FrontendOptions.h>
 #include <quill/sinks/NullSink.h>
 
-// Quill Single-Thread Throughput (Null Sink)
-static void BM_Throughput_Quill_SingleThread( benchmark::State& state )
+// bounded dropping queue - matches Nova's MemoryPoolAsyncSink policy (drop on full)
+// and prevents unbounded queue growth that previously caused OOM crashes under
+// sustained benchmark load
+struct BoundedDroppingOptions : quill::FrontendOptions
 {
-	static bool backend_started = false;
-	static quill::Logger* logger = nullptr;
+	static constexpr quill::QueueType queue_type = quill::QueueType::BoundedDropping;
+	static constexpr std::uint32_t initial_queue_capacity = 256 * 1024; // 256 KB - matches Nova MemoryPoolAsyncSink pool size
+};
 
-	if ( ! backend_started )
-	{
-		// Start the backend thread
+using BoundedFrontend = quill::FrontendImpl< BoundedDroppingOptions >;
+using BoundedLogger = quill::LoggerImpl< BoundedDroppingOptions >;
+
+// all loggers and the backend are initialised exactly once across all Quill
+// benchmarks - Backend::start() is not idempotent and must not be called again
+// after the backend thread is already running
+namespace
+{
+
+struct QuillState
+{
+	BoundedLogger* stLogger = nullptr;
+	BoundedLogger* mtLogger = nullptr;
+	BoundedLogger* sizeLogger = nullptr;
+};
+
+QuillState g_quillState;
+std::once_flag g_quillInitFlag;
+
+void initQuill()
+{
+	std::call_once( g_quillInitFlag, []() {
 		quill::BackendOptions backend_options;
 		quill::Backend::start( backend_options );
-		backend_started = true;
 
-		// Create null sink (discards all logs)
-		auto null_sink = quill::Frontend::create_or_get_sink< quill::NullSink >( "null_sink" );
-
-		// Create logger with null sink
-		logger = quill::Frontend::create_or_get_logger(
+		auto stSink = BoundedFrontend::create_or_get_sink< quill::NullSink >( "quill_null_st" );
+		g_quillState.stLogger = BoundedFrontend::create_or_get_logger(
 			"quill_throughput",
-			std::move( null_sink ),
+			std::move( stSink ),
 			quill::PatternFormatterOptions{ "[%(time)] [%(log_level_short_code)] %(message)" } );
+
+		auto mtSink = BoundedFrontend::create_or_get_sink< quill::NullSink >( "quill_null_mt" );
+		g_quillState.mtLogger = BoundedFrontend::create_or_get_logger(
+			"quill_throughput_mt",
+			std::move( mtSink ),
+			quill::PatternFormatterOptions{ "[%(time)] [%(log_level_short_code)] %(message)" } );
+
+		auto sizeSink = BoundedFrontend::create_or_get_sink< quill::NullSink >( "quill_null_size" );
+		g_quillState.sizeLogger = BoundedFrontend::create_or_get_logger(
+			"quill_size",
+			std::move( sizeSink ),
+			quill::PatternFormatterOptions{ "[%(time)] [%(log_level_short_code)] %(message)" } );
+	} );
+}
+
+} // namespace
+
+// stops the Quill backend thread explicitly before process exit, preventing
+// a crash in the std::atexit handler when the backend tries to drain queues
+// from threads that Google Benchmark has already destroyed
+struct QuillStopper
+{
+	~QuillStopper()
+	{
+		quill::Backend::stop();
 	}
+};
+
+static QuillStopper g_quillStopper;
+
+static void BM_Throughput_Quill_SingleThread( benchmark::State& state )
+{
+	initQuill();
 
 	std::uint64_t totalMessages = 0;
 
 	for ( auto _ : state )
 	{
-		LOG_INFO( logger, "Throughput test message {}", totalMessages++ );
+		LOG_INFO( g_quillState.stLogger, "Throughput test message {}", totalMessages++ );
 	}
 
 	state.SetItemsProcessed( state.iterations() );
 }
 BENCHMARK( BM_Throughput_Quill_SingleThread );
 
-// Quill Multi-Thread Throughput (Null Sink)
 static void BM_Throughput_Quill_MultiThread( benchmark::State& state )
 {
-	static bool backend_started = false;
-	static quill::Logger* logger = nullptr;
-	static std::once_flag init_flag;
-
-	std::call_once( init_flag, []() {
-		// Start the backend thread
-		quill::BackendOptions backend_options;
-		quill::Backend::start( backend_options );
-		backend_started = true;
-
-		// Create null sink (discards all logs)
-		auto null_sink = quill::Frontend::create_or_get_sink< quill::NullSink >( "null_sink_mt" );
-
-		logger = quill::Frontend::create_or_get_logger(
-			"quill_throughput_mt",
-			std::move( null_sink ),
-			quill::PatternFormatterOptions{ "[%(time)] [%(log_level_short_code)] %(message)" } );
-	} );
+	initQuill();
 
 	for ( auto _ : state )
 	{
-		LOG_INFO( logger, "MT throughput {}", state.thread_index() );
+		LOG_INFO( g_quillState.mtLogger, "MT throughput {}", state.thread_index() );
 	}
 
 	state.SetItemsProcessed( state.iterations() );
 }
-// NOTE: Quill multi-threaded benchmarks disabled due to crashes
-// Quill's unbounded queue growth may be causing memory exhaustion
-// See formatted file output benchmark results for possible evidence
-// BENCHMARK( BM_Throughput_Quill_MultiThread )->Threads( 1 )->Threads( 2 )->Threads( 4 )	->Threads( 8 )	->MinTime( 1.0 )->Iterations( 10000 )->UseRealTime();
+// Quill multi-thread benchmark disabled: Quill allocates a thread_local
+// ScopedThreadContext (SPSC queue) on first use per OS thread and destroys it
+// when that thread exits.  Google Benchmark tears down and recreates worker
+// threads between each ->Threads(N) configuration, so threads spawned for the
+// threads:2 run instantiate a new ScopedThreadContext while the backend is
+// still processing invalidated contexts from the threads:1 run, causing a race
+// in ThreadContextManager that crashes the process.  This is a structural
+// incompatibility between Quill's one-context-per-thread-lifetime model and
+// Google Benchmark's thread pool lifecycle; it cannot be worked around without
+// forking the benchmark framework or patching Quill.
+// Single-thread throughput (BM_Throughput_Quill_SingleThread) is representative
+// for Quill's frontend enqueue cost; refer to Quill's own benchmark suite for
+// multi-thread figures.
+// BENCHMARK( BM_Throughput_Quill_MultiThread )
+// 	->Threads( 1 )->Threads( 2 )->Threads( 4 )->Threads( 8 )
+// 	->MinTime( 1.0 )->UseRealTime();
 
-// Quill Message Size Throughput Scaling
 static void BM_Throughput_Quill_MessageSize( benchmark::State& state )
 {
-	static bool backend_started = false;
-	static quill::Logger* logger = nullptr;
+	initQuill();
 
-	if ( ! backend_started )
-	{
-		quill::BackendOptions backend_options;
-		quill::Backend::start( backend_options );
-		backend_started = true;
-
-		auto null_sink = quill::Frontend::create_or_get_sink< quill::NullSink >( "null_sink_size" );
-
-		logger = quill::Frontend::create_or_get_logger(
-			"quill_size",
-			std::move( null_sink ),
-			quill::PatternFormatterOptions{ "[%(time)] [%(log_level_short_code)] %(message)" } );
-	}
-
-	std::string message( state.range( 0 ), 'X' );
+	std::string message( static_cast< std::size_t >( state.range( 0 ) ), 'X' );
 
 	for ( auto _ : state )
 	{
-		LOG_INFO( logger, "Message: {}", message );
+		LOG_INFO( g_quillState.sizeLogger, "Message: {}", message );
 	}
 
 	state.SetItemsProcessed( state.iterations() );
 }
-// NOTE: Quill message size benchmarks are capped at 64 bytes.
-// Larger messages cause Quill's SPSC queue to grow unboundedly (128KB→2GB+)
-// because the benchmark produces faster than the backend consumer can drain,
-// eventually causing OOM and a process crash.  This is a known Quill limitation
-// with unbounded queue mode.  See BM_Throughput_Quill_SingleThread for a
-// representative single-message benchmark.
-BENCHMARK( BM_Throughput_Quill_MessageSize )->Range( 8, 64 );
+// bounded dropping queue keeps memory usage fixed regardless of message size;
+// drop rate at larger sizes reflects realistic backpressure behaviour
+BENCHMARK( BM_Throughput_Quill_MessageSize )->Range( 8, 4096 );
 
 #endif // HAVE_QUILL
 
-#endif // NOVA_BENCHMARKS_ONLY
+#endif // !NOVA_BENCHMARKS_ONLY
 
-BENCHMARK_MAIN();
+// explicit main instead of BENCHMARK_MAIN() so we can call Backend::stop()
+// before returning — on MinGW the static destructor ordering for QuillStopper
+// is not reliable enough to prevent the atexit crash, but an explicit call here
+// runs before any static destructors and before the CRT teardown window
+int main( int argc, char** argv )
+{
+	::benchmark::Initialize( &argc, argv );
+
+	if ( ::benchmark::ReportUnrecognizedArguments( argc, argv ) )
+	{
+		return 1;
+	}
+
+	::benchmark::RunSpecifiedBenchmarks();
+	::benchmark::Shutdown();
+
+#if defined( HAVE_QUILL )
+	quill::Backend::stop();
+#endif
+
+	_Exit( 0 );
+}
