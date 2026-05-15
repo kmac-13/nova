@@ -35,9 +35,7 @@
 #include "task.h"
 
 /* Nova core */
-#include <kmac/nova/nova.h>
-#include <kmac/nova/scoped_configurator.h>
-#include <kmac/nova/sink.h>
+#include <kmac/nova.h>
 
 /* Semihosting exit (ARM) / no-op stub (POSIX) */
 #include "qemu/semihosting.h"

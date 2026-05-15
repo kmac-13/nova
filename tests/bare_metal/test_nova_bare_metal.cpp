@@ -53,9 +53,7 @@
 // we redirect it to the same CHECK mechanism used for all other failures
 #define NOVA_ASSERT( x ) ( ( void ) 0 )
 
-#include <kmac/nova/nova.h>
-#include <kmac/nova/scoped_configurator.h>
-#include <kmac/nova/sink.h>
+#include <kmac/nova.h>
 
 #include "qemu/semihosting.h"
 

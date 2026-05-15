@@ -21,10 +21,7 @@
  * builder's internal state transitions, not the sink.
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
-#include "kmac/nova/sink.h"
-#include "kmac/nova/truncating_logging.h"
+#include "kmac/nova.h"
 
 #include <cstddef>
 #include <cstdint>

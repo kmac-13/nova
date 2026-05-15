@@ -5,10 +5,9 @@
 
 #include "test_helpers.h"
 
+#include "kmac/nova.h"
 #include "kmac/flare/emergency_sink.h"
 #include "kmac/flare/file_writer.h"
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
 
 #include <gtest/gtest.h>
 

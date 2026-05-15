@@ -1,6 +1,7 @@
 cmake_minimum_required( VERSION 3.16 )
 project( NovaFlareTests LANGUAGES CXX )
 
+# target C++11 for proof of support, but C++17 required for test_nova_rolling_file_sink (see below)
 set( CMAKE_CXX_STANDARD 11 )
 set( CMAKE_CXX_STANDARD_REQUIRED ON )
 
@@ -35,6 +36,7 @@ include_directories(
 
 # Collect Nova files
 file( GLOB NOVA_SOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova/include/kmac/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova/include/kmac/nova/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova/include/kmac/nova/platform/*.h
 )
@@ -47,6 +49,7 @@ file( GLOB NOVA_EXTRAS_SOURCES
 
 # Collect Flare files
 file( GLOB FLARE_SOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova_flare/include/kmac/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova_flare/include/kmac/flare/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/../libs/nova_flare/src/kmac/flare/*.cpp
 )
@@ -99,16 +102,23 @@ add_nova_gtest( test_nova_core test_nova_core.cpp )
 add_nova_gtest( test_nova_record_builders test_nova_record_builders.cpp )
 add_nova_gtest( test_nova_logger test_nova_logger.cpp )
 add_nova_gtest( test_nova_scoped_configurator test_nova_scoped_configurator.cpp )
+add_nova_gtest( test_nova_details test_nova_details.cpp )
 
 # Nova Extras Tests
 add_nova_gtest( test_nova_mpsc_queue test_nova_mpsc_queue.cpp )
 add_nova_gtest( test_nova_sinks test_nova_sinks.cpp )
 add_nova_gtest( test_nova_formatters test_nova_formatters.cpp )
 add_nova_gtest( test_nova_custom_formatter test_nova_custom_formatter.cpp )
+add_nova_gtest( test_nova_extra_formatters test_nova_extra_formatters.cpp )
 add_nova_gtest( test_nova_synchronization test_nova_synchronization.cpp )
 add_nova_gtest( test_nova_composite test_nova_composite.cpp )
 add_nova_gtest( test_nova_memory_pool_async_sink test_nova_memory_pool_async_sink.cpp )
 add_nova_gtest( test_nova_circular_file_sink test_nova_circular_file_sink.cpp )
+add_nova_gtest( test_nova_buffers test_nova_buffers.cpp )
+add_nova_gtest( test_nova_ram_sink test_nova_ram_sink.cpp )
+add_nova_gtest( test_nova_streaming test_nova_streaming.cpp )
+add_nova_gtest( test_nova_formatting_file_sink test_nova_formatting_file_sink.cpp )
+add_nova_gtest( test_nova_builder_stream_std test_nova_builder_stream_std.cpp )
 
 if( NOT CMAKE_CXX_STANDARD LESS 17 )
 	add_nova_gtest( test_nova_rolling_file_sink test_nova_rolling_file_sink.cpp )
@@ -126,4 +136,4 @@ add_nova_gtest( test_integration test_integration.cpp )
 # Print summary
 message( STATUS "Nova/Flare gtest suite configured" )
 message( STATUS "  GTest version: ${GTest_VERSION}" )
-message( STATUS "  Tests: 17 test executables" )
+message( STATUS "  Tests: 24 test executables" )

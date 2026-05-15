@@ -162,7 +162,7 @@ bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer
 		_stage = Stage::TagId;
 		_field = FieldStage::Key;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::TagId:
 		if ( ! buffer.append( _tagIdBuf.data(), _tagIdLen ) )
@@ -172,7 +172,7 @@ bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer
 		_stage = Stage::Tag;
 		_field = FieldStage::Key;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Tag:
 		if ( ! appendField(
@@ -186,7 +186,7 @@ bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer
 		_stage = Stage::File;
 		_field = FieldStage::Key;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::File:
 		if ( ! appendField(
@@ -200,7 +200,7 @@ bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer
 		_stage = Stage::Function;
 		_field = FieldStage::Key;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Function:
 		if ( ! appendField(
@@ -214,7 +214,7 @@ bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer
 		_stage = Stage::Line;
 		_field = FieldStage::Key;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Line:
 		if ( ! buffer.append( _lineBuf.data(), _lineLen ) )
@@ -224,7 +224,7 @@ bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer
 		_stage = Stage::Message;
 		_field = FieldStage::Key;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Message:
 		if ( ! appendField(
@@ -238,7 +238,7 @@ bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer
 		_stage = Stage::Suffix;
 		_field = FieldStage::Key;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Suffix:
 		if ( ! buffer.appendLiteral( "}\n" ) )
@@ -246,7 +246,7 @@ bool JsonFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer
 			return false;
 		}
 		_stage = Stage::Done;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Done:
 		break;

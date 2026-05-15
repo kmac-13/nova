@@ -3,8 +3,7 @@
  * @brief Google Test unit tests for Nova composite sinks
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/bounded_composite_sink.h"
 #include "kmac/nova/extras/composite_sink.h"
 #include "kmac/nova/extras/fixed_composite_sink.h"
@@ -312,4 +311,186 @@ TEST_F( NovaComposite, CompositeSinkReuse )
 		EXPECT_EQ( counter1.count.load(), 2u );
 		EXPECT_EQ( counter2.count.load(), 1u );
 	}
+}
+
+// ============================================================================
+// BoundedCompositeSink - contains(), return values, capacity
+// ============================================================================
+
+TEST_F( NovaComposite, BoundedContainsReturnsFalseWhenEmpty )
+{
+	kmac::nova::extras::BoundedCompositeSink< 4 > sink;
+	CounterSink counter;
+
+	EXPECT_FALSE( sink.contains( counter ) );
+}
+
+TEST_F( NovaComposite, BoundedContainsReturnsTrueAfterAdd )
+{
+	kmac::nova::extras::BoundedCompositeSink< 4 > sink;
+	CounterSink counter;
+
+	sink.add( counter );
+
+	EXPECT_TRUE( sink.contains( counter ) );
+}
+
+TEST_F( NovaComposite, BoundedContainsReturnsFalseAfterRemove )
+{
+	kmac::nova::extras::BoundedCompositeSink< 4 > sink;
+	CounterSink counter;
+
+	sink.add( counter );
+	sink.remove( counter );
+
+	EXPECT_FALSE( sink.contains( counter ) );
+}
+
+TEST_F( NovaComposite, BoundedContainsDistinguishesBetweenSinks )
+{
+	kmac::nova::extras::BoundedCompositeSink< 4 > sink;
+	CounterSink a;
+	CounterSink b;
+	CounterSink c;
+
+	sink.add( a );
+	sink.add( b );
+
+	EXPECT_TRUE( sink.contains( a ) );
+	EXPECT_TRUE( sink.contains( b ) );
+	EXPECT_FALSE( sink.contains( c ) );
+}
+
+TEST_F( NovaComposite, BoundedAddReturnsTrueOnSuccess )
+{
+	kmac::nova::extras::BoundedCompositeSink< 4 > sink;
+	CounterSink counter;
+
+	EXPECT_TRUE( sink.add( counter ) );
+}
+
+TEST_F( NovaComposite, BoundedAddReturnsFalseAtCapacity )
+{
+	kmac::nova::extras::BoundedCompositeSink< 2 > sink;
+	CounterSink a;
+	CounterSink b;
+	CounterSink c;
+
+	EXPECT_TRUE( sink.add( a ) );
+	EXPECT_TRUE( sink.add( b ) );
+	EXPECT_FALSE( sink.add( c ) );
+
+	// size must be capped at capacity
+	EXPECT_EQ( sink.size(), 2u );
+	EXPECT_EQ( sink.capacity(), 2u );
+}
+
+TEST_F( NovaComposite, BoundedAddReturnsFalseForDuplicate )
+{
+	// add() rejects a sink that is already present - prevents duplicate dispatch
+	kmac::nova::extras::BoundedCompositeSink< 4 > sink;
+	CounterSink counter;
+
+	EXPECT_TRUE( sink.add( counter ) );
+	EXPECT_FALSE( sink.add( counter ) );
+
+	// size must remain 1
+	EXPECT_EQ( sink.size(), 1u );
+}
+
+TEST_F( NovaComposite, BoundedRemoveReturnsTrueOnSuccess )
+{
+	kmac::nova::extras::BoundedCompositeSink< 4 > sink;
+	CounterSink counter;
+
+	sink.add( counter );
+	EXPECT_TRUE( sink.remove( counter ) );
+	EXPECT_EQ( sink.size(), 0u );
+}
+
+TEST_F( NovaComposite, BoundedRemoveReturnsFalseWhenNotPresent )
+{
+	kmac::nova::extras::BoundedCompositeSink< 4 > sink;
+	CounterSink counter;
+
+	EXPECT_FALSE( sink.remove( counter ) );
+}
+
+TEST_F( NovaComposite, BoundedSizeAndCapacityAccessors )
+{
+	kmac::nova::extras::BoundedCompositeSink< 3 > sink;
+	CounterSink a;
+	CounterSink b;
+
+	EXPECT_EQ( sink.size(), 0u );
+	EXPECT_EQ( sink.capacity(), 3u );
+
+	sink.add( a );
+	EXPECT_EQ( sink.size(), 1u );
+
+	sink.add( b );
+	EXPECT_EQ( sink.size(), 2u );
+
+	sink.remove( a );
+	EXPECT_EQ( sink.size(), 1u );
+}
+
+TEST_F( NovaComposite, BoundedAtCapacityAddThenRemoveThenAdd )
+{
+	// fill to capacity, remove one, verify a new add succeeds
+	kmac::nova::extras::BoundedCompositeSink< 2 > sink;
+	CounterSink a;
+	CounterSink b;
+	CounterSink c;
+
+	sink.add( a );
+	sink.add( b );
+	EXPECT_FALSE( sink.add( c ) );
+
+	sink.remove( a );
+	EXPECT_TRUE( sink.add( c ) );
+
+	// b and c should now receive records
+	kmac::nova::ScopedConfigurator<> config;
+	config.bind< CompositeTag >( &sink );
+
+	NOVA_LOG( CompositeTag ) << "after swap";
+
+	EXPECT_EQ( b.count.load(), 1u );
+	EXPECT_EQ( c.count.load(), 1u );
+	EXPECT_EQ( a.count.load(), 0u );
+}
+
+TEST_F( NovaComposite, BoundedMiddleRemovePreservesOrder )
+{
+	// removing a middle sink must shift remaining sinks and preserve dispatch order
+	kmac::nova::extras::BoundedCompositeSink< 3 > sink;
+
+	std::vector< int > order;
+	class OrderedSink : public kmac::nova::Sink
+	{
+	public:
+		int _id;
+		std::vector< int >& _order;
+		OrderedSink( int id, std::vector< int >& o ) : _id( id ), _order( o ) {}
+		void process( const kmac::nova::Record& ) noexcept override { _order.push_back( _id ); }
+	};
+
+	OrderedSink s1( 1, order );
+	OrderedSink s2( 2, order );
+	OrderedSink s3( 3, order );
+
+	sink.add( s1 );
+	sink.add( s2 );
+	sink.add( s3 );
+	sink.remove( s2 );
+
+	kmac::nova::ScopedConfigurator<> config;
+	config.bind< CompositeTag >( &sink );
+	NOVA_LOG( CompositeTag ) << "order test";
+
+	// s1 and s3 must still fire in original insertion order
+	ASSERT_EQ( order.size(), 2u );
+	EXPECT_EQ( order[ 0 ], 1 );
+	EXPECT_EQ( order[ 1 ], 3 );
 }

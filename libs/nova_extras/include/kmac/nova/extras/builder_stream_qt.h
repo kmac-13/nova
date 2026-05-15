@@ -52,7 +52,7 @@
  * conversion from QString to QStringView, so no separate overload is needed.
  *
  * Usage:
- *   #include <kmac/nova/nova.h>
+ *   #include <kmac/nova.h>
  *   #include <kmac/nova/extras/continuation_logging.h>  // if using NOVA_LOG_CONT
  *   #include <kmac/nova/extras/builder_stream_qt.h>
  *

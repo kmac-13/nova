@@ -9,8 +9,7 @@
  * - using the NOVA_LOG macro
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/ostream_sink.h"
 
 #include <iostream>

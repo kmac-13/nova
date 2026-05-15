@@ -8,8 +8,7 @@
  * - Binding by subsystem or severity level
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/ostream_sink.h"
 #include "kmac/nova/extras/hierarchical_tag.h"
 

@@ -1,13 +1,13 @@
 /**
  * @file main.cpp
  * @brief Example demonstrating Nova's auto-detection and diagnostic features
- * 
+ *
  * This example shows how to use Nova's automatic platform detection and
  * diagnostic mode to understand what features are available on your platform.
- * 
+ *
  * Build with:
  *   g++ -std=c++17 -I<nova_include> main.cpp
- * 
+ *
  * The compiler will output messages showing detected configuration.
  */
 
@@ -19,7 +19,7 @@
 #define NOVA_ENABLE_DIAGNOSTICS
 
 // just include Nova - it will auto-detect everything
-#include <kmac/nova/nova.h>
+#include <kmac/nova.h>
 
 // you'll see compile-time output like:
 //   Nova Platform Configuration:
@@ -159,36 +159,36 @@ int main()
 
 /*
  * Diagnostic Messages During Compilation:
- * 
+ *
  * When you compile this with NOVA_ENABLE_DIAGNOSTICS defined, you'll see compile-time
  * messages like:
- * 
+ *
  *   note: #pragma message: Nova Platform Configuration:
  *   note: #pragma message:   std::atomic: available
  *   note: #pragma message:   std::chrono: available
  *   note: #pragma message:   std::array: available
  *   note: #pragma message:   Platform: POSIX
  *   note: #pragma message:   __has_include: supported
- * 
+ *
  * This helps you verify that Nova detected your platform correctly.
- * 
+ *
  * Common Use Cases:
- * 
+ *
  * 1. Porting to new platform:
  *    - enable NOVA_ENABLE_DIAGNOSTICS
  *    - check what was auto-detected
  *    - manually define NOVA_NO_* flags if needed
- * 
+ *
  * 2. Troubleshooting compilation errors:
  *    - enable NOVA_ENABLE_DIAGNOSTICS
  *    - verify expected features are detected
  *    - add missing defines if auto-detection failed
- * 
+ *
  * 3. CI/CD verification:
  *    - build with NOVA_ENABLE_DIAGNOSTICS
  *    - parse compiler output
  *    - verify configuration matches expectations
- * 
+ *
  * 4. Cross-compilation:
  *    - different toolchains may report different capabilities
  *    - use diagnostics to verify each target configuration

@@ -10,8 +10,7 @@
  * intermittent count failures.
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/ostream_sink.h"
 #include "kmac/nova/extras/spinlock_sink.h"
 #include "kmac/nova/extras/synchronized_sink.h"

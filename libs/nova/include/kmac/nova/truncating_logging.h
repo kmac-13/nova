@@ -6,7 +6,7 @@
  * @file truncating_logging.h
  * @brief Truncating builder, TLS/stack wrappers for Nova core logging.
  *
- * This header is included transitively by nova.h and is not typically
+ * This header is included transitively by macros.h and is not typically
  * included directly.  It provides:
  *
  * - TruncatingRecordBuilder<BufferSize>  : the builder itself
@@ -14,7 +14,7 @@
  * - TlsTruncBuilderWrapper<Tag, Size>    : TLS RAII wrapper (when NOVA_HAS_TLS)
  * - StackTruncBuilderWrapper<Tag, Size>  : stack-based RAII wrapper
  *
- * The NOVA_LOG* macros that drive these types are defined in nova.h.
+ * The NOVA_LOG* macros that drive these types are defined in macros.h.
  *
  * For continuation logging (complete data preservation without truncation),
  * include <kmac/nova/extras/continuation_logging.h>.

@@ -37,7 +37,7 @@ bool TruncatingBuffer::append( const char* data, std::size_t length ) noexcept
 	// if nothing to append, always indicate success
 	if ( length == 0 )
 	{
-		return false;
+		return true;
 	}
 
 	if ( _size + length > _capacity )

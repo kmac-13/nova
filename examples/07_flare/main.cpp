@@ -4,7 +4,7 @@
 #include "kmac/flare/record.h"
 #include "kmac/flare/scanner.h"
 
-#include "kmac/nova/nova.h"
+#include "kmac/nova.h"
 
 #include <iostream>
 #include <fstream>

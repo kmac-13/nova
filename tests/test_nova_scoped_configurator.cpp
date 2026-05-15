@@ -3,8 +3,7 @@
  * @brief Unit tests for fixed-size ScopedConfigurator
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/sink.h"
 
 #include <gtest/gtest.h>

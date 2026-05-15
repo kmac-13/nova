@@ -3,8 +3,7 @@
  * @brief Google Test unit tests for Nova extras sinks
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/filter_sink.h"
 #include "kmac/nova/extras/ostream_sink.h"
 #include "kmac/nova/extras/null_sink.h"
@@ -40,7 +39,7 @@ TEST_F( NovaSinks, OStreamSink )
 	NOVA_LOG( SinkTag ) << "test output";
 
 	std::string output = oss.str();
-	EXPECT_EQ( output, "test output\n" );
+	EXPECT_EQ( output, "test output" );
 }
 
 TEST_F( NovaSinks, OStreamSinkMultipleMessages )

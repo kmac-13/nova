@@ -39,7 +39,7 @@
 #define NOVA_ASSERT( x ) \
 	do { if ( ! ( x ) ) { for ( ;; ) {} } } while ( 0 )
 
-#include <kmac/nova/nova.h>
+#include <kmac/nova.h>
 #include "kmac/flare/emergency_sink.h"
 #include "kmac/flare/ram_writer.h"
 
@@ -172,27 +172,27 @@ NOVA_LOGGER_TRAITS( DebugTag, DEBUG, true, ::kmac::nova::TimestampHelper::steady
 // ============================================================================
 
 // Normal logging sink - human-readable output via UART
-static UartSink gUartSink;
+static UartSink uartSink;
 
 // Emergency/crash logging sink - binary TLV stream to a fixed RAM buffer.
 // On a real target, place crashBuf in a .noinit section so it survives reset
 // and can be drained to UART or flash by the bootloader on next boot.
 // See ram_writer.h for linker script guidance.
-static std::uint8_t gCrashBuf[ 1024 ];
-static kmac::flare::RamWriter gRamWriter( gCrashBuf, sizeof( gCrashBuf ) );
-static kmac::flare::EmergencySink gEmergencySink( &gRamWriter );
+static std::uint8_t crashBuf[ 1024 ];
+static kmac::flare::RamWriter ramWriter( crashBuf, sizeof( crashBuf ) );
+static kmac::flare::EmergencySink<> emergencySink( &ramWriter );
 
 static void systemInit() noexcept
 {
 	// bind once at startup during single-threaded init - no interrupts active
 	// yet so the volatile AtomicPtr store is safe on a single-core target
-	kmac::nova::Logger< SystemTag >::bindSink( &gUartSink );
-	kmac::nova::Logger< ErrorTag >::bindSink( &gUartSink );
-	kmac::nova::Logger< DebugTag >::bindSink( &gUartSink );
+	kmac::nova::Logger< SystemTag >::bindSink( &uartSink );
+	kmac::nova::Logger< ErrorTag >::bindSink( &uartSink );
+	kmac::nova::Logger< DebugTag >::bindSink( &uartSink );
 
 	// CrashTag routes to the emergency sink - binary TLV format, RAM-buffered.
 	// Bind this early so any fault after this point is captured.
-	kmac::nova::Logger< CrashTag >::bindSink( &gEmergencySink );
+	kmac::nova::Logger< CrashTag >::bindSink( &emergencySink );
 
 	NOVA_LOG( SystemTag ) << "System initialized";
 }
@@ -209,7 +209,7 @@ static void peripheralInit() noexcept
 
 		// also emit a crash record - captured in RAM for post-mortem analysis
 		NOVA_LOG_STACK( CrashTag ) << "Fatal: peripheral init failed at startup";
-		gEmergencySink.flush();
+		emergencySink.flush();
 	}
 
 	NOVA_LOG( DebugTag ) << "Register value = 0x1234";
@@ -319,7 +319,7 @@ void flush() noexcept
 	const char crashMid[] = " bytes, binary TLV) ===\n";
 	const char crashNote[] = "    (on target: drain via UART or flash on next boot)\n";
 	flushToStdout( crashHeader, sizeof( crashHeader ) - 1 );
-	simWriteUInt( gRamWriter.bytesWritten() );
+	simWriteUInt( ramWriter.bytesWritten() );
 	flushToStdout( crashMid, sizeof( crashMid ) - 1 );
 	flushToStdout( crashNote, sizeof( crashNote ) - 1 );
 }

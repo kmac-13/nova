@@ -118,8 +118,8 @@ inline std::uint64_t highResNanosecs() noexcept
  * - known overflow behavior
  *
  * Example (ARM Cortex-M with SysTick):
- *   extern volatile uint64_t g_systick_count_ns;
- *   return g_systick_count_ns;
+ *   extern volatile uint64_t ext_systick_count_ns;
+ *   return ext_systick_count_ns;
  *
  * Example (with DWT cycle counter):
  *   uint32_t cycles = DWT->CYCCNT;
@@ -255,24 +255,24 @@ inline std::uint64_t steadyNanosecs() noexcept
  *
  * Opt-in only: define NOVA_ENABLE_FRAME_COUNTER before including Nova headers to
  * enable this function.  Not compiled by default because the extern declaration
- * of g_frameCounter causes link errors on bare-metal toolchains that resolve
+ * of ext_frameCounter causes link errors on bare-metal toolchains that resolve
  * all extern symbols regardless of whether the function is called.
  *
  * Usage:
  *   #define NOVA_ENABLE_FRAME_COUNTER
  *   #include <kmac/nova/logger.h>
  *
- *   // g_frameCounter must be in the kmac::nova::platform namespace,
+ *   // _frameCounter must be in the kmac::nova::platform namespace,
  *   // because the extern declaration inside frameCounter() is namespace-scoped
- *   namespace kmac::nova::platform { std::uint64_t g_frameCounter = 0; }
+ *   namespace kmac::nova::platform { std::uint64_t _frameCounter = 0; }
  *   NOVA_LOGGER_TRAITS( GameTag, GAME, true, ::kmac::nova::platform::frameCounter );
  */
 #ifdef NOVA_ENABLE_FRAME_COUNTER
 inline std::uint64_t frameCounter() noexcept
 {
 	// user must provide global frame counter
-	extern std::uint64_t g_frameCounter;
-	return g_frameCounter;
+	extern std::uint64_t ext_frameCounter;
+	return ext_frameCounter;
 }
 #endif // NOVA_ENABLE_FRAME_COUNTER
 

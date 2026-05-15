@@ -19,9 +19,7 @@
  * continuation records immediately.
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
-#include "kmac/nova/sink.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/continuation_logging.h"
 
 #include <cstddef>

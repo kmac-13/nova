@@ -155,7 +155,7 @@ bool XmlFormatter::appendElement(
 		}
 		_field = FieldStage::Content;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case FieldStage::Content:
 		if ( ! appendEscaped( content, len, _offset, buffer ) )
@@ -163,7 +163,7 @@ bool XmlFormatter::appendElement(
 			return false;
 		}
 		_field = FieldStage::CloseTag;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case FieldStage::CloseTag:
 		if ( ! buffer.append( closeTag, closeTagLen ) )
@@ -188,7 +188,7 @@ bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Ts;
 		_field = FieldStage::OpenTag;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Ts:
 		if ( ! buffer.append( _tsBuf.data(), _tsLen ) )
@@ -198,7 +198,7 @@ bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::TagId;
 		_field = FieldStage::OpenTag;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::TagId:
 		if ( ! buffer.append( _tagIdBuf.data(), _tagIdLen ) )
@@ -208,7 +208,7 @@ bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Tag;
 		_field = FieldStage::OpenTag;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Tag:
 		if ( ! _tagIsNull )
@@ -226,7 +226,7 @@ bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::File;
 		_field = FieldStage::OpenTag;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::File:
 		if ( ! _fileIsNull )
@@ -244,7 +244,7 @@ bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Function;
 		_field = FieldStage::OpenTag;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Function:
 		if ( ! _funcIsNull )
@@ -262,7 +262,7 @@ bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Line;
 		_field = FieldStage::OpenTag;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Line:
 		if ( ! buffer.append( _lineBuf.data(), _lineLen ) )
@@ -272,7 +272,7 @@ bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::Message;
 		_field = FieldStage::OpenTag;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Message:
 		if ( ! _msgIsNull )
@@ -290,7 +290,7 @@ bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 		_stage = Stage::CloseRecord;
 		_field = FieldStage::OpenTag;
 		_offset = 0;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::CloseRecord:
 		if ( ! buffer.appendLiteral( "</record>\n" ) )
@@ -298,7 +298,7 @@ bool XmlFormatter::formatSlow( const kmac::nova::Record& record, Buffer& buffer 
 			return false;
 		}
 		_stage = Stage::Done;
-		// [[fallthrough]];
+		[[fallthrough]];
 
 	case Stage::Done:
 		break;

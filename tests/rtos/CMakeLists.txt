@@ -80,7 +80,7 @@ FetchContent_MakeAvailable( freertos_kernel )
 # than depending on the parent CMakeLists (which may not be in scope when
 # this subdirectory is built standalone via -DNOVA_RTOS_TEST_STANDALONE=ON)
 set( NOVA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../libs/nova/include" )
-if( NOT EXISTS "${NOVA_INCLUDE_DIR}/kmac/nova/nova.h" )
+if( NOT EXISTS "${NOVA_INCLUDE_DIR}/kmac/nova.h" )
 	message( FATAL_ERROR
 	    "Nova core headers not found at ${NOVA_INCLUDE_DIR}.  "
 	    "Run CMake from the repository root or set NOVA_INCLUDE_DIR manually." )

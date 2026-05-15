@@ -3,8 +3,7 @@
  * @brief Google Test unit tests for Nova record builders
  */
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
+#include "kmac/nova.h"
 #include "kmac/nova/extras/continuation_logging.h"
 
 #include <gtest/gtest.h>

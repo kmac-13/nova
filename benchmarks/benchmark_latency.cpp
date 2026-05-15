@@ -15,9 +15,7 @@
 
 #include <benchmark/benchmark.h>
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
-#include "kmac/nova/timestamp_helper.h"
+#include "kmac/nova.h"
 
 #include "kmac/nova/extras/continuation_logging.h"
 #include "kmac/nova/extras/memory_pool_async_sink.h"

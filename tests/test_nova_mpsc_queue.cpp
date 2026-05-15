@@ -303,7 +303,7 @@ TEST_F( MPSCQueueMT, MultipleProducersSingleConsumer )
 	MPSCQueue< int, CAPACITY > q;
 	std::atomic< int > pushCount{ 0 };
 
-	auto producer = [&]( int threadId ) {
+	auto producer = [ & ]( int threadId ) {
 		for ( int i = 0; i < PER_THREAD; ++i )
 		{
 			// spin until push succeeds (queue may be briefly full)
@@ -357,7 +357,7 @@ TEST_F( MPSCQueueMT, NoItemsLostOrDuplicated )
 	std::vector< int > consumed;
 	consumed.reserve( static_cast< std::size_t >( PRODUCERS * PER_THREAD ) );
 
-	auto producer = [&]( int base )
+	auto producer = [ & ]( int base )
 	{
 		for ( int i = 0; i < PER_THREAD; ++i )
 		{
@@ -375,7 +375,7 @@ TEST_F( MPSCQueueMT, NoItemsLostOrDuplicated )
 	}
 
 	// consumer thread
-	auto consumer = std::thread( [&]()
+	auto consumer = std::thread( [ & ]()
 	{
 		int buf[ 32 ];
 		while ( ! done.load( std::memory_order_acquire ) || ! q.empty() )
@@ -432,7 +432,7 @@ TEST_F( MPSCQueueMT, ProducerConsumerWithScalarPopOnly )
 	std::atomic< int > consumed{ 0 };
 	std::atomic< bool > stop{ false };
 
-	auto producer = [&]( int base )
+	auto producer = [ & ]( int base )
 	{
 		for ( int i = 0; i < PER_THREAD; ++i )
 		{
@@ -443,7 +443,7 @@ TEST_F( MPSCQueueMT, ProducerConsumerWithScalarPopOnly )
 		}
 	};
 
-	auto consumer = std::thread( [&]()
+	auto consumer = std::thread( [ & ]()
 	{
 		int val;
 		while ( ! stop.load( std::memory_order_acquire ) || ! q.empty() )

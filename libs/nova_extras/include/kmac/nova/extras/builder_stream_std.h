@@ -25,7 +25,7 @@
  * optional format:   <value> or <nullopt>
  *
  * Usage:
- *   #include <kmac/nova/nova.h>
+ *   #include <kmac/nova.h>
  *   #include <kmac/nova/extras/continuation_logging.h>  // if using NOVA_LOG_CONT
  *   #include <kmac/nova/extras/builder_stream_std.h>
  *

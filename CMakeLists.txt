@@ -112,7 +112,6 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 file( GLOB_RECURSE NOVA_CORE_HEADERS
 	RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
 	"libs/nova/include/*.h"
-	"libs/nova/include/platform/*.h"
 )
 
 add_library( nova INTERFACE )

@@ -20,15 +20,12 @@
 
 #include <benchmark/benchmark.h>
 
-#include "kmac/nova/nova.h"
-#include "kmac/nova/scoped_configurator.h"
-#include "kmac/nova/timestamp_helper.h"
+#include "kmac/nova.h"
 
 #include "kmac/nova/extras/continuation_logging.h"
 #include "kmac/nova/extras/null_sink.h"
 #include "kmac/nova/extras/streaming_logging.h"
 
-#include <sstream>
 #include <string>
 #include <vector>
 
