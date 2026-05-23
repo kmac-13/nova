@@ -1,6 +1,6 @@
 cmake_minimum_required( VERSION 3.16 )
 
-project( Nova VERSION 0.1.0 LANGUAGES CXX )
+project( Nova VERSION 1.0.0 LANGUAGES CXX )
 
 # Note: This CMakeLists.txt uses GLOB to automatically discover source files.
 # While CMake documentation traditionally discourages GLOB, it's acceptable here because:

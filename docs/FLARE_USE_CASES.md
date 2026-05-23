@@ -1,373 +1,356 @@
-# Flare Forensic Logging - Use Cases and Examples
+# Flare - Use Cases and Examples
 
-## What is Flare?
+This document covers practical usage patterns for Flare.  For architecture, API reference, and writer descriptions see [FLARE_README.md](FLARE_README.md).
 
-Flare is Nova's crash-safe forensic logging component. While Nova handles normal operational logging, Flare is specifically designed to capture diagnostic data **when everything is going wrong** - during crashes, signal handlers, segmentation faults, stack corruption, and other catastrophic failures.
+Flare's `EmergencySink` always writes binary TLV format.  Nova's regular sinks produce human-readable text.  Both can run simultaneously - see the Human-Readable vs Binary Output section in `FLARE_README.md` for how to route records to both.
 
-## Key Concept: Async-Signal-Safety
+---
 
-The critical feature of Flare is **async-signal-safety**. This means Flare can be called from signal handlers (SIGSEGV, SIGABRT, etc.) without risk of deadlock, corruption, or undefined behavior. This is extremely rare in logging libraries.
+## Common Setup Pattern
 
-### Why Most Loggers Fail in Crashes
+All use cases share the same setup:
 
-Most logging libraries (including Nova's regular sinks) use:
-- Heap allocation (`malloc`, `new`, `std::string`)
-- Locks/mutexes
-- Standard library I/O (`std::cout`, `std::cerr`)
-- Thread-local storage
+```cpp
+#include <kmac/nova.h>
+#include <kmac/flare.h>
+#include <fcntl.h>
 
-All of these are **unsafe in signal handlers**. If a signal handler calls malloc() while the process was already inside malloc(), you get deadlock or corruption.
+struct CrashTag {};
+NOVA_LOGGER_TRAITS( CrashTag, CRASH, true, kmac::nova::TimestampHelper::steadyNanosecs );
 
-### What Flare Does Differently
+// static storage - must outlive all log calls and signal handlers
+static int _flareFd = open( "/var/log/app.flare", O_WRONLY | O_CREAT | O_APPEND, 0644 );
+static kmac::flare::FdWriter _flareWriter( _flareFd );
+static kmac::flare::EmergencySink<> _flareSink( &_flareWriter );
 
-Flare's EmergencySink uses only:
-- Stack-based buffers (no heap allocation in process())
-- Raw POSIX syscalls (`write()`, `fflush()`)
-- Fixed-size encoding
-- No locks in the write path
+void setupFlare()
+{
+	// bind directly - no ScopedConfigurator; this binding must persist for program lifetime
+	kmac::nova::Logger< CrashTag >::bindSink( &_flareSink );
+}
+```
 
-This makes it safe to call from signal handlers.
-
-**Important Note:** While EmergencySink itself avoids heap allocation and locks during `process()`, the Nova core infrastructure (Logger, record builders) does use standard C++ features like `<atomic>`, `<chrono>`, and `<vector>`. This means:
-- ✅ Safe to call from signal handlers (EmergencySink is async-signal-safe)
-- ✅ Safe in real-time systems (deterministic, no allocation in hot path)
-- ❌ NOT suitable for bare-metal/no-std environments (requires C++ standard library)
+**Always initialize Flare before installing signal handlers.**  See the Quick Setup in `FLARE_README.md` for a complete example including `SignalHandler<>`.
 
 ---
 
 ## Use Case 1: Crash Handler Logging
 
-**Scenario:** Your application crashes with SIGSEGV. You want to know what was happening right before the crash.
+**Scenario**: Your application crashes with SIGSEGV.  You want to know what was happening right before the crash.
 
 ### The Problem
 
 ```cpp
-// DANGEROUS - Will likely deadlock or crash worse
-void crash_handler(int signal) {
-    std::cerr << "Crash detected!\n";  // UNSAFE - may deadlock
-    spdlog::error("Segfault occurred");  // UNSAFE - uses locks
-    // Process dies, no information preserved
+// DANGEROUS - will likely deadlock or crash worse
+void crashHandler( int sig )
+{
+	std::cerr << "Crash detected!\n";         // unsafe - stdio uses locks internally
+
+	logger->error( "Segfault occurred" );     // unsafe for any mutex-based logger:
+	// if the crash occurred while another thread held the logger's write mutex,
+	// this call will deadlock waiting for a mutex that will never be released
 }
 ```
 
-### The Solution with Flare
+### The Solution
 
 ```cpp
-#include <kmac/flare/emergency_sink.h>
-#include <kmac/nova/logger.h>
+#include <kmac/nova.h>
+#include <kmac/flare.h>
 #include <signal.h>
+#include <fcntl.h>
 
-// Tag for crash logs
 struct CrashTag {};
-NOVA_LOGGER_TRAITS(CrashTag, CRASH, true, kmac::nova::TimestampHelper::steadyNanosecs);
+NOVA_LOGGER_TRAITS( CrashTag, CRASH, true, kmac::nova::TimestampHelper::steadyNanosecs );
 
-// Global emergency sink (initialized early)
-FILE* g_emergency_log = nullptr;
-kmac::flare::EmergencySink* g_emergency_sink = nullptr;
+static int _flareFd = open( "/var/log/crash.flare", O_WRONLY | O_CREAT | O_APPEND, 0644 );
+static kmac::flare::FdWriter _flareWriter( _flareFd );
+static kmac::flare::EmergencySink<> _flareSink( &_flareWriter );
 
-void crash_handler(int signal) {
-    // SAFE - Flare is async-signal-safe
-    NOVA_LOG(CrashTag) << "CRASH: Signal " << signal;
-    
-    // Manually flush to ensure data is written
-    if (g_emergency_sink) {
-        g_emergency_sink->flush();
-    }
-    
-    // Re-raise signal for default handling
-    signal(signal, SIG_DFL);
-    raise(signal);
+void crashHandler( int sig, siginfo_t*, void* )
+{
+	// safe - NOVA_FLARE_LOG is stack-based and _flareSink uses FdWriter
+	NOVA_FLARE_LOG( CrashTag ) << "Signal " << sig;
+	_Exit( 128 + sig );
 }
 
-int main() {
-    // Initialize emergency logging FIRST
-    g_emergency_log = fopen("crash.flare", "wb");
-    g_emergency_sink = new kmac::flare::EmergencySink(g_emergency_log);
-    
-    // Bind crash tag to emergency sink
-    kmac::nova::ScopedConfigurator config;
-    config.bind<CrashTag>(g_emergency_sink);
-    
-    // Install signal handlers
-    signal(SIGSEGV, crash_handler);
-    signal(SIGABRT, crash_handler);
-    signal(SIGFPE, crash_handler);
-    
-    // Log important state before potential crash
-    NOVA_LOG(CrashTag) << "Starting critical operation";
-    
-    // ... your application code ...
-    
-    return 0;
+int main()
+{
+	// NOTE: make sure to bind the crash sink to the associated Logger
+	kmac::nova::Logger< CrashTag >::bindSink( &_flareSink );
+
+	// use SignalHandler<> for automatic register/fault capture, or install manually:
+	struct sigaction sa{};
+	sa.sa_sigaction = crashHandler;
+	sa.sa_flags = SA_SIGINFO;
+	sigaction( SIGSEGV, &sa, nullptr );
+	sigaction( SIGABRT, &sa, nullptr );
+
+	// log important state before potential crash
+	NOVA_FLARE_LOG( CrashTag ) << "Starting critical operation";
+
+	// ... application code ...
+	return 0;
 }
 ```
 
 ### After the Crash
 
 ```bash
-# Read the crash log
-python3 flare_reader.py crash.flare
-
-# Output shows:
-# [2025-01-11 14:23:45.123] CRASH: Starting critical operation
-# [2025-01-11 14:23:47.892] CRASH: Signal 11
+python flare_reader.py crash.flare
+# [2025-06-01T14:23:45.432Z] CRASH: Starting critical operation
+# [2025-06-01T14:23:47.891Z] CRASH: Signal 11
 ```
 
-**Why this works:** While Nova's record builders use stack buffers, EmergencySink's `process()` method is async-signal-safe - it uses only syscalls and stack operations.
+For automatic CPU register and fault address capture, use `SignalHandler<>::install( &_flareSink )` instead of installing signal handlers manually (see `FLARE_README.md`).
 
 ---
 
 ## Use Case 2: Real-Time System Fault Recording
 
-**Scenario:** You're writing real-time control software (robotics, automotive, industrial). A timing violation or safety fault occurs, and you need to log it without disrupting the real-time loop.
-
-### The Problem
-
-Normal logging:
-- Allocates memory (unpredictable latency)
-- Takes locks (priority inversion risk)
-- Blocks on I/O (ruins real-time guarantees)
-
-### The Solution
+**Scenario**: A timing violation or safety fault occurs in a real-time control loop.  You need deterministic, no-allocation logging that also survives a crash.
 
 ```cpp
-struct SafetyTag {};
-NOVA_LOGGER_TRAITS(SafetyTag, SAFETY, true, ...);
+#include <kmac/nova.h>
+#include <kmac/flare.h>
+#include <fcntl.h>
 
-// Real-time control loop
-void control_loop() {
-    FILE* safety_log = fopen("safety.flare", "wb");
-    kmac::flare::EmergencySink safety_sink(safety_log);
-    
-    kmac::nova::ScopedConfigurator config;
-    config.bind<SafetyTag>(&safety_sink);
-    
-    while (running) {
-        auto start = get_time();
-        
-        // Perform control calculations
-        auto position = read_sensor();
-        auto control = calculate_control(position);
-        
-        // Safety check
-        if (position > SAFE_LIMIT) {
-            // DETERMINISTIC - No allocation, no locks, bounded time
-            NOVA_LOG(SafetyTag)
-                << "SAFETY VIOLATION: pos=" << position 
-                << " limit=" << SAFE_LIMIT;
-        }
-        
-        apply_control(control);
-        
-        auto elapsed = get_time() - start;
-        if (elapsed > DEADLINE) {
-            // Log timing violation
-            NOVA_LOG(SafetyTag)
-                << "DEADLINE MISS: " << elapsed << "ns";
-        }
-    }
+struct SafetyTag {};
+NOVA_LOGGER_TRAITS( SafetyTag, SAFETY, true, kmac::nova::TimestampHelper::steadyNanosecs );
+
+static int _safetyFd = open( "/var/log/safety.flare", O_WRONLY | O_CREAT | O_APPEND, 0644 );
+static kmac::flare::FdWriter _safetyWriter( _safetyFd );
+static kmac::flare::EmergencySink<> _safetySink( &_safetyWriter );
+
+void controlLoop()
+{
+	kmac::nova::Logger< SafetyTag >::bindSink( &_safetySink );
+
+	while ( running )
+	{
+		auto position = readSensor();
+		auto control = calculateControl( position );
+
+		if ( position > SAFE_LIMIT )
+		{
+			// deterministic: no allocation, no locks, bounded write() call
+			NOVA_FLARE_LOG( SafetyTag )
+				<< "SAFETY VIOLATION: pos=" << position
+				<< " limit=" << SAFE_LIMIT;
+		}
+
+		applyControl( control );
+
+		if ( loopElapsed() > DEADLINE_NS )
+		{
+			NOVA_FLARE_LOG( SafetyTag )
+				<< "DEADLINE MISS: " << loopElapsed() << "ns";
+		}
+	}
 }
 ```
 
-**Why this works:** 
-- TruncatingRecordBuilder uses fixed stack buffer (no heap)
-- EmergencySink::process() uses only write() syscall (deterministic)
-- All operations have bounded worst-case time
+**Why this works**: `NOVA_FLARE_LOG` is stack-allocated with no TLS; `EmergencySink` uses `write()` only - no locks, no allocation, bounded worst-case time.
 
 ---
 
 ## Use Case 3: Memory Corruption Debugging
 
-**Scenario:** Your application has occasional memory corruption that's hard to reproduce. You want to log state right before corruption occurs.
-
-### The Strategy
+**Scenario**: Occasional memory corruption is hard to reproduce.  You want to log the allocation and free sites closest to the corruption.
 
 ```cpp
-struct MemDebugTag {};
-NOVA_LOGGER_TRAITS(MemDebugTag, MEMDEBUG, true, ...);
+#include <kmac/nova.h>
+#include <kmac/flare.h>
+#include <fcntl.h>
 
-// Canary checking in allocator
-void* tracked_malloc(size_t size, const char* file, int line) {
-    void* ptr = malloc(size);
-    
-    // Log allocation with Flare
-    NOVA_LOG(MemDebugTag)
-        << "ALLOC: " << ptr << " size=" << size 
-        << " at " << file << ":" << line;
-    
-    // Install canaries
-    install_canaries(ptr, size);
-    
-    return ptr;
+struct MemDebugTag {};
+NOVA_LOGGER_TRAITS( MemDebugTag, MEMDEBUG, true, kmac::nova::TimestampHelper::steadyNanosecs );
+
+static int _memFd = open( "/var/log/mem.flare", O_WRONLY | O_CREAT | O_APPEND, 0644 );
+static kmac::flare::FdWriter _memWriter( _memFd );
+static kmac::flare::EmergencySink<> _memSink( &_memWriter );
+
+void* trackedMalloc( std::size_t size, const char* file, int line )
+{
+	void* ptr = ::malloc( size );
+	NOVA_FLARE_LOG( MemDebugTag )
+		<< "ALLOC " << ptr << " size=" << size << " at " << file << ":" << line;
+	installCanaries( ptr, size );
+	return ptr;
 }
 
-void tracked_free(void* ptr, const char* file, int line) {
-    // Check canaries before freeing
-    if (!check_canaries(ptr)) {
-        // CORRUPTION DETECTED - Log it immediately
-        NOVA_LOG(MemDebugTag)
-            << "CORRUPTION at " << ptr 
-            << " freed from " << file << ":" << line;
-        
-        // Flush immediately (corruption may be about to crash us)
-        g_emergency_sink->flush();
-    }
-    
-    free(ptr);
+void trackedFree( void* ptr, const char* file, int line )
+{
+	if ( ! checkCanaries( ptr ) )
+	{
+		NOVA_FLARE_LOG( MemDebugTag )
+			<< "CORRUPTION at " << ptr << " freed from " << file << ":" << line;
+		_memSink.flush();  // ensure the record lands before potential crash
+	}
+	::free( ptr );
 }
 ```
 
-**After corruption:** Even if the process crashes immediately after detecting corruption, the Flare log will show exactly which allocation was corrupted.
+> ⚠️ Logging from inside allocator hooks has re-entrancy risks.  `NOVA_FLARE_LOG` is stack-allocated and `EmergencySink` does not allocate, but ensure the sink's writer does not call back into the allocator.  `FdWriter` is safe; `FileWriter` may allocate internally.
 
 ---
 
 ## Use Case 4: Embedded System Black Box
 
-**Scenario:** You're writing firmware for an embedded device with a C++ standard library. When it locks up or resets, you want to know why.
-
-### The Setup
+**Scenario**: Firmware on an RTOS target.  On reset, you want to read the last records to understand why it crashed.
 
 ```cpp
-// Persistent memory region for crash log
-__attribute__((section(".noinit"))) 
-static char crash_buffer[16384];
+#include <kmac/nova.h>
+#include <kmac/flare.h>
 
-// Use memory-mapped buffer
-void setup_emergency_logging() {
-    FILE* crash_log = fmemopen(crash_buffer, sizeof(crash_buffer), "wb");
-    kmac::flare::EmergencySink* sink = new kmac::flare::EmergencySink(crash_log);
-    
-    // Bind to all critical tags
-    config.bind<SystemTag>(sink);
-    config.bind<HardwareTag>(sink);
-    config.bind<FaultTag>(sink);
+struct SystemTag {};
+struct FaultTag {};
+NOVA_LOGGER_TRAITS( SystemTag, SYS, true, /* hardware timer */ );
+NOVA_LOGGER_TRAITS( FaultTag, FAULT, true, /* hardware timer */ );
+
+// fixed RAM region that survives a soft reset (place in .noinit or equivalent)
+static std::uint8_t _crashBuffer[ 8192 ];
+static kmac::flare::RamWriter _ramWriter( _crashBuffer, sizeof( _crashBuffer ) );
+static kmac::flare::EmergencySink<> _emergencySink( &_ramWriter );
+
+void setupEmergencyLogging()
+{
+	kmac::nova::Logger< SystemTag >::bindSink( &_emergencySink );
+	kmac::nova::Logger< FaultTag >::bindSink( &_emergencySink );
 }
 
-// In your main loop
-void main_loop() {
-    while (true) {
-        // Log heartbeat
-        NOVA_LOG(SystemTag) << "Heartbeat " << tick_count;
-        
-        // Log critical operations
-        if (perform_risky_operation()) {
-            NOVA_LOG(FaultTag) << "Operation failed";
-        }
-        
-        // Flush periodically
-        if (tick_count % 100 == 0) {
-            g_emergency_sink->flush();
-        }
-    }
+void mainLoop()
+{
+	while ( true )
+	{
+		NOVA_FLARE_LOG( SystemTag ) << "Heartbeat " << tickCount;
+
+		if ( ! performOperation() )
+		{
+			NOVA_FLARE_LOG( FaultTag ) << "Operation failed at step " << currentStep;
+		}
+	}
 }
 
-// On next boot
-void check_previous_crash() {
-    // Read the crash buffer
-    kmac::flare::Scanner scanner;
-    scanner.scan(crash_buffer, sizeof(crash_buffer));
-    
-    if (scanner.found_records()) {
-        // Last few records show what happened before reset
-        // Send to monitoring system, log to persistent storage, etc.
-    }
+// on next boot, before overwriting the buffer
+void checkPreviousCrash()
+{
+	kmac::flare::Scanner scanner;
+	scanner.scan( _crashBuffer, sizeof( _crashBuffer ) );
+
+	// last records show what happened before reset
+	for ( const auto& span : scanner.records() )
+	{
+		kmac::flare::Reader reader( span.data, span.size );
+		// process TLVs...
+	}
 }
 ```
 
-**Why this works:** Flare's TLV format tolerates partial writes, so even if power was lost mid-write, you can still read earlier records.
-
-**Note:** This requires an embedded environment with C++ standard library support (e.g., ARM with newlib, ESP32, etc.). For true bare-metal without std, you'd need a custom minimal logging solution.
+**Why this works**: `RamWriter` has no OS dependency and no allocation - suitable for bare-metal and RTOS targets.  Flare's TLV format tolerates partial writes, so even if power is lost mid-write, all records already written remain intact and readable on the next boot.
 
 ---
 
 ## Use Case 5: Multi-Process Coordination Failures
 
-**Scenario:** You have multiple processes communicating via shared memory or pipes. When coordination breaks down (deadlock, starvation), you need to see what each process was doing.
-
-### The Setup
+**Scenario**: Multiple processes communicate via shared memory or pipes.  When coordination breaks down, you want to see each process's last actions.
 
 ```cpp
-// Each process writes to its own emergency log
-void init_process_emergency_logging(int process_id) {
-    char filename[64];
-    snprintf(filename, sizeof(filename), "proc_%d.flare", process_id);
-    
-    FILE* log = fopen(filename, "wb");
-    kmac::flare::EmergencySink* sink = new kmac::flare::EmergencySink(log);
-    
-    config.bind<CoordTag>(sink);
+#include <kmac/nova.h>
+#include <kmac/flare.h>
+#include <fcntl.h>
+#include <cstdio>
+
+struct CoordTag {};
+NOVA_LOGGER_TRAITS( CoordTag, COORD, true, kmac::nova::TimestampHelper::steadyNanosecs );
+
+void initProcessLogging( int processId )
+{
+	char filename[ 64 ];
+	std::snprintf( filename, sizeof( filename ), "/var/log/proc_%d.flare", processId );
+
+	// static storage per-process
+	static int _fd = open( filename, O_WRONLY | O_CREAT | O_TRUNC, 0644 );
+	static kmac::flare::FdWriter _writer( _fd );
+	static kmac::flare::EmergencySink<> _sink( &_writer );
+	kmac::nova::Logger< CoordTag >::bindSink( &_sink );
 }
 
-// In coordination code
-void wait_for_other_process() {
-    NOVA_LOG(CoordTag) << "Waiting for mutex " << mutex_id;
-    
-    auto start = get_time();
-    while (!try_acquire_mutex(mutex_id)) {
-        auto elapsed = get_time() - start;
-        
-        if (elapsed > TIMEOUT) {
-            // About to timeout - log state
-            NOVA_LOG(CoordTag)
-                << "TIMEOUT waiting for mutex " << mutex_id
-                << " held by process " << mutex_owner;
-            
-            g_emergency_sink->flush();
-            
-            // Abort or handle timeout
-            abort();
-        }
-    }
-    
-    NOVA_LOG(CoordTag) << "Acquired mutex " << mutex_id;
+void waitForPeer( int mutexId )
+{
+	NOVA_FLARE_LOG( CoordTag ) << "Waiting for mutex " << mutexId;
+
+	auto startNs = getMonotonicNs();
+	while ( ! tryAcquireMutex( mutexId ) )
+	{
+		if ( getMonotonicNs() - startNs > TIMEOUT_NS )
+		{
+			NOVA_FLARE_LOG( CoordTag )
+				<< "TIMEOUT waiting for mutex " << mutexId
+				<< " held by process " << getMutexOwner( mutexId );
+			std::abort();
+		}
+	}
+
+	NOVA_FLARE_LOG( CoordTag ) << "Acquired mutex " << mutexId;
 }
 ```
 
-**Post-mortem:** Examine all `proc_*.flare` files together to see the sequence of events across processes leading to deadlock.
+**Post-mortem**: examine all `proc_*.flare` files together to reconstruct the sequence of events across processes.
 
 ---
 
-## Use Case 6: Exception Unwinding Logging
+## Use Case 6: Exception Path Logging
 
-**Scenario:** You have complex exception handling and want to trace the exception path during unwinding, even if the process ultimately crashes.
-
-### The Strategy
+**Scenario**: You have deep exception handling and want to trace the exception path during stack unwinding, including if `std::terminate` is called.
 
 ```cpp
-struct ExceptionTag {};
-NOVA_LOGGER_TRAITS(ExceptionTag, EXCEPTION, true, ...);
+#include <kmac/nova.h>
+#include <kmac/flare.h>
 
-class TracedException : public std::exception {
-    std::string msg_;
+struct ExceptionTag {};
+NOVA_LOGGER_TRAITS( ExceptionTag, EXCEPTION, true, kmac::nova::TimestampHelper::steadyNanosecs );
+
+static int _excFd = open( "/var/log/exceptions.flare", O_WRONLY | O_CREAT | O_APPEND, 0644 );
+static kmac::flare::FdWriter _excWriter( _excFd );
+static kmac::flare::EmergencySink<> _excSink( &_excWriter );
+
+class TracedException : public std::exception
+{
+private:
+	const char* _msg;
+
 public:
-    TracedException(const char* msg) : msg_(msg) {
-        // Log when exception is thrown
-        NOVA_LOG(ExceptionTag) << "THROW: " << msg;
-    }
-    
-    ~TracedException() noexcept {
-        // Log when exception is destroyed (after catch or terminate)
-        NOVA_LOG(ExceptionTag) << "DESTROY: " << msg_;
-    }
-    
-    const char* what() const noexcept override {
-        return msg_.c_str();
-    }
+	explicit TracedException( const char* msg ) noexcept : _msg( msg )
+	{
+		NOVA_FLARE_LOG( ExceptionTag ) << "THROW: " << _msg;
+	}
+
+	~TracedException() noexcept override
+	{
+		NOVA_FLARE_LOG( ExceptionTag ) << "DESTROY: " << _msg;
+	}
+
+	const char* what() const noexcept override { return _msg; }
 };
 
-void risky_operation() {
-    NOVA_LOG(ExceptionTag) << "Enter risky_operation";
-    
-    try {
-        throw TracedException("Database connection failed");
-    } catch (...) {
-        NOVA_LOG(ExceptionTag) << "Caught in risky_operation";
-        throw;  // Re-throw
-    }
+void riskyOperation()
+{
+	NOVA_FLARE_LOG( ExceptionTag ) << "Enter riskyOperation";
+
+	try
+	{
+		throw TracedException( "Database connection failed" );
+	}
+	catch ( ... )
+	{
+		NOVA_FLARE_LOG( ExceptionTag ) << "Caught in riskyOperation, rethrowing";
+		throw;
+	}
 }
 ```
 
-**Why this works:** Even if the exception causes the program to call `std::terminate()`, the Flare log captures the full exception path.
+**Why `NOVA_FLARE_LOG` here**: `NOVA_FLARE_LOG` is re-entrant safe and uses `FdWriter` which flushes each record to disk immediately.  If `std::terminate` is called before the destructor completes, all records already written remain intact and readable post-mortem - only the record in progress at the point of termination may be partial.
 
 ---
 
@@ -375,166 +358,96 @@ void risky_operation() {
 
 ### Pattern 1: Two-Tier Logging
 
+Route the same tag to both a human-readable sink (for operational logs) and an `EmergencySink` (for crash survival) using `FixedCompositeSink`:
+
 ```cpp
-// Normal logging goes to Nova sinks (file, console, etc.)
-NOVA_LOG(InfoTag) << "User logged in";
+#include <kmac/nova/extras/fixed_composite_sink.h>
+#include <kmac/nova/extras/ostream_sink.h>
 
-// Critical events ALSO go to emergency sink
-NOVA_LOG(CrashTag) << "User logged in";  // Same data, different sink
+// human-readable operational logging
+kmac::nova::extras::OStreamSink consoleSink( std::cout );
 
-// In crash handler, only CrashTag records are guaranteed
+// binary crash-resilient logging
+// (_flareSink is the static EmergencySink<> from the setup pattern above)
+
+// route CrashTag to both simultaneously
+kmac::nova::Sink* sinks[] = { &consoleSink, &_flareSink };
+kmac::nova::extras::FixedCompositeSink composite( sinks, 2 );
+kmac::nova::Logger< CrashTag >::bindSink( &composite );
+
+// CrashTag records now appear in human-readable console output during normal operation
+// and are also preserved in binary Flare format for post-mortem analysis after a crash
 ```
 
-### Pattern 2: Heartbeat + Context
+### Pattern 2: Pre-Crash Heartbeat
 
 ```cpp
-// Regular heartbeat
-void heartbeat_thread() {
-    while (true) {
-        NOVA_LOG(CrashTag) << "Heartbeat " << tick;
-        sleep(1);
-        tick++;
-    }
+// log a periodic heartbeat so the last record's timestamp shows when
+// the process was last known to be alive
+void heartbeatThread()
+{
+	while ( running )
+	{
+		NOVA_FLARE_LOG( CrashTag ) << "Heartbeat " << tick++;
+		sleepMs( 1000 );
+	}
 }
-
-// When crash occurs, last heartbeat shows approximately when
-```
-
-### Pattern 3: Ring Buffer Mode
-
-```cpp
-// Reopen in append mode, or use mmap with manual wrapping
-// Flare Scanner can handle wrapped/circular buffers
 ```
 
 ---
 
 ## Reading Flare Logs
 
-### Using Python Reader
+### Using `flare_reader.py`
 
 ```bash
-# Text output
-python3 flare_reader.py crash.flare
+# text output
+python flare_reader.py crash.flare
 
-# JSON output (for log aggregation)
-python3 flare_reader.py --json crash.flare > crash.json
+# with tag name dictionary (maps tag IDs to human-readable names)
+python flare_reader.py crash.flare --dict crash.tags
+
+# JSON output for log aggregation
+python flare_reader.py crash.flare --format json
+
+# with symbolization (requires the original binary and addr2line)
+python flare_reader.py crash.flare --binary ./myapp --addr2line addr2line
 ```
 
-### Programmatic Reading
+### C++ API
 
 ```cpp
 #include <kmac/flare/scanner.h>
 #include <kmac/flare/reader.h>
+#include <vector>
+#include <fstream>
 
-void analyze_crash_log(const char* filename) {
-    // Read file into buffer
-    std::vector<char> data = read_file(filename);
-    
-    // Scan for records
-    kmac::flare::Scanner scanner;
-    scanner.scan(data.data(), data.size());
-    
-    // Process each found record
-    for (const auto& record_info : scanner.records()) {
-        kmac::flare::Reader reader(record_info.data, record_info.size);
-        
-        // Extract fields
-        if (auto timestamp = reader.getTimestamp()) {
-            // Process timestamp
-        }
-        if (auto message = reader.getMessage()) {
-            // Process message
-        }
-    }
+void analyzeCrashLog( const char* filename )
+{
+	// read the entire file into memory
+	std::ifstream f( filename, std::ios::binary );
+	std::vector< char > data(
+		( std::istreambuf_iterator< char >( f ) ),  // iterator over raw file bytes
+		std::istreambuf_iterator< char >() );       // end-of-stream sentinel
+
+	// scan the buffer for Flare record boundaries
+	kmac::flare::Scanner scanner;
+	scanner.scan( data.data(), data.size() );
+
+	// decode each located record
+	for ( const auto& span : scanner.records() )
+	{
+		kmac::flare::Reader reader( span.data, span.size );
+		// access TLVs via reader methods
+	}
 }
 ```
 
 ---
 
-## When NOT to Use Flare
+## When Not to Use Flare
 
-**Don't use Flare for:**
-- Normal application logging (use Nova with regular sinks)
-- High-volume logging (Flare prioritizes safety over throughput)
-- Human-readable logs (Flare is binary, needs decoding)
-- Logs that need formatting/filtering (do that in Nova layer)
-- Bare-metal/no-std environments (requires C++ standard library)
-
-**Flare is for:**
-- Last-ditch forensics when everything is broken
-- Data that must survive crashes
-- Logging from signal handlers
-- Real-time deterministic logging
-- Memory-corruption debugging
-
----
-
-## Requirements and Limitations
-
-### What You Need
-
-Flare requires:
-- ✅ C++ standard library (uses `<atomic>`, `<chrono>`, `<vector>` via Nova)
-- ✅ POSIX file I/O (`FILE*`, `fopen`, `fwrite`, `fflush`)
-- ✅ Basic C library (`memcpy`, `strlen`)
-
-Flare is compatible with:
-- Linux, macOS, FreeBSD, Windows (with POSIX layer)
-- Embedded systems with C++ std library (ARM/newlib, ESP32, etc.)
-- Real-time systems (deterministic, bounded execution time)
-
-Flare is NOT compatible with:
-- ❌ Bare-metal/no-std environments (needs C++ std library)
-- ❌ Environments without file I/O (but can use memory buffers)
-
-### Async-Signal-Safety Details
-
-**What's safe:**
-- `EmergencySink::process()` - Uses only write() syscall
-- `EmergencySink::flush()` - Uses only fflush() syscall
-- Record builders (TRUNC/CONT) - Stack-only, no allocation
-
-**What's potentially unsafe:**
-- Constructing Logger/ScopedConfigurator (uses vector, should be done before signals)
-- First log from a tag (atomic initialization, do it before signals)
-
-**Best practice:** Initialize all logging infrastructure **before** installing signal handlers.
-
----
-
-## Performance Characteristics
-
-- **Latency:** ~1-5 microseconds per log (syscall overhead)
-- **Throughput:** ~100K logs/second (limited by `write()` syscalls)
-- **Memory:** Zero heap allocation during process()
-- **CPU:** Minimal (memcpy + write syscall)
-- **Determinism:** Bounded worst-case time (good for real-time)
-
-Compare to normal logging:
-- spdlog: 1-2 microseconds (best case, but unsafe in crashes)
-- std::cerr: 5-10 microseconds (but deadlocks in crashes)
-- Flare: 3-5 microseconds (and SAFE in crashes)
-
-The small performance penalty is the cost of crash-safety.
-
----
-
-## Summary
-
-**Use Flare when:**
-1. ✅ You need to log from signal handlers
-2. ✅ Crashes must preserve diagnostic data
-3. ✅ Real-time determinism is required
-4. ✅ Memory corruption needs tracking
-5. ✅ Multi-process debugging is needed
-6. ✅ Exception unwinding needs logging
-
-**Don't use Flare when:**
-1. ❌ Normal application logging suffices
-2. ❌ You need human-readable logs
-3. ❌ High throughput is critical
-4. ❌ Complex formatting/filtering is needed
-5. ❌ Bare-metal/no-std environment (no C++ std library)
-
-**Key Takeaway:** Flare is your **forensic black box** - the last line of defense when everything else fails. It trades some performance for crash-safety and determinism.
+- **Normal application logging** - use Nova with `SynchronizedSink`, `MemoryPoolAsyncSink`, or similar
+- **High-volume logging** - Flare flushes per record; throughput is limited by `write()` syscall rate
+- **Human-readable output** - Flare is binary; use `flare_reader.py` for post-mortem analysis
+- **Rich formatting or filtering** - apply these at the Nova layer before records reach Flare
