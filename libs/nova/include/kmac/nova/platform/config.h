@@ -45,10 +45,6 @@
  *   NOVA_PLATFORM_* marker for your RTOS, then define NOVA_NO_TLS yourself
  *   only if needed.  NOVA_NO_TLS is not implied by NOVA_PLATFORM_* alone.
  *
- * FLARE_NO_STDIO
- *   Flare only.  Use raw file descriptors (open/write/close) instead of
- *   FILE* for async-signal-safe emergency logging.
- *
  * ============================================================================
  * Fine-Grained Disable Flags
  * ============================================================================

@@ -4,27 +4,58 @@ This guide provides step-by-step instructions for migrating from popular logging
 
 ## Table of Contents
 
-1. [Migration Strategies](#migration-strategies)
-2. [From spdlog](#from-spdlog)
-3. [From glog](#from-glog)
-4. [From Boost.Log](#from-boostlog)
-5. [From log4cxx/log4cpp](#from-log4cxxlog4cpp)
-6. [From easylogging++](#from-easylogging)
-7. [Adapter Pattern for Gradual Migration](#adapter-pattern-for-gradual-migration)
-8. [Common Patterns](#common-patterns)
-9. [Troubleshooting](#troubleshooting)
+1. [Wrapper/Facade Migration](#wrapperfacade-migration)
+2. [Migration Strategies](#migration-strategies)
+3. [From spdlog](#from-spdlog)
+4. [From glog](#from-glog)
+5. [From Boost.Log](#from-boostlog)
+6. [From log4cplus](#from-log4cplus)
+7. [From easylogging++](#from-easylogging)
+8. [Adapter Pattern for Gradual Migration](#adapter-pattern-for-gradual-migration)
+9. [Common Patterns](#common-patterns)
+10. [Troubleshooting](#troubleshooting)
+
+---
+
+## Wrapper/Facade Migration
+
+If your codebase already has a logging wrapper or facade in place, the fastest migration path is to swap Nova in as the backend while leaving all call sites untouched.  Only the wrapper implementation changes:
+
+```cpp
+#include <kmac/nova.h>
+#include <kmac/nova/extras/severities.h>
+
+using namespace kmac::nova::extras;
+
+namespace AppLog
+{
+    // severity-based - matches existing call sites
+    inline void info( const char* msg ) { NOVA_LOG( InfoTag ) << msg; }
+    inline void error( const char* msg ) { NOVA_LOG( ErrorTag ) << msg; }
+
+    // domain-based - compile-time routing, per-domain sink binding preserved
+    template< typename Tag >
+    inline void log( const char* msg ) { NOVA_LOG( Tag ) << msg; }
+}
+```
+
+**What is preserved**: compile-time routing and per-domain sink binding are fully available when using the templated form.
+
+**What is lost**: zero-cost disabled logging - the wrapper call exists at the call site regardless of whether the domain is enabled, so argument evaluation and call overhead remain even for disabled tags.
+
+If no existing wrapper is in place, adding one costs roughly the same effort as direct replacement but gives up zero-cost disabling - making direct replacement the better choice.  See the Migration Strategies section below for the direct replacement approach.
 
 ---
 
 ## Migration Strategies
 
-### Strategy 1: Complete Replacement (Greenfield)
+### Strategy 1: Complete Replacement
 
 Best for: new projects or small codebases
 
 1. remove old logging library dependencies
 2. add Nova headers
-3. define tags for your subsystems/severities
+3. define domains (tags) for your subsystems/severities
 4. configure sinks
 5. replace log calls with Nova macros
 
@@ -38,10 +69,11 @@ Use Nova sinks that **adapt** to your existing logging framework, allowing both 
 
 ```cpp
 // Nova sink that forwards to spdlog
-class SpdlogAdapterSink : public nova::Sink {
+class SpdlogAdapterSink : public kmac::nova::Sink {
+private:
 	std::shared_ptr< spdlog::logger > _logger;
 public:
-	void process( const Record& record ) noexcept override {
+	void process( const kmac::nova::Record& record ) noexcept override {
 		_logger->info( "[{}] {}", record.tag, record.message );
 	}
 };
@@ -87,7 +119,7 @@ Gradually shift functionality from old to new.
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-auto logger = spdlog::stdout_color_mt( "mylogger" );
+auto logger = spdlog::stdout_color_mt( "applogger" );
 logger->set_level( spdlog::level::debug );
 
 logger->info( "Server started on port {}", 8080 );
@@ -97,73 +129,80 @@ logger->error( "Failed to connect: {}", errorMsg );
 
 **After (Nova):**
 ```cpp
-#include <kmac/nova/macros.h>
-#include <kmac/nova/scoped_configurator.h>
+#include <kmac/nova.h>
 #include <kmac/nova/extras/ostream_sink.h>
-#include <kmac/nova/extras/severities.h>
+#include <kmac/nova/extras/severities.h>    // pre-defined severity tags
 
 using namespace kmac::nova::extras;
 
 // configure sinks
 OStreamSink console( std::cout );
-ScopedConfigurator config;
+kmac::nova::ScopedConfigurator config;
 config.bind< InfoTag >( &console );
 config.bind< DebugTag >( &console );
 config.bind< ErrorTag >( &console );
 
 // log messages
-NOVA_LOG_I() << "Server started on port " << 8080;
-NOVA_LOG_D() << "Processing request from " << clientIP;
-NOVA_LOG_E() << "Failed to connect: " << errorMsg;
+NOVA_LOG_INFO() << "Server started on port " << 8080;
+NOVA_LOG_DEBUG() << "Processing request from " << clientIP;
+NOVA_LOG_ERROR() << "Failed to connect: " << errorMsg;
 ```
 
 ### Adapter Sink for Gradual Migration
 
 ```cpp
 #include <spdlog/spdlog.h>
-#include <kmac/nova/sink.h>
+#include <kmac/nova/sink.h>  // or <kmac/nova.h>
 
 class SpdlogAdapterSink : public kmac::nova::Sink
 {
-	std::shared_ptr<spdlog::logger> _logger;
+private:
+	std::shared_ptr< spdlog::logger > _logger;
     
 public:
 	explicit SpdlogAdapterSink( std::shared_ptr< spdlog::logger > logger )
 		: _logger( std::move( logger ) )
-	{}
+	{
+	}
 
 	void process( const kmac::nova::Record& record ) noexcept override
 	{
+		using namespace kmac::nova::extras;
+		// spdlog can throw by default; try-catch is not needed if SPDLOG_NO_EXCEPTIONS is defined
 		try {
-			// map Nova tags to spdlog levels (simple example)
-			if ( std::strstr( record.tag, "ERROR" ) || std::strstr( record.tag, "FATAL" ) ) {
-				_logger->error( "[{}] {}:{} {}",
-					record.tag, record.file, record.line, record.message );
-			}
-			else if ( std::strstr( record.tag, "WARN" ) ) {
-				_logger->warn( "[{}] {}:{} {}",
-					record.tag, record.file, record.line, record.message );
-			}
-			else if ( std::strstr(record.tag, "DEBUG" ) ) {
-				_logger->debug( "[{}] {}:{} {}",
-					record.tag, record.file, record.line, record.message );
-			}
-			else {
-				_logger->info( "[{}] {}:{} {}",
-					record.tag, record.file, record.line, record.message );
+			switch ( record.tagId )
+			{
+				case kmac::nova::LoggerTraits< ErrorTag >::tagId:
+				case kmac::nova::LoggerTraits< FatalTag >::tagId:
+					_logger->error( "[{}] {}:{} {}",
+						record.tag, record.file, record.line, record.message );
+					break;
+				case kmac::nova::LoggerTraits< WarningTag >::tagId:
+					_logger->warn( "[{}] {}:{} {}",
+						record.tag, record.file, record.line, record.message );
+					break;
+				case kmac::nova::LoggerTraits< DebugTag >::tagId:
+				case kmac::nova::LoggerTraits< TraceTag >::tagId:
+					_logger->debug( "[{}] {}:{} {}",
+						record.tag, record.file, record.line, record.message );
+					break;
+				default:
+					_logger->info( "[{}] {}:{} {}",
+						record.tag, record.file, record.line, record.message );
+					break;
 			}
 		}
 		catch ( ... ) {
-			// spdlog might throw - catch to maintain noexcept
+			// silently ignore exception to maintain noexcept contract
 		}
 	}
 };
 
 // usage:
-auto spdlog_logger = spdlog::stdout_color_mt( "myapp" );
-SpdlogAdapterSink adapter( spdlog_logger );
+auto spdlogLogger = spdlog::stdout_color_mt( "app" );
+SpdlogAdapterSink adapter( spdlogLogger );
 
-ScopedConfigurator config;
+kmac::nova::ScopedConfigurator config;
 config.bind< InfoTag >( &adapter );  // Nova logs -> spdlog
 ```
 
@@ -201,24 +240,23 @@ VLOG( 1 ) << "Detailed trace info";
 
 **After (Nova):**
 ```cpp
-#include <kmac/nova/macros.h>
-#include <kmac/nova/scoped_configurator.h>
+#include <kmac/nova.h>
 #include <kmac/nova/extras/ostream_sink.h>
-#include <kmac/nova/extras/severities.h>
+#include <kmac/nova/extras/severities.h>    // pre-defined severity tags
 
 using namespace kmac::nova::extras;
 
 // configure sinks
 OStreamSink console( std::cerr );  // glog defaults to stderr
-ScopedConfigurator config;
+kmac::nova::ScopedConfigurator config;
 config.bind< InfoTag >( &console );
 config.bind< WarningTag >( &console );
 config.bind< ErrorTag >( &console );
 
 // log messages
-NOVA_LOG_I() << "Server starting";
-NOVA_LOG_W() << "Low memory: " << freeMemory << " bytes";
-NOVA_LOG_E() << "Connection failed: " << error;
+NOVA_LOG_INFO() << "Server starting";
+NOVA_LOG_WARN() << "Low memory: " << freeMemory << " bytes";
+NOVA_LOG_ERROR() << "Connection failed: " << error;
 
 // for VLOG - define custom verbosity tags
 struct VerboseTag {};
@@ -230,27 +268,27 @@ NOVA_LOG( VerboseTag ) << "Detailed trace info";
 
 ```cpp
 #include <glog/logging.h>
-#include <kmac/nova/sink.h>
+#include <kmac/nova/sink.h>  // or <kmac/nova.h>
 
 class GlogAdapterSink : public kmac::nova::Sink
 {
 public:
 	void process( const kmac::nova::Record& record ) noexcept override
 	{
-		try {
-			// map to glog severity
-			if ( std::strstr( record.tag, "ERROR" ) || std::strstr( record.tag, "FATAL" ) ) {
+		using namespace kmac::nova::extras;
+		// glog LOG() macros do not throw
+		switch ( record.tagId )
+		{
+			case kmac::nova::LoggerTraits< ErrorTag >::tagId:
+			case kmac::nova::LoggerTraits< FatalTag >::tagId:
 				LOG( ERROR ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "WARN" ) ) {
+				break;
+			case kmac::nova::LoggerTraits< WarningTag >::tagId:
 				LOG( WARNING ) << "[" << record.tag << "] " << record.message;
-			}
-			else {
+				break;
+			default:
 				LOG( INFO ) << "[" << record.tag << "] " << record.message;
-			}
-		}
-		catch ( ... ) {
-			// glog might throw - catch to maintain noexcept
+				break;
 		}
 	}
 };
@@ -266,7 +304,7 @@ public:
 |-------------------|-----------------|
 | `BOOST_LOG_TRIVIAL(info)` | `NOVA_LOG(InfoTag)` |
 | Source/Sink | Tag/Sink |
-| Attribute | logger_traits |
+| Attribute | LoggerTraits |
 | Filter | FilterSink |
 | Channel | Tag (any type) |
 
@@ -285,8 +323,8 @@ BOOST_LOG_TRIVIAL( error ) << "Connection lost";
 ```cpp
 #include <kmac/nova/macros.h>
 #include <kmac/nova/scoped_configurator.h>
-#include <kmac/nova/extras/severities.h>
 #include <kmac/nova/extras/ostream_sink.h>
+#include <kmac/nova/extras/severities.h>    // pre-defined severity tags
 
 using namespace kmac::nova::extras;
 
@@ -298,88 +336,93 @@ config.bind< InfoTag >( &console );
 config.bind< ErrorTag >( &console );
 
 // log messages
-NOVA_LOG_T() << "Entering function";
-NOVA_LOG_I() << "Server started";
-NOVA_LOG_E() << "Connection lost";
+NOVA_LOG_TRACE() << "Entering function";
+NOVA_LOG_INFO() << "Server started";
+NOVA_LOG_ERROR() << "Connection lost";
 ```
 
 ### Adapter Sink
 
 ```cpp
 #include <boost/log/trivial.hpp>
-#include <kmac/nova/sink.h>
+#include <kmac/nova/sink.h>  // or <kmac/nova.h>
 
 class BoostLogAdapterSink : public kmac::nova::Sink
 {
 public:
-	void process(const kmac::nova::Record& record) noexcept override
+	void process( const kmac::nova::Record& record ) noexcept override
 	{
+		using namespace kmac::nova::extras;
+		// Boost.Log can throw if a backend sink encounters an error
 		try {
-			// forward to Boost.Log
-			if ( std::strstr( record.tag, "TRACE" ) ) {
-				BOOST_LOG_TRIVIAL( trace ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "DEBUG" ) ) {
-				BOOST_LOG_TRIVIAL( debug ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "INFO" ) ) {
-				BOOST_LOG_TRIVIAL( info ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "WARN" ) ) {
-				BOOST_LOG_TRIVIAL( warning ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "ERROR" ) ) {
-				BOOST_LOG_TRIVIAL( error ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "FATAL" ) ) {
-				BOOST_LOG_TRIVIAL( fatal ) << "[" << record.tag << "] " << record.message;
-			}
-			else {
-				BOOST_LOG_TRIVIAL( info ) << "[" << record.tag << "] " << record.message;
+			switch ( record.tagId )
+			{
+				case kmac::nova::LoggerTraits< TraceTag >::tagId:
+					BOOST_LOG_TRIVIAL( trace ) << "[" << record.tag << "] " << record.message;
+					break;
+				case kmac::nova::LoggerTraits< DebugTag >::tagId:
+					BOOST_LOG_TRIVIAL( debug ) << "[" << record.tag << "] " << record.message;
+					break;
+				case kmac::nova::LoggerTraits< WarningTag >::tagId:
+					BOOST_LOG_TRIVIAL( warning ) << "[" << record.tag << "] " << record.message;
+					break;
+				case kmac::nova::LoggerTraits< ErrorTag >::tagId:
+					BOOST_LOG_TRIVIAL( error ) << "[" << record.tag << "] " << record.message;
+					break;
+				case kmac::nova::LoggerTraits< FatalTag >::tagId:
+					BOOST_LOG_TRIVIAL( fatal ) << "[" << record.tag << "] " << record.message;
+					break;
+				default:
+					BOOST_LOG_TRIVIAL( info ) << "[" << record.tag << "] " << record.message;
+					break;
 			}
 		}
-		catch ( ... ) { }
+		catch ( ... ) {
+			// silently ignore exception to maintain noexcept contract
+		}
 	}
 };
 ```
 
 ---
 
-## From log4cxx/log4cpp
+## From log4cplus
 
 ### Conceptual Mapping
 
-| log4cxx Concept | Nova Equivalent |
-|-----------------|-----------------|
-| `Logger::getLogger("name")` | `Logger<Tag>` |
-| `logger->info()` | `NOVA_LOG(InfoTag)` |
+| log4cplus Concept | Nova Equivalent |
+|-------------------|-----------------|
+| `Logger::getInstance("name")` | `Logger<Tag>` |
+| `LOG4CPLUS_INFO(logger, msg)` | `NOVA_LOG(InfoTag)` |
 | Appender | Sink |
 | Layout | FormattingSink |
 | Configuration file | Explicit C++ code |
 
+> NOTE: log4cplus, log4cpp, and log4cxx all share the same log4j concepts (hierarchical loggers, appenders, layouts) but differ in API details and maintenance status. Users migrating from log4cpp or log4cxx will find the concepts familiar - the main differences are the macro prefix (LOG4CPLUS_* vs LOG4CXX_*) and constructor style.  See docs/LIBRARY_COMPARISON.md for a comparison of maintenance status and license terms.
+
 ### Migration Steps
 
-**Before (log4cxx):**
+**Before (log4cplus):**
 ```cpp
-#include <log4cxx/basicconfigurator.h>
-#include <log4cxx/logger.h>
+#include <log4cplus/logger.h>
+#include <log4cplus/loggingmacros.h>
+#include <log4cplus/initializer.h>
+#include <log4cplus/consoleappender.h>
 
-using namespace log4cxx;
+log4cplus::Initializer initializer;
+log4cplus::Logger logger = log4cplus::Logger::getInstance( "App.Network" );
 
-LoggerPtr logger( Logger::getLogger( "MyApp.Network" ) );
-BasicConfigurator::configure();
-
-LOG4CXX_INFO( logger, "Connection established" );
-LOG4CXX_DEBUG( logger, "Bytes received: " << count );
-LOG4CXX_ERROR( logger, "Timeout occurred" );
+LOG4CPLUS_INFO( logger, "Connection established" );
+LOG4CPLUS_DEBUG( logger, "Bytes received: " << count );
+LOG4CPLUS_ERROR( logger, "Timeout occurred" );
 ```
 
 **After (Nova):**
 ```cpp
-#include <kmac/nova/macros.h>
-#include <kmac/nova/scoped_configurator.h>
+#include <kmac/nova.h>
 #include <kmac/nova/extras/hierarchical_tag.h>
 #include <kmac/nova/extras/severities.h>
+#include <kmac/nova/extras/ostream_sink.h>
 
 using namespace kmac::nova::extras;
 
@@ -393,7 +436,7 @@ using NetworkError = HierarchicalTag< NetworkSubsystem, ErrorTag >;
 
 // configure sinks
 OStreamSink console( std::cout );
-ScopedConfigurator config;
+kmac::nova::ScopedConfigurator config;
 config.bind< NetworkInfo >( &console );
 config.bind< NetworkDebug >( &console );
 config.bind< NetworkError >( &console );
@@ -407,48 +450,63 @@ NOVA_LOG( NetworkError ) << "Timeout occurred";
 ### Adapter Sink
 
 ```cpp
-#include <log4cxx/logger.h>
-#include <kmac/nova/sink.h>
+#include <kmac/nova/sink.h>  // or <kmac/nova.h>
+#include <log4cplus/logger.h>
+#include <log4cplus/loggingmacros.h>
 
-class Log4cxxAdapterSink : public kmac::nova::Sink
+class Log4cplusAdapterSink : public kmac::nova::Sink
 {
-	log4cxx::LoggerPtr _logger;
+private:
+	log4cplus::Logger _logger;
 
 public:
-	explicit Log4cxxAdapterSink( const std::string& loggerName )
-		: _logger( log4cxx::Logger::getLogger( loggerName ) )
+	explicit Log4cplusAdapterSink( const std::string& loggerName )
+		: _logger( log4cplus::Logger::getInstance( loggerName ) )
 	{}
 
 	void process( const kmac::nova::Record& record ) noexcept override
 	{
+		using namespace kmac::nova::extras;
+		// log4cplus exception behaviour is not explicitly guaranteed by the logging macros
 		try {
-			std::string msg = std::string( record.message, record.messageLength);
-
-			if ( std::strstr( record.tag, "ERROR" ) ) {
-				LOG4CXX_ERROR( _logger, msg );
+			switch ( record.tagId )
+			{
+				case kmac::nova::LoggerTraits< ErrorTag >::tagId:
+				case kmac::nova::LoggerTraits< FatalTag >::tagId:
+					LOG4CPLUS_ERROR( _logger, record.message );
+					break;
+				case kmac::nova::LoggerTraits< WarningTag >::tagId:
+					LOG4CPLUS_WARN( _logger, record.message );
+					break;
+				case kmac::nova::LoggerTraits< DebugTag >::tagId:
+				case kmac::nova::LoggerTraits< TraceTag >::tagId:
+					LOG4CPLUS_DEBUG( _logger, record.message );
+					break;
+				default:
+					LOG4CPLUS_INFO( _logger, record.message );
+					break;
 			}
-			else if ( std::strstr(record.tag, "WARN" ) ) {
-				LOG4CXX_WARN( _logger, msg );
-			}
-			else if ( std::strstr( record.tag, "DEBUG" ) ) {
-				LOG4CXX_DEBUG( _logger, msg );
-			}
-			else {
-				LOG4CXX_INFO( _logger, msg );
-			}
+			// NOTE: this adapter handles Nova's built-in severity tags.
+			// HierarchicalTag combinations (e.g. HierarchicalTag<NetworkSubsystem, ErrorTag>)
+			// are routed via the default case - add explicit cases for known HierarchicalTag
+			// tagIds if finer-grained routing is needed.
 		}
-		catch ( ... ) { }
+		catch ( ... ) {
+			// silently ignore exception to maintain noexcept contract
+		}
 	}
 };
 ```
 
 ---
 
-## From easylogging++
+## From Easylogging++
+
+> ⚠️ Easylogging++ has been archived and is no longer maintained.  Migration to Nova (or another active library) is recommended.
 
 ### Conceptual Mapping
 
-| easylogging++ Concept | Nova Equivalent |
+| Easylogging++ Concept | Nova Equivalent |
 |-----------------------|-----------------|
 | `LOG(INFO)` | `NOVA_LOG(InfoTag)` |
 | `VLOG(level)` | Custom verbosity tags |
@@ -457,7 +515,7 @@ public:
 
 ### Migration Steps
 
-**Before (easylogging++):**
+**Before (Easylogging++):**
 ```cpp
 #include <easylogging++.h>
 
@@ -472,8 +530,7 @@ VLOG(1) << "Verbose trace";
 
 **After (Nova):**
 ```cpp
-#include <kmac/nova/macros.h>
-#include <kmac/nova/scoped_configurator.h>
+#include <kmac/nova.h>
 #include <kmac/nova/extras/ostream_sink.h>
 #include <kmac/nova/extras/severities.h>
 
@@ -487,9 +544,9 @@ config.bind< InfoTag >( &console );
 config.bind< ErrorTag >( &console );
 
 // log messages
-NOVA_LOG_I() << "Application started";
-NOVA_LOG_D() << "Processing item: " << itemId;
-NOVA_LOG_E() << "Database error: " << err;
+NOVA_LOG_INFO() << "Application started";
+NOVA_LOG_DEBUG() << "Processing item: " << itemId;
+NOVA_LOG_ERROR() << "Database error: " << err;
 
 // define custom verbosity tag
 struct VerboseTag {};
@@ -502,38 +559,41 @@ NOVA_LOG( VerboseTag ) << "Verbose trace";
 
 ```cpp
 #include <easylogging++.h>
-#include <kmac/nova/sink.h>
+#include <kmac/nova/sink.h>  // or <kmac/nova.h>
 
 class EasyloggingAdapterSink : public kmac::nova::Sink
 {
 public:
 	void process( const kmac::nova::Record& record ) noexcept override
 	{
+		using namespace kmac::nova::extras;
+		// Easylogging++ is archived; exception behaviour is uncertain
 		try {
-			// map to easylogging++ levels
-			if ( std::strstr( record.tag, "TRACE" ) ) {
-				VLOG( 9 ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "DEBUG" ) ) {
-				LOG( DEBUG ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "INFO" ) ) {
-				LOG( INFO ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "WARN" ) ) {
-				LOG( WARNING ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "ERROR" ) ) {
-				LOG( ERROR ) << "[" << record.tag << "] " << record.message;
-			}
-			else if ( std::strstr( record.tag, "FATAL" ) ) {
-				LOG( FATAL ) << "[" << record.tag << "] " << record.message;
-			}
-			else {
-				LOG( INFO ) << "[" << record.tag << "] " << record.message;
+			switch ( record.tagId )
+			{
+				case kmac::nova::LoggerTraits< TraceTag >::tagId:
+					VLOG( 9 ) << "[" << record.tag << "] " << record.message;
+					break;
+				case kmac::nova::LoggerTraits< DebugTag >::tagId:
+					LOG( DEBUG ) << "[" << record.tag << "] " << record.message;
+					break;
+				case kmac::nova::LoggerTraits< WarningTag >::tagId:
+					LOG( WARNING ) << "[" << record.tag << "] " << record.message;
+					break;
+				case kmac::nova::LoggerTraits< ErrorTag >::tagId:
+					LOG( ERROR ) << "[" << record.tag << "] " << record.message;
+					break;
+				case kmac::nova::LoggerTraits< FatalTag >::tagId:
+					LOG( FATAL ) << "[" << record.tag << "] " << record.message;
+					break;
+				default:
+					LOG( INFO ) << "[" << record.tag << "] " << record.message;
+					break;
 			}
 		}
-		catch ( ... ) { }
+		catch ( ... ) {
+			// silently ignore exception
+		}
 	}
 };
 ```
@@ -555,11 +615,12 @@ The **Adapter Pattern** (also called **Wrapper Pattern**) is the key to gradual 
 ### Generic Adapter Template
 
 ```cpp
-#include <kmac/nova/sink.h>
+#include <kmac/nova/sink.h>  // or <kmac/nova.h>
 
 template< typename LegacyLogger >
 class LegacyLoggerAdapter : public kmac::nova::Sink
 {
+private:
 	LegacyLogger& _legacyLogger;
 
 public:
@@ -569,32 +630,33 @@ public:
 
 	void process( const kmac::nova::Record& record ) noexcept override
 	{
+		using namespace kmac::nova::extras;
+		// exception behaviour of the legacy logger is unknown
 		try {
-			// extract severity from tag name (if using severity-based tags)
-			bool isError = std::strstr( record.tag, "ERROR" )
-				|| std::strstr( record.tag, "FATAL" );
-			bool isWarn = std::strstr( record.tag, "WARN" );
-			bool isDebug = std::strstr( record.tag, "DEBUG" );
-
 			// format message
 			std::string formatted = formatMessage( record );
 
-			// forward to legacy logger
-			if ( isError ) {
-				_legacyLogger.error( formatted );
-			}
-			else if ( isWarn ) {
-				_legacyLogger.warn( formatted );
-			}
-			else if ( isDebug ) {
-				_legacyLogger.debug( formatted );
-			}
-			else {
-				_legacyLogger.info( formatted );
+			// use tagId switch for efficient, type-safe severity routing
+			switch ( record.tagId )
+			{
+				case kmac::nova::LoggerTraits< ErrorTag >::tagId:
+				case kmac::nova::LoggerTraits< FatalTag >::tagId:
+					_legacyLogger.error( formatted );
+					break;
+				case kmac::nova::LoggerTraits< WarningTag >::tagId:
+					_legacyLogger.warn( formatted );
+					break;
+				case kmac::nova::LoggerTraits< DebugTag >::tagId:
+				case kmac::nova::LoggerTraits< TraceTag >::tagId:
+					_legacyLogger.debug( formatted );
+					break;
+				default:
+					_legacyLogger.info( formatted );
+					break;
 			}
 		}
 		catch ( ... ) {
-			// maintain noexcept contract
+			// silently ignore exception to maintain noexcept contract
 		}
 	}
 
@@ -604,7 +666,7 @@ private:
 		std::ostringstream oss;
 		oss << "[" << record.tag << "] "
 			<< record.file << ":" << record.line << " "
-			<< std::string( record.message, record.messageLength );
+			<< std::string( record.message, record.messageSize );
 		return oss.str();
 	}
 };
@@ -621,7 +683,7 @@ auto legacyLogger = /* your existing logger */;
 LegacyLoggerAdapter adapter( legacyLogger );
 
 // configure Nova to use adapter
-ScopedConfigurator config;
+kmac::nova::ScopedConfigurator config;
 config.bind< InfoTag >( &adapter );
 config.bind< ErrorTag >( &adapter );
 // ... bind other tags
@@ -635,7 +697,7 @@ legacyLogger.info( "Module A: Starting" );
 // new code in Module B (Nova)
 NOVA_LOG( InfoTag ) << "Module B: Starting";
 
-// both outputs go through legacy logger
+// both outputs go through legacy logger's sink
 ```
 
 **Phase 3: Remove Adapter**
@@ -657,30 +719,28 @@ config.bind< InfoTag >( &console );
 If your old framework uses severity levels, map them explicitly:
 
 ```cpp
-void mapSeverity( const char* tag, LegacyLogger& logger, const std::string& msg )
+void mapSeverity( std::uint64_t tagId, LegacyLogger& logger, const std::string& msg )
 {
-	if ( std::strstr( tag, "FATAL" ) ) {
-		logger.fatal( msg );
-	}
-	else if ( std::strstr( tag, "ERROR" ) ) {
-		logger.error( msg );
-	}
-	else if ( std::strstr( tag, "WARN" ) ) {
-		logger.warn( msg );
-	}
-	else if ( std::strstr( tag, "INFO" ) ) {
-		logger.info( msg );
-	}
-	else if ( std::strstr( tag, "DEBUG" ) ) {
-		logger.debug( msg );
-	}
-	else if ( std::strstr( tag, "TRACE" ) ) {
-		logger.trace( msg );
-	}
-	else {
-		logger.info( msg );  // default
+	using namespace kmac::nova::extras;
+	switch ( tagId )
+	{
+		case kmac::nova::LoggerTraits< FatalTag >::tagId:
+		case kmac::nova::LoggerTraits< ErrorTag >::tagId:
+			logger.error( msg );
+			break;
+		case kmac::nova::LoggerTraits< WarningTag >::tagId:
+			logger.warn( msg );
+			break;
+		case kmac::nova::LoggerTraits< DebugTag >::tagId:
+		case kmac::nova::LoggerTraits< TraceTag >::tagId:
+			logger.debug( msg );
+			break;
+		default:
+			logger.info( msg );
+			break;
 	}
 }
+// call as: mapSeverity( record.tagId, logger, msg );
 ```
 
 ### Pattern 2: Subsystem Mapping
@@ -688,12 +748,29 @@ void mapSeverity( const char* tag, LegacyLogger& logger, const std::string& msg 
 If your old framework uses named loggers:
 
 ```cpp
-class SubsystemAdapterSink : public nova::Sink
+// extractSubsystem maps a Nova tag name to a legacy subsystem name.
+// The tag name is the string passed as the second argument to NOVA_LOGGER_TRAITS.
+// The right implementation depends on your naming convention - for example:
+//   - tags named "AUDIO", "NETWORK" etc. - use the tag name directly as the subsystem
+//   - tags named "AUDIO_DEBUG", "AUDIO.INFO" etc. - split on the first dividing character
+//   - or use a switch on tagId for a compile-time mapping (most efficient)
+std::string extractSubsystem( const char* tag )
 {
+	// example: split "AUDIO_DEBUG" -> "AUDIO"
+	std::string name( tag );
+	auto pos = name.find( '_' );
+	return pos != std::string::npos ? name.substr( 0, pos ) : name;
+}
+```
+
+```cpp
+class SubsystemAdapterSink : public kmac::nova::Sink
+{
+private:
 	std::map< std::string, LegacyLoggerPtr > _loggers;
 
 public:
-	void process(const nova::Record& record) noexcept override
+	void process( const kmac::nova::Record& record ) noexcept override
 	{
 		try {
 			// extract subsystem from tag
@@ -702,14 +779,15 @@ public:
 			// get or create logger for this subsystem
 			auto it = _loggers.find( subsystem );
 			if ( it == _loggers.end() ) {
-				it = _loggers.emplace( subsystem, 
-					createLegacyLogger( subsystem ) ).first;
+				it = _loggers.emplace( subsystem, createLegacyLogger( subsystem ) ).first;
 			}
 
 			// forward to appropriate logger
 			it->second->info( record.message );
 		}
-		catch ( ... ) { }
+		catch ( ... ) {
+			// silently ignore exception to maintain noexcept contract
+		}
 	}
 };
 ```
@@ -725,13 +803,13 @@ Convert configuration files to C++ code:
 
 // new: C++ configuration
 OStreamSink console( std::cout );
-ScopedConfigurator config;
+kmac::nova::ScopedConfigurator config;
 config.bind< InfoTag >( &console );
 config.bind< WarningTag >( &console );
 config.bind< ErrorTag >( &console );
 ```
 
-Alternatively, custom config files can be managed by the application to configure logging, but at the expense of losing the zero-cost disabled loggers since all tags will likely need to be enabled.
+Alternatively, custom config files can be managed by the application to configure logging, but at the expense of losing the zero-cost disabled loggers since all domains (tags) will likely need to be enabled, or ignore configuration for disabled domains.
 
 ---
 
@@ -760,7 +838,7 @@ NOVA_LOG_STREAM( Tag ) << "Message";
 **Symptom:** some logs don't appear
 
 **Solution:**
-1. check that tags are enabled: `logger_traits<Tag>::enabled = true`
+1. check that tags are enabled: `LoggerTraits<Tag>::enabled = true`
 2. verify sink is bound: `config.bind<Tag>(&sink)`
 3. ensure sink's process() is implemented correctly
 4. check tag names match
@@ -769,7 +847,7 @@ NOVA_LOG_STREAM( Tag ) << "Message";
 // verify binding
 auto* sink = Logger< Tag >::getSink();
 if ( ! sink ) {
-    std::cerr << "No sink bound for Tag!\n";
+	std::cerr << "No sink bound for Tag!\n";
 }
 ```
 
@@ -779,13 +857,12 @@ if ( ! sink ) {
 
 **Solution:**
 1. include all necessary headers
-2. specialize logger_traits for all tags
-3. use NOVA_LOGGER_TRAITS macro
-4. check C++17 compiler support
+2. specialize LoggerTraits for all tags - NOVA_LOGGER_TRAITS macro
+4. check compiler support for your version of C++ - Nova supports C++11 and newer
 
 ```cpp
 // correct trait definition
-NOVA_LOGGER_TRAITS( MyTag, MYTAG, true, TimestampHelper::steadyNanosecs );
+NOVA_LOGGER_TRAITS( ExampleTag, EXAMPLETAG, true, TimestampHelper::steadyNanosecs );
 ```
 
 ### Issue: Adapter Not Receiving Messages
@@ -835,4 +912,4 @@ Migration to Nova can be done incrementally using the **Adapter Pattern**:
 
 This approach minimizes risk and allows for gradual validation of Nova's behavior in your system.
 
-For questions or assistance, see the examples in `examples/` or consult the documentation in `docs/`.
+For additional context see `docs/NOVA_README.md` and the working examples in `examples/`.
