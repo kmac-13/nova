@@ -19,7 +19,7 @@ RollingFileSink::RollingFileSink( const std::string& baseFilename, std::size_t s
 	, _maxFileSize( maxFileSize )
 	, _currentIndex( startIndex )
 	, _formatter( formatter )
-	, _remaining( maxFileSize )
+	, _bytesWritten( 0 )
 	, _process( _formatter != nullptr ? &RollingFileSink::processFormatted : &RollingFileSink::processRaw )
 {
 	openCurrentFile();
@@ -38,15 +38,15 @@ void RollingFileSink::setRolloverCallback( RolloverCallback callback ) noexcept
 
 void RollingFileSink::process( const kmac::nova::Record& record ) noexcept
 {
-	constexpr std::size_t BUFFER_HALF_SIZE = WRITE_BUFFER_SIZE / 2;
-
 	if ( _currentFile == nullptr ) /*[[unlikely]]*/
 	{
 		return;
 	}
 
-	// ensure space before formatting
-	if ( _remaining < BUFFER_HALF_SIZE ) /*[[unlikely]]*/
+	// flush write buffer if less than half remains - keeps buffer healthy
+	// without triggering rotation; rotation is handled per-path below
+	constexpr std::size_t BUFFER_HALF_SIZE = WRITE_BUFFER_SIZE / 2;
+	if ( _bufferOffset > BUFFER_HALF_SIZE ) /*[[unlikely]]*/
 	{
 		flush();
 	}
@@ -85,7 +85,7 @@ void RollingFileSink::flush() noexcept
 
 std::size_t RollingFileSink::currentFileSize() const noexcept
 {
-	return _currentSize + _bufferOffset;
+	return _bytesWritten;
 }
 
 const std::string& RollingFileSink::baseFilename() const noexcept
@@ -116,6 +116,20 @@ void RollingFileSink::forceRotate() noexcept
 
 void RollingFileSink::processRaw( const kmac::nova::Record& record ) noexcept
 {
+	// rotate before writing if this record would exceed the file size limit;
+	// skip rotation on the very first record (_bytesWritten == 0) so an empty
+	// file is never immediately rotated away
+	if ( _bytesWritten > 0 && _bytesWritten + record.messageSize >= _maxFileSize ) /*[[unlikely]]*/
+	{
+		flush();
+		rotate();
+
+		if ( _currentFile == nullptr ) /*[[unlikely]]*/
+		{
+			return;
+		}
+	}
+
 	if ( _bufferOffset + record.messageSize > WRITE_BUFFER_SIZE ) /*[[unlikely]]*/
 	{
 		flush();
@@ -125,19 +139,21 @@ void RollingFileSink::processRaw( const kmac::nova::Record& record ) noexcept
 		_writeBuffer.data() + _bufferOffset,
 		record.message,
 		record.messageSize
-		);
+	);
+
 	_bufferOffset += record.messageSize;
-	_remaining -= record.messageSize;
+	_bytesWritten += record.messageSize;
 }
 
 void RollingFileSink::processFormatted( const kmac::nova::Record& record ) noexcept
 {
 	_formatter->begin( record );
 
-	// only rotate if we're actually ready to write something
+	// rotate before writing if there is insufficient space for the next record;
+	// skip rotation on the very first record (_bytesWritten == 0) so an empty
+	// file is never immediately rotated away
 	constexpr std::size_t ESTIMATED_RECORD_SIZE = 256;
-	const std::size_t totalWritten = _currentSize + _bufferOffset;
-	if ( totalWritten > 0 && _remaining < ESTIMATED_RECORD_SIZE ) /*[[unlikely]]*/
+	if ( _bytesWritten > 0 && _bytesWritten + ESTIMATED_RECORD_SIZE >= _maxFileSize ) /*[[unlikely]]*/
 	{
 		flush();
 		rotate();
@@ -156,22 +172,20 @@ void RollingFileSink::processFormatted( const kmac::nova::Record& record ) noexc
 			flush();
 		}
 
-		// format the record into the buffer
+		// format the record into the remaining write buffer space
 		Buffer buf( _writeBuffer.data() + _bufferOffset, WRITE_BUFFER_SIZE - _bufferOffset );
 		const bool done = _formatter->format( record, buf );
 
-		// check if what was formatted is larger than the remaining space in the file
 		const std::size_t produced = buf.size();
 		_bufferOffset += produced;
-		_remaining -= produced;
+		_bytesWritten += produced;
 
-		// formatted successfully, so break out of the loop
 		if ( done )
 		{
 			break;
 		}
 
-		// buffer full or formatter needs more space
+		// buffer full - flush and let the formatter continue in the next iteration
 		flush();
 	}
 }
@@ -200,7 +214,7 @@ void RollingFileSink::openCurrentFile() noexcept
 
 	_currentSize = 0;
 	_bufferOffset = 0;
-	_remaining = _maxFileSize;
+	_bytesWritten = 0;
 }
 
 void RollingFileSink::closeCurrentFile() noexcept
@@ -211,7 +225,7 @@ void RollingFileSink::closeCurrentFile() noexcept
 		{
 			// flush failed - buffered data may have been lost;
 			// nothing actionable in a noexcept context
-			// TODO: consider using a return value and logging issue in next file aftter rotate
+			// TODO: consider using a return value and logging issue in next file after rotate
 		}
 		_currentFile = nullptr;
 	}
@@ -226,8 +240,6 @@ void RollingFileSink::rotate() noexcept
 	++_currentIndex;
 
 	openCurrentFile();
-
-	_remaining = _maxFileSize;
 
 	const std::string newFilename = makeFilename( _currentIndex );
 
