@@ -19,7 +19,6 @@ RollingFileSink::RollingFileSink( const std::string& baseFilename, std::size_t s
 	, _maxFileSize( maxFileSize )
 	, _currentIndex( startIndex )
 	, _formatter( formatter )
-	, _bytesWritten( 0 )
 	, _process( _formatter != nullptr ? &RollingFileSink::processFormatted : &RollingFileSink::processRaw )
 {
 	openCurrentFile();
