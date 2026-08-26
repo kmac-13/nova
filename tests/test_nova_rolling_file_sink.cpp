@@ -200,3 +200,167 @@ TEST( RollingFileSink, ForceRotateCreatesNewFile )
 
 	EXPECT_TRUE( std::filesystem::exists( base + ".2" ) );
 }
+
+// ============================================================================
+// Raw path (no formatter) tests
+// ============================================================================
+
+auto readFile = []( const std::string& path )
+{
+	std::ifstream in( path, std::ios::binary );
+	return std::string(
+		( std::istreambuf_iterator< char >( in ) ),
+		std::istreambuf_iterator< char >()
+	);
+};
+
+TEST( RollingFileSink, RawPathWritesMessage )
+{
+	TempDir dir;
+
+	const std::string base = ( dir.path() / "raw.log" ).string();
+
+	// no formatter - raw path
+	kmac::nova::extras::RollingFileSink sink( base, 1, 1024 );
+
+	const char msg[] = "hello raw";
+	kmac::nova::Record record {};
+	record.message = msg;
+	record.messageSize = static_cast< std::uint32_t >( std::strlen( msg ) );
+
+	sink.process( record );
+	sink.flush();
+
+	EXPECT_EQ( readFile( base + ".1"), "hello raw" );
+}
+
+TEST( RollingFileSink, RawPathRotatesOnMaxSize )
+{
+	TempDir dir;
+
+	const std::string base = ( dir.path() / "raw_rotate.log" ).string();
+
+	const char msg[] = "AAAAA";  // 5 bytes
+	const std::size_t msgLen = std::strlen( msg );
+
+	// max size of 6 bytes - second record of 5 bytes pushes _bytesWritten to 10, triggers rotate
+	kmac::nova::extras::RollingFileSink sink( base, 1, 6 );
+
+	kmac::nova::Record record {};
+	record.message = msg;
+	record.messageSize = static_cast< std::uint32_t >( msgLen );
+
+	sink.process( record );  // 5 bytes written - under limit
+	sink.process( record );  // 5 + 5 = 10 >= 6 - rotate before writing
+	sink.flush();
+
+	ASSERT_TRUE( std::filesystem::exists( base + ".1" ) );
+	ASSERT_TRUE( std::filesystem::exists( base + ".2" ) );
+
+	// first file has first record, second file has second record
+	EXPECT_EQ( readFile( base + ".1" ), "AAAAA" );
+	EXPECT_EQ( readFile( base + ".2" ), "AAAAA" );
+}
+
+TEST( RollingFileSink, RawPathMultipleRotations )
+{
+	TempDir dir;
+
+	const std::string base = ( dir.path() / "raw_multi.log" ).string();
+
+	const char msg[] = "XXXXX";  // 5 bytes
+	const std::size_t msgLen = std::strlen( msg );
+
+	// 6 byte limit - each record triggers a new file after the first
+	kmac::nova::extras::RollingFileSink sink( base, 1, 6 );
+
+	kmac::nova::Record record {};
+	record.message = msg;
+	record.messageSize = static_cast< std::uint32_t >( msgLen );
+
+	sink.process( record );
+	sink.process( record );
+	sink.process( record );
+	sink.flush();
+
+	EXPECT_EQ( readFile( base + ".1" ), "XXXXX" );
+	EXPECT_EQ( readFile( base + ".2" ), "XXXXX" );
+	EXPECT_EQ( readFile( base + ".3" ), "XXXXX" );
+}
+
+TEST( RollingFileSink, RawPathRolloverCallbackCalled )
+{
+	TempDir dir;
+
+	const std::string base = ( dir.path() / "raw_cb.log" ).string();
+
+	bool called = false;
+
+	kmac::nova::extras::RollingFileSink sink( base, 1, 5 );
+
+	sink.setRolloverCallback(
+		[ & ]( const std::string& oldFile, const std::string& newFile )
+		{
+			called = true;
+			EXPECT_EQ( oldFile, base + ".1" );
+			EXPECT_EQ( newFile, base + ".2" );
+		}
+	);
+
+	const char msg[] = "AAAAA";  // 5 bytes
+	kmac::nova::Record record {};
+	record.message = msg;
+	record.messageSize = static_cast< std::uint32_t >( std::strlen( msg ) );
+
+	sink.process( record );
+	sink.process( record );  // triggers rotate
+
+	EXPECT_TRUE( called );
+}
+
+TEST( RollingFileSink, CurrentFileSizeTracksBytes )
+{
+	TempDir dir;
+
+	const std::string base = ( dir.path() / "size.log" ).string();
+
+	kmac::nova::extras::RollingFileSink sink( base, 1, 1024 );
+
+	EXPECT_EQ( sink.currentFileSize(), 0u );
+
+	const char msg[] = "hello";
+	kmac::nova::Record record {};
+	record.message = msg;
+	record.messageSize = static_cast< std::uint32_t >( std::strlen( msg ) );
+
+	sink.process( record );
+
+	EXPECT_EQ( sink.currentFileSize(), 5u );
+
+	sink.process( record );
+
+	EXPECT_EQ( sink.currentFileSize(), 10u );
+}
+
+TEST( RollingFileSink, CurrentFileSizeResetAfterRotate )
+{
+	TempDir dir;
+
+	const std::string base = ( dir.path() / "size_reset.log" ).string();
+
+	const char msg[] = "AAAAA";  // 5 bytes
+	kmac::nova::extras::RollingFileSink sink( base, 1, 6 );
+
+	kmac::nova::Record record {};
+	record.message = msg;
+	record.messageSize = static_cast< std::uint32_t >( std::strlen( msg ) );
+
+	sink.process( record );
+	EXPECT_EQ( sink.currentFileSize(), 5u );
+
+	sink.process( record );  // triggers rotate
+	sink.flush();
+
+	// after rotation, size reflects only the new file's content
+	EXPECT_EQ( sink.currentFileSize(), 5u );
+}

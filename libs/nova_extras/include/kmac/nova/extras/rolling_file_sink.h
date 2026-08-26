@@ -248,7 +248,7 @@ private:
 
 	kmac::nova::platform::Array< char, WRITE_BUFFER_SIZE > _writeBuffer { };
 	std::size_t _bufferOffset = 0;
-	std::size_t _remaining = 0;
+	std::size_t _bytesWritten = 0;  // total bytes written to current file (flushed + buffered)
 
 	using ProcessFunc = void (RollingFileSink::*)( const kmac::nova::Record& );
 	ProcessFunc _process = nullptr;
